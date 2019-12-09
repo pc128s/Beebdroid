@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout 
 	xmlns:android="http://schemas.android.com/apk/res/android"
-	xmlns:lft="http://schemas.android.com/apk/res/com.littlefluffytoys.beebdroid"
+	xmlns:lft="http://schemas.android.com/apk/res-auto"
 	
 	android:id="@+id/root"
 	android:layout_width="fill_parent"

@@ -147,7 +147,8 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInit(JNI
 	LOGI("exiting initbbc()");
 }
 
-
+// Without the .S file, PIC is achieved
+// void exec6502(M6502* f) {}
 
 JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIEnv * env, jobject  obj)
 {
@@ -155,7 +156,17 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
 	if (autoboot)
 		autoboot--;
 
-	exec6502();
+    // Position independent code, hopefully!
+	the_cpu->log_cpu_S = &log_cpu_C;
+	the_cpu->readmem_ex_S = &readmem_ex;
+	the_cpu->writemem_ex_S = &writemem_ex;
+	the_cpu->adc_bcd_S = &adc_bcd_C;
+	the_cpu->sbc_bcd_S = &sbc_bcd_C;
+	the_cpu->log_undef_opcode_S = &log_undef_opcode_C;
+    the_cpu->do_poll_S = &do_poll_C;
+    the_cpu->readword_ex_S = &readword_ex;
+    the_cpu->fns_C = &fns;
+    exec6502(the_cpu);
 
 	checkkeys();
 
@@ -308,7 +319,7 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcGetThumb
 
     if ((ret = AndroidBitmap_getInfo(env, jbitmap, &info)) < 0) {
         LOGE("AndroidBitmap_getInfo() failed ! error=%d", ret);
-        return;
+        return 0; /* does LOGE exit?  Should LOGE below return? */
     }
 
 

@@ -50,7 +50,12 @@ void blit_to_screen(int source_x, int source_y, int width, int height);
 #define FLAG_V 0x40
 #define FLAG_N 0x80
 
-typedef struct {
+typedef struct M6502_struct M6502;
+
+typedef int (*FN)(M6502*);
+extern FN fns[];
+
+struct M6502_struct {
 	uint8_t* mem; // +0
 	uint16_t pc;  // +4
 	uint8_t a;    // +6
@@ -66,9 +71,28 @@ typedef struct {
 	uint16_t pc_trigger_hit; //+28
 	uint16_t pc_triggers[4]; //+30
 	int cycles2;	// +38
-} M6502;
+	void (*log_cpu_S)(M6502*); // +42 for PIC!
+	uint8_t (*readmem_ex_S)(uint16_t addr); // +46 for PIC!
+	void (*writemem_ex_S)(uint16_t addr, uint8_t val16); // +50 for PIC!
+	void (*adc_bcd_S)(M6502*, uint8_t); // +54 for PIC!
+	void (*sbc_bcd_S)(M6502*, uint8_t); // +58 for PIC!
+	void (*log_undef_opcode_S)(M6502*); // +62 for PIC!
+	void (*do_poll_S)(M6502*, int c); // +64 for PIC!
+	void (*readword_ex_S)(uint16_t); // +68 for PIC!
+	void (**fns_C)(M6502*); // +72F
+
+};
 
 extern M6502* the_cpu;
+
+extern void log_cpu_C(M6502*); // +42 for PIC!
+extern uint8_t readmem_ex(uint16_t addr); // +46 for PIC!
+extern void writemem_ex(uint16_t addr, uint8_t val16);
+extern void adc_bcd_C(M6502*, uint8_t temp); // +54 for PIC!
+extern void sbc_bcd_C(M6502*, uint8_t temp); // +58 for PIC!
+extern void log_undef_opcode_C(M6502*); // +62 for PIC!
+extern void do_poll_C(M6502*, int c); // +64 for PIC!
+extern uint16_t readword_ex(uint16_t addr); // +68 for PIC!
 
 extern uint8_t *roms;
 extern int swram[16];
@@ -119,7 +143,7 @@ extern uint16_t ma;
 
 
 void reset6502();
-void exec6502();
+void exec6502(M6502* cpu);
 
 void writesysvia(uint16_t addr, uint8_t val);
 uint8_t readsysvia(uint16_t addr);
@@ -188,5 +212,12 @@ extern int idecallback;
 extern int vidchange;
 extern int autoboot;
 extern int ideenable;
+
+void loaddisc(int drive, int loader, unsigned char* discimg, int cb);
+void logvols();
+void dumpregs();
+void closedisc(int drive);
+void updatesystimers();
+void updateusertimers();
 
 #endif

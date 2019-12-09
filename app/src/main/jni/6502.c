@@ -51,7 +51,7 @@ void LOGF(char* format, ...) {
 */
 
 }
-void log_cpu(M6502* cpu) {
+void log_cpu_C(M6502* cpu) {
 
 	/*char buff[256];
 	unsigned char* p = cpu->mem;
@@ -71,14 +71,14 @@ void log_asm(int v) {
 	LOGI("here! %08x", v);
 }
 
-void log_undef_opcode(M6502* cpu) {
+void log_undef_opcode_C(M6502* cpu) {
 	LOGI("Undefined opcode! pc=%04x", cpu->pc);
 	exit(1);
 }
 
 
-#define readmem(x)  ((x<0xfe00) ? cpu->mem[x] : readmem_ex(x))
-#define readword(x) ((x<0xfe00) ? (*((uint16_t*)&(cpu->mem[x]))) : (readmem_ex(x) | (readmem_ex(x+1)<<8)))
+#define readmem(x)  (((x)<0xfe00) ? cpu->mem[x] : readmem_ex(x))
+#define readword(x) (((x)<0xfe00) ? (*((uint16_t*)&(cpu->mem[x]))) : (readmem_ex(x) | (readmem_ex(x+1)<<8)))
 #define readwordpc() readword(cpu->pc); cpu->pc+=2
 #define writemem(x, val) if (((uint16_t)x)<0x8000u) cpu->mem[x]=val; else writemem_ex(x, val)
 ///#define setzn(v) cpu->p_z=!(v); cpu->p_n=(v)&0x80
@@ -216,7 +216,7 @@ void reset6502()
 
 
 
-int adc_bcd(M6502* cpu, uint8_t temp) {
+void adc_bcd_C(M6502* cpu, uint8_t temp) {
 	LOGI("Doing ADC BCD! %d", temp);
 	register int ah=0;
 	register uint8_t tempb = cpu->a+temp+((cpu->p & FLAG_C)?1:0);
@@ -241,7 +241,7 @@ int adc_bcd(M6502* cpu, uint8_t temp) {
 	cpu->a=(al&0xF)|(ah<<4);
 }
 
-int sbc_bcd(M6502* cpu, uint8_t temp) {
+void sbc_bcd_C(M6502* cpu, uint8_t temp) {
 	register int hc6=0;
 	cpu->p &= ~(FLAG_Z | FLAG_N);
 	if (!((cpu->a-temp)-((cpu->p & FLAG_C)?0:1)))
@@ -305,7 +305,6 @@ int sbc_bcd(M6502* cpu, uint8_t temp) {
 
 
 
-typedef int (*FN)(M6502*);
 FN fns[];
 /*
 int callcounts[256];
@@ -320,7 +319,7 @@ void dump_callcounts() {
 
 int vidclockacc=0;
 
-void do_poll(M6502* cpu, int c) {
+void do_poll_C(M6502* cpu, int c) {
 
 	//LOGI("do_poll %d", c);
 

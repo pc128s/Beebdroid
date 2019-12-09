@@ -8,11 +8,11 @@ LOCAL_CFLAGS := -DANDROID_NDK \
 LOCAL_MODULE    := bbcmicro
 
 ifeq ($(TARGET_ARCH),arm)
-    LOCAL_CFLAGS +=  -march=armv6t2 -O9 -D_ARM_
+    LOCAL_CFLAGS +=  -march=armv6t2 -O9 -D_ARM_ -fPIC
     LOCAL_SRC_FILES := 6502asm_arm.S
 endif
 ifeq ($(TARGET_ARCH),x86)
-    LOCAL_CFLAGS += -m32
+    LOCAL_CFLAGS += -m32 -fPIC
     LOCAL_SRC_FILES := 6502asm_x86.S
 endif
 
