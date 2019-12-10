@@ -86,10 +86,7 @@
     strb  r10,[ r4, #9] 	@ r10 = S
     strb  r11,[ r4, #10] 	@ r11 = P
 	mov   r0,  r4
-	//bl log_cpu_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #42] // log_cpu_S
-	mov r0, r0 // Just in case
+	bl log_cpu_C
     ldrh  r6, [ r4, #4] 	@  r6 = PC
     ldrb  r7, [ r4, #6] 	@  r7 = A
     ldrb  r8, [ r4, #7] 	@  r8 = X
@@ -113,10 +110,7 @@
 	b .+24
 	mov  r0, \b
 	push {lr}
-//	bl readmem_ex_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #46] // readmem_ex
-	mov r0, r0 // Just in case
+	bl readmem_ex
 	pop {lr}
 	movs \a,  r0
 .endm
@@ -127,10 +121,7 @@
 	b .+24
 	mov  r0, \b
 	push {lr}
-//	bl readmem_ex_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #46] // readmem_ex
-	mov r0, r0 // Just in case
+	bl readmem_ex
 	pop {lr}
 	movs \a,  r0
 .endm
@@ -149,10 +140,7 @@
 	mov  r0, \addr
 	mov  r1, \val
 	push {lr}
-//	bl writemem_ex
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #50] // writemem_ex_S
-	mov r0, r0 // Just in case
+	bl writemem_ex
 	pop {lr}
 .endm
 .macro RETURN clocks
@@ -167,10 +155,7 @@
 	b .+24
 	mov  r0, \src
 	push {lr}
-//	bl readword_ex_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #68] // readword_ex_C
-	mov r0, r0 // Just in case
+	bl readword_ex
 	pop {lr}
 	movs \dst,  r0
 .endm
@@ -283,10 +268,7 @@
 	strb  r7,  [ r4, #6]	// update A
 	strb  r11, [ r4, #10]   // update P
 	mov  r0,  r4			// r0=cpu*, r1=imm
-//	bl adc_bcd_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #54] // adc_bcd_S
-	mov r0, r0 // Just in case
+	bl adc_bcd_C
 	pop {lr}
 	ldrb  r7,  [ r4, #6]	// update A
 	ldrb  r11, [ r4, #10]   // update P
@@ -1413,10 +1395,7 @@ opasm_rts:
 	strb  r7,  [ r4, #6]	// update A
 	strb  r11, [ r4, #10]   // update P
 	mov  r0,  r4			// r0=cpu*, r1=imm
-//	bl sbc_bcd_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #58] // sbc_bcd_S
-	mov r0, r0 // Just in case
+	bl sbc_bcd_C
 	pop {lr}
 	ldrb  r7,  [ r4, #6]	// update A
 	ldrb  r11, [ r4, #10]   // update P
@@ -1662,11 +1641,8 @@ opasm_tya:
  //* Undefined Opcode *
  //********************/
 opasm_undef:
-	mov  r0,  r4
-//	bl log_undef_opcode_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #62] // undef_opcode_S
-	mov r0, r0 // Just in case
+	mov  r3,  r4
+	bl log_undef_opcode_C
 	sub  r6,  r6, #1;		@ cpu->pc--;      	// PC never moves on
 	mov  r0, #0
     str  r0, [ r4, #20]		@ cpu->takeint=0; 	// Interrupts never occur
@@ -1681,7 +1657,7 @@ exec6502: // Was exec6502(), but now exec6502(M6502*)
 	mov   r4, r0 //ldr   r4, =acpu
 
     @ update cpu->cycles. Note the constant value 40000 cannot be encoded and has to be ldr'd indirectly.
-    ldr   r0,[ r4, #24]
+    ldr   r0,[ r4, #24] // ->24=cycles
     ldr   r1, =40000  // 40000 more instructions
     add   r0,  r0,  r1
     str   r0,[ r4, #24]
@@ -1706,16 +1682,16 @@ loop:
 
 	@ PC triggers - if PC hits a known preset, update CPU state with it so Java layer can act appropriately
 	mov  r1, #1
-	ldrh  r0,[ r4, #30]
-	cmp  r0,  r6
-	strheq  r1,[ r4, #28]
+	ldrh  r0,[ r4, #30] // ->triggers[0] 30, 32, 34, 36
+	cmp  r0,  r6        // =pc?
+	strheq  r1,[ r4, #28] // ->trigger_hit = 1
 	mov  r1, #2
-	ldrh  r0,[ r4, #32]
+	ldrh  r0,[ r4, #32] // ->triggers[1]
 	cmp  r0,  r6
-	strheq  r1,[ r4, #28]
+	strheq  r1,[ r4, #28] // ->trigger_hit = 2
 
 	@ Get the opcode into r0 and update cpu->PC
-	ldrb  r0,[ r5, r6]
+	ldrb  r0,[ r5, r6] // ro = ->mem[->pc]
 	add   r6,  r6, #1
 
 	/*cmp  r0, #0x68
@@ -1728,19 +1704,19 @@ loop:
 //*/
 	@ Get the ASM function. If this doesnt exist, fall back to C version.
 	adr   r1, fns_asm
-	ldr   r2, [ r1,  r0, lsl #2]
+	ldr   r2, [ r1,  r0, lsl #2] // = fns_asm[ op * 4 ]
 	cmp   r2, #0
 	beq  use_c_fn
 
 	@ Call assembly function
-	add  r2, r2, r1
+	add  r2, r2, r1  // 0 - fns_asm + asy_func + fns_asm
 	blx  r2 // Call assembly function
 	b done_call
 
 	@ Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
 use_c_fn:
-	ldr   r1, [ r4, #72 ] @ 72 for c functions.
-	ldr   r2, [ r1,  r0, lsl #2]
+	ldr   r1, [ r4, #72 ] @ 72 -> c_fns[]
+	ldr   r2, [ r1,  r0, lsl #2] // c_fns[ opcode * 4 ]
     strh  r6, [ r4, #4] 	@  r6 = PC
     strb  r7, [ r4, #6] 	@  r7 = A
     strb  r8, [ r4, #7] 	@  r8 = X
@@ -1816,10 +1792,7 @@ no_interrupt:
 	str   r0,[ r4, #38]
 do_poll_now:*/
 	mov  r0,  r4
-// 	bl do_poll_C
-	mov lr, pc // lr = here + 8
-	ldr pc, [r4, #64] // do_poll_S
-	mov r0, r0 // Just in case
+ 	bl do_poll_C
 no_poll_yet:
 
 	@ Loop back until cpu->cycles <=0
@@ -1843,259 +1816,259 @@ no_poll_yet:
 
 fns_asm:
 	.word 0 				// 0x00 BRK
-	.word 0 - fns_asm + opasm_ora_indzx 	// 0x01 ORA (,x)
-	.word 0 - fns_asm + opasm_undef
-	.word 0 - fns_asm + opasm_slo_indzx   // 0x03: SLO (,x)		undocumented
-	.word 0 - fns_asm + opasm_nop_zp  	// 0x04: NOP zp			undocumented
-	.word 0 - fns_asm + opasm_ora_zp		// 0x05: ORA zp
-	.word 0 - fns_asm + opasm_asl_zp		// 0x06: ASL zp
-	.word 0 - fns_asm + opasm_slo_zp  	// 0x07: SLO zp			undocumented
-	.word 0 - fns_asm + opasm_php     	// 0x08: PHP
-	.word 0 - fns_asm + opasm_ora_imm 	// 0x09: ORA imm
-	.word 0 - fns_asm + opasm_asl_a   	// 0x0A: ASL A
-	.word 0 				// 0x0B: ANC imm		undocumented
-	.word 0 - fns_asm + opasm_nop_abs 	// 0x0C: NOP abs		undocumented
-	.word 0 - fns_asm + opasm_ora_abs 	// 0x0D: ORA abs
-	.word 0 - fns_asm + opasm_asl_abs		// 0x0E: ASL abs
-	.word 0 - fns_asm + opasm_slo_abs 	// 0x0F: SLO abs		undocumented
-	.word 0 - fns_asm + opasm_bpl 		// 0x10: BPL
-	.word 0 - fns_asm + opasm_ora_indzy  	// 0x11: ORA (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0 - fns_asm + opasm_slo_indzy   // 0x13: SLO (),y		undocumented
-	.word 0 - fns_asm + opasm_nop_zp_x	// 0x14: NOP zp,x		undocumented
-	.word 0 - fns_asm + opasm_ora_zp_x	// 0x15: ORA zp,x
-	.word 0 - fns_asm + opasm_asl_zp_x	// 0x16: ASL zp,x
-	.word 0 - fns_asm + opasm_slo_zp_x	// 0x17: SLO zp,x		undocumented
-	.word 0 - fns_asm + opasm_clc 		// 0x18: CLC
-	.word 0 - fns_asm + opasm_ora_abs_y	// 0x19: ORA abs,y
-	.word 0 - fns_asm + opasm_nop     	// 0x1A: NOP			undocumented
-	.word 0 - fns_asm + opasm_slo_abs_y	// 0x1B: SLO abs,y		undocumented
-	.word 0 - fns_asm + opasm_nop_abs_x	// 0x1C: NOP abs,x		undocumented
-	.word 0 - fns_asm + opasm_ora_abs_x	// 0x1D: ORA abs,x
-	.word 0 - fns_asm + opasm_asl_abs_x	// 0x1E: ASL abs,x
-	.word 0 - fns_asm + opasm_slo_abs_x	// 0x1F: SLO abs,x		undocumented
-	.word 0 - fns_asm + opasm_jsr     	// 0x20: JSR
-	.word 0 - fns_asm + opasm_and_indzx   // 0x21: AND (,x)
-	.word 0 - fns_asm + opasm_undef
-	.word 0 - fns_asm + opasm_rla_indzx	// 0x23: RLA (,x)		undocumented
-	.word 0 - fns_asm + opasm_bit_zp		// 0x24: BIT zp
-	.word 0 - fns_asm + opasm_and_zp		// 0x25: AND zp
-	.word 0 - fns_asm + opasm_rol_zp  	// 0x26: ROL zp
-	.word 0 - fns_asm + opasm_rla_zp  	// 0x27: RLA zp			undocumented
-	.word 0 - fns_asm + opasm_plp     	// 0x28: PLP
-	.word 0 - fns_asm + opasm_and_imm		// 0x29: AND
-	.word 0 - fns_asm + opasm_rol_a   	// 0x2A: ROL A
-	.word 0 				// 0x2B: ANC imm		undocumented
-	.word 0 - fns_asm + opasm_bit_abs		// 0x2C: BIT abs
-	.word 0 - fns_asm + opasm_and_abs		// 0x2D: AND abs
-	.word 0 - fns_asm + opasm_rol_abs		// 0x2E: ROL abs
-	.word 0 - fns_asm + opasm_rla_abs 	// 0x2F: RLA abs		undocumented
-	.word 0 - fns_asm + opasm_bmi 		// 0x30: BMI
-	.word 0 - fns_asm + opasm_and_indzy   // 0x31: AND (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0 - fns_asm + opasm_rla_indzy   // 0x33: RLA (),y		undocumented
-	.word 0 - fns_asm + opasm_nop_zp_x	// 0x34: NOP zp,x		undocumented
-	.word 0 - fns_asm + opasm_and_zp_x	// 0x35: AND zp,x
-	.word 0 - fns_asm + opasm_rol_zp_x	// 0x36: ROL zp,x
-	.word 0 - fns_asm + opasm_rla_zp_x	// 0x37: RLA zp,x		undocumented
-	.word 0 - fns_asm + opasm_sec 		// 0x38: SEC
-	.word 0 - fns_asm + opasm_and_abs_y	// 0x39: AND abs,y
-	.word 0 - fns_asm + opasm_nop	    	// 0x3A: NOP			undocumented
-	.word 0 - fns_asm + opasm_rla_abs_y	// 0x3B: RLA abs,y		undocumented
-	.word 0 - fns_asm + opasm_nop_abs_x	// 0x3C: NOP abs,x		undocumented
-	.word 0 - fns_asm + opasm_and_abs_x	// 0x3D: AND abs,x
-	.word 0 - fns_asm + opasm_rol_abs_x	// 0x3E: ROL abs,x
-	.word 0 - fns_asm + opasm_rla_abs_x	// 0x3F: RLA abs,x		undocumented
-	.word 0 - fns_asm + opasm_rti			// 0x40: RTI
-	.word 0 - fns_asm + opasm_eor_indzx	// 0x41: EOR (,x)
-	.word 0 - fns_asm + opasm_undef
-	.word 0   				// 0x43: SRE (,x)		undocumented
-	.word 0 - fns_asm + opasm_nop_zp  	// 0x44: NOP zp
-	.word 0 - fns_asm + opasm_eor_zp  	// 0x45: EOR zp
-	.word 0 - fns_asm + opasm_lsr_zp  	// 0x46: LSR zp
-	.word 0  				// 0x47: SRE zp			undocumented
-	.word 0 - fns_asm + opasm_pha     	// 0x48: PHA
-	.word 0 - fns_asm + opasm_eor_imm 	// 0x49: EOR imm
-	.word 0 - fns_asm + opasm_lsr_a   	// 0x4A: LSR A
-	.word 0 				// 0x4B: ASR imm		undocumented
-	.word 0 - fns_asm + opasm_jmp			// 0x4C: JMP
-	.word 0 - fns_asm + opasm_eor_abs		// 0x4D: EOR abs
-	.word 0 - fns_asm + opasm_lsr_abs		// 0x4E: LSR abs
-	.word 0 				// 0x4F: SRE abs		undocumented
-	.word 0 - fns_asm + opasm_bvc 		// 0x50: BVC
-	.word 0 - fns_asm + opasm_eor_indzy	// 0x51: EOR (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0   				// 0x53: SRE (),y		undocumented
-	.word 0 - fns_asm + opasm_nop_zp_x	// 0x54: NOP zp,x
-	.word 0 - fns_asm + opasm_eor_zp_x	// 0x55: EOR zp,x
-	.word 0 - fns_asm + opasm_lsr_zp_x	// 0x56: LSR zp,x
-	.word 0					// 0x57: SRE zp,x		undocumented
-	.word 0 - fns_asm + opasm_cli     	// 0x58: CLI
-	.word 0 - fns_asm + opasm_eor_abs_y	// 0x59: EOR abs,y
-	.word 0 - fns_asm + opasm_nop 		// 0x5A: NOP			undocumented
-	.word 0					// 0x5B: SRE abs,y		undocumented
-	.word 0 - fns_asm + opasm_nop_abs_x	// 0x5C: NOP abs,x		undocumented
-	.word 0 - fns_asm + opasm_eor_abs_x	// 0x5D: EOR abs,x
-	.word 0 - fns_asm + opasm_lsr_abs_x	// 0x5E: LSR abs,x
-	.word 0					// 0x5F: SRE abs,x		undocumented
-	.word 0 - fns_asm + opasm_rts 		// 0x60: RTS
-	.word 0 - fns_asm + opasm_adc_indzx   // 0x61: ADC (,x)
-	.word 0 - fns_asm + opasm_undef
-	.word 0 - fns_asm + opasm_rra_indzx   // 0x63: RRA (,x)		undocumented
-	.word 0 - fns_asm + opasm_nop_zp  	// 0x64: NOP zp			undocumented
-	.word 0 - fns_asm + opasm_adc_zp  	// 0x65: ADC zp
-	.word 0 - fns_asm + opasm_ror_zp		// 0x66: ROR zp
-	.word 0 - fns_asm + opasm_rra_zp  	// 0x67: RRA zp			undocumented
-	.word 0 - fns_asm + opasm_pla    		// 0x68: PLA
-	.word 0 - fns_asm + opasm_adc_imm 	// 0x69: ADC imm
-	.word 0 - fns_asm + opasm_ror_a   	// 0x6A: ROR A
-	.word 0     			// 0x6B: ARR			undocumented
-	.word 0 - fns_asm + opasm_jmp_ind		// 0x6C: JMP ()
-	.word 0 - fns_asm + opasm_adc_abs 	// 0x6D: ADC abs
-	.word 0 - fns_asm + opasm_ror_abs 	// 0x6E: ROR abs
-	.word 0 - fns_asm + opasm_rra_abs 	// 0x6F: RRA abs		undocumented
-	.word 0 - fns_asm + opasm_bvs     	// 0x70: BVS
-	.word 0 - fns_asm + opasm_adc_indzy   // 0x71: ADC (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0 - fns_asm + opasm_rra_indzy  	// 0x73: RRA (),y		undocumented
-	.word 0 - fns_asm + opasm_nop_zp_x	// 0x74: NOP zp,x		undocumented
-	.word 0 - fns_asm + opasm_adc_zp_x 	// 0x75: ADC zp,x
-	.word 0 - fns_asm + opasm_ror_zp_x	// 0x76: ROR zp,x
-	.word 0 - fns_asm + opasm_rra_zp_x	// 0x77: RRA zp,x		undocumented
-	.word 0 - fns_asm + opasm_sei     	// 0x78: SEI
-	.word 0 - fns_asm + opasm_adc_abs_y	// 0x79: ADC abs,y
-	.word 0 - fns_asm + opasm_nop			// 0x7A: NOP			undocumented
-	.word 0 - fns_asm + opasm_rra_abs_y	// 0x7B: RRA abs,y		undocumented
-	.word 0 - fns_asm + opasm_undef
-	.word 0 - fns_asm + opasm_adc_abs_x	// 0x7D: ADC abs,x
-	.word 0 - fns_asm + opasm_ror_abs_x	// 0x7E: ROR abs,x
-	.word 0 - fns_asm + opasm_rra_abs_x	// 0x7F: RRA abs,x		undocumented
-	.word 0 - fns_asm + opasm_nop_imm  	// 0x80: NOP imm		undocumented
-	.word 0 - fns_asm + opasm_sta_indzx	// 0x81: STA (,x)
-	.word 0 - fns_asm + opasm_nop_imm 	// 0x82: NOP imm		undocumented
-	.word 0   				// 0x83: SAX (,x)		undocumented
-	.word 0 - fns_asm + opasm_sty_zp  	// 0x84: STY zp
-	.word 0 - fns_asm + opasm_sta_zp  	// 0x85: STA zp
-	.word 0 - fns_asm + opasm_stx_zp  	// 0x86: STX zp
-	.word 0  				// 0x87: SAX zp			undocumented
-	.word 0 - fns_asm + opasm_dey     	// 0x88: DEY
-	.word 0 - fns_asm + opasm_nop_imm 	// 0x89: NOP imm		undocumented
-	.word 0 - fns_asm + opasm_txa     	// 0x8A: TXA
-	.word 0     			// 0x8B: ANE			undocumented
-	.word 0 - fns_asm + opasm_sty_abs 	// 0x8C: STY abs
-	.word 0 - fns_asm + opasm_sta_abs 	// 0x8D: STA abs
-	.word 0 - fns_asm + opasm_stx_abs 	// 0x8E: STX abs
-	.word 0 				// 0x8F: SAX abs		undocumented
-	.word 0 - fns_asm + opasm_bcc     	// 0x90: BCC
-	.word 0 - fns_asm + opasm_sta_indzy	// 0x91: STA (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0   				// 0x93: SHA (),y		undocumented
-	.word 0 - fns_asm + opasm_sty_zp_x	// 0x94: STY zp,x
-	.word 0 - fns_asm + opasm_sta_zp_x	// 0x95: STA zp,x
-	.word 0 - fns_asm + opasm_stx_zp_y	// 0x96: STX zp,y
-	.word 0					// 0x97: SAX zp,y		undocumented
-	.word 0 - fns_asm + opasm_tya     	// 0x98: TYA
-	.word 0 - fns_asm + opasm_sta_abs_y	// 0x99: STA abs,y
-	.word 0 - fns_asm + opasm_txs     	// 0x9A: TXS
-	.word 0					// 0x9B: SHS abs,y		undocumented
-	.word 0					// 0x9C: SHY abs,x		undocumented
-	.word 0 - fns_asm + opasm_sta_abs_x	// 0x9D: STA abs,x
-	.word 0					// 0x9E: SHX abs,y		undocumented
-	.word 0					// 0x9F: SHA abs,y		undocumented
-	.word 0 - fns_asm + opasm_ldy_imm 	// 0xA0: LDY imm
-	.word 0 - fns_asm + opasm_lda_indzx   // 0xA1: LDA (,x)
-	.word 0 - fns_asm + opasm_ldx_imm 	// 0xA2: LDX imm
-	.word 0   				// 0xA3: LAX (,y)		undocumented
-	.word 0 - fns_asm + opasm_ldy_zp  	// 0xA4: LDY zp
-	.word 0 - fns_asm + opasm_lda_zp  	// 0xA5: LDA zp
-	.word 0 - fns_asm + opasm_ldx_zp		// 0xA6: LDX zp
-	.word 0  				// 0xA7: LAX zp			undocumented
-	.word 0 - fns_asm + opasm_tay     	// 0xA8: TAY
-	.word 0 - fns_asm + opasm_lda_imm 	// 0xA9: LDA imm
-	.word 0 - fns_asm + opasm_tax     	// 0xAA: TAX
-	.word 0     			// 0xAB: LAX			undocumented
-	.word 0 - fns_asm + opasm_ldy_abs 	// 0xAC: LDY abs
-	.word 0 - fns_asm + opasm_lda_abs 	// 0xAD: LDA abs
-	.word 0 - fns_asm + opasm_ldx_abs 	// 0xAE: LDX abs
-	.word 0 				// 0xAF: LAX abs
-	.word 0 - fns_asm + opasm_bcs     	// 0xB0: BCS
-	.word 0 - fns_asm + opasm_lda_y   	// 0xB1: LDA (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0  				// 0xB3: LAX (),y
-	.word 0 - fns_asm + opasm_ldy_zp_x	// 0xB4: LDY zp,x
-	.word 0 - fns_asm + opasm_lda_zp_x	// 0xB5: LDA zp,x
-	.word 0 - fns_asm + opasm_ldx_zp_y	// 0xB6: LDX zp,y
-	.word 0 - fns_asm + opasm_lax_zp_y	// 0xB7: LAX zp,y
-	.word 0 - fns_asm + opasm_clv     	// 0xB8: CLV
-	.word 0 - fns_asm + opasm_lda_abs_y	// 0xB9: LDA abs,y
-	.word 0 - fns_asm + opasm_tsx     	// 0xBA: TSX
-	.word 0					// 0xBB: LAS abs,y		undocumented
-	.word 0 - fns_asm + opasm_ldy_abs_x	// 0xBC: LDY abs,x
-	.word 0 - fns_asm + opasm_lda_abs_x	// 0xBD: LDA abs,x
-	.word 0 - fns_asm + opasm_ldx_abs_y	// 0xBE: LDX abs,y
-	.word 0					// 0xBF: LAX abs,y
-	.word 0 - fns_asm + opasm_cpy_imm 	// 0xC0: CPY imm
-	.word 0 - fns_asm + opasm_cmp_indzx	// 0xC1: CMP (,x)
-	.word 0 - fns_asm + opasm_nop_imm 	// 0xC2: NOP imm		undocumented
-	.word 0					// 0xC3: DCP (,x)		undocumented
-	.word 0 - fns_asm + opasm_cpy_zp  	// 0xC4: CPY zp
-	.word 0 - fns_asm + opasm_cmp_zp		// 0xC5: CMP zp
-	.word 0 - fns_asm + opasm_dec_zp  	// 0xC6: DEC zp
-	.word 0  				// 0xC7: DCP zp			undocumented
-	.word 0 - fns_asm + opasm_iny     	// 0xC8: INY
-	.word 0 - fns_asm + opasm_cmp_imm 	// 0xC9: CMP imm
-	.word 0 - fns_asm + opasm_dex     	// 0xCA: DEX
-	.word 0 				// 0xCB: SBX imm		undocumented
-	.word 0 - fns_asm + opasm_cpy_abs		// 0xCC: CPY abs
-	.word 0 - fns_asm + opasm_cmp_abs		// 0xCD: CMP abs
-	.word 0 - fns_asm + opasm_dec_abs		// 0xCE: DEC abs
-	.word 0 				// 0xCF: DCP abs		undocumented
-	.word 0 - fns_asm + opasm_bne     	// 0xD0: BNE
-	.word 0 - fns_asm + opasm_cmp_indzy	// 0xD1: CMP (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0					// 0xD3: DCP (),y		undocumented
-	.word 0 - fns_asm + opasm_nop_zp_x	// 0xD4: NOP zp,x		undocumented
-	.word 0 - fns_asm + opasm_cmp_zp_x	// 0xD5: CMP zp,x
-	.word 0 - fns_asm + opasm_dec_zp_x	// 0xD6: DEC zp,x
-	.word 0					// 0xD7: DCP zp,x		undocumented
-	.word 0 - fns_asm + opasm_cld     	// 0xD8: CLD
-	.word 0 - fns_asm + opasm_cmp_abs_y	// 0xD9: CMP abs,y
-	.word 0 - fns_asm + opasm_nop     	// 0xDA: NOP			undocumented
-	.word 0					// 0xDB: DCP abs,y		undocumented
-	.word 0 - fns_asm + opasm_nop_abs_x	// 0xDC: NOP abs,x		undocumented
-	.word 0 - fns_asm + opasm_cmp_abs_x	// 0xDD: CMP abs,x
-	.word 0 - fns_asm + opasm_dec_abs_x	// 0xDE: DEC abs,x
-	.word 0					// 0xDF: DCP abs,x		undocumented
-	.word 0 - fns_asm + opasm_cpx_imm 	// 0xE0: CPX imm
-	.word 0 - fns_asm + opasm_sbc_indzx	// 0xE1: SBC (,x)
-	.word 0 - fns_asm + opasm_nop_imm 	// 0xE2: NOP imm		undocumented
-	.word 0					// 0xE3: ISB (,x)		undocumented
-	.word 0 - fns_asm + opasm_cpx_zp  	// 0xE4: CPX zp
-	.word 0 - fns_asm + opasm_sbc_zp  	// 0xE5: SBC zp
-	.word 0 - fns_asm + opasm_inc_zp  	// 0xE6: INC zp
-	.word 0  				// 0xE7: ISB zp			undocumented
-	.word 0 - fns_asm + opasm_inx     	// 0xE8: INX
-	.word 0 - fns_asm + opasm_sbc_imm 	// 0xE9: SBC imm
-	.word 0 - fns_asm + opasm_nop     	// 0xEA: NOP
-	.word 0 - fns_asm + opasm_sbc_imm 	// 0xEB: SBC imm		undocumented
-	.word 0 - fns_asm + opasm_cpx_abs		// 0xEC: CPX abs
-	.word 0 - fns_asm + opasm_sbc_abs 	// 0xED: SBC abs
-	.word 0 - fns_asm + opasm_inc_abs 	// 0xEE: INC abs
-	.word 0 				// 0xEF: ISB abs		undocumented
-	.word 0 - fns_asm + opasm_beq    		// 0xF0: BEQ
-	.word 0 - fns_asm + opasm_sbc_indzy	// 0xF1: SBC (),y
-	.word 0 - fns_asm + opasm_undef
-	.word 0					// 0xF3: ISB (),y		undocumented
-	.word 0 - fns_asm + opasm_nop_zp_x 	// 0xF4: NOP zp,x		undocumented
-	.word 0 - fns_asm + opasm_sbc_zp_x	// 0xF5: SBC zp,x
-	.word 0 - fns_asm + opasm_inc_zp_x	// 0xF6: INC zp,x
-	.word 0					// 0xF7: ISB zp,x		undocumented
-	.word 0 - fns_asm + opasm_sed     	// 0xF8: SED
-	.word 0 - fns_asm + opasm_sbc_abs_y	// 0xF9: SBC abs,y
-	.word 0 - fns_asm + opasm_nop     	// 0xFA: NOP			undocumented
-	.word 0					// 0xFB: ISB abs,y		undocumented
-	.word 0 - fns_asm + opasm_nop_abs_x	// 0xFC: NOP abs,x		undocumented
-	.word 0 - fns_asm + opasm_sbc_abs_x	// 0xFD: SBC abs,x
-	.word 0 - fns_asm + opasm_inc_abs_x	// 0xFE: INC abs,x
-	.word 0					// 0xFF: ISB abs,x		undocumented
+		.word 0 - fns_asm + opasm_ora_indzx 	// 0x01 ORA (,x)
+		.word 0 - fns_asm + opasm_undef
+		.word 0 - fns_asm + opasm_slo_indzx   // 0x03: SLO (,x)		undocumented
+		.word 0 - fns_asm + opasm_nop_zp  	// 0x04: NOP zp			undocumented
+		.word 0 - fns_asm + opasm_ora_zp		// 0x05: ORA zp
+		.word 0 - fns_asm + opasm_asl_zp		// 0x06: ASL zp
+		.word 0 - fns_asm + opasm_slo_zp  	// 0x07: SLO zp			undocumented
+		.word 0 - fns_asm + opasm_php     	// 0x08: PHP
+		.word 0 - fns_asm + opasm_ora_imm 	// 0x09: ORA imm
+		.word 0 - fns_asm + opasm_asl_a   	// 0x0A: ASL A
+		.word 0 				// 0x0B: ANC imm		undocumented
+		.word 0 - fns_asm + opasm_nop_abs 	// 0x0C: NOP abs		undocumented
+		.word 0 - fns_asm + opasm_ora_abs 	// 0x0D: ORA abs
+		.word 0 - fns_asm + opasm_asl_abs		// 0x0E: ASL abs
+		.word 0 - fns_asm + opasm_slo_abs 	// 0x0F: SLO abs		undocumented
+		.word 0 - fns_asm + opasm_bpl 		// 0x10: BPL
+		.word 0 - fns_asm + opasm_ora_indzy  	// 0x11: ORA (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0 - fns_asm + opasm_slo_indzy   // 0x13: SLO (),y		undocumented
+		.word 0 - fns_asm + opasm_nop_zp_x	// 0x14: NOP zp,x		undocumented
+		.word 0 - fns_asm + opasm_ora_zp_x	// 0x15: ORA zp,x
+		.word 0 - fns_asm + opasm_asl_zp_x	// 0x16: ASL zp,x
+		.word 0 - fns_asm + opasm_slo_zp_x	// 0x17: SLO zp,x		undocumented
+		.word 0 - fns_asm + opasm_clc 		// 0x18: CLC
+		.word 0 - fns_asm + opasm_ora_abs_y	// 0x19: ORA abs,y
+		.word 0 - fns_asm + opasm_nop     	// 0x1A: NOP			undocumented
+		.word 0 - fns_asm + opasm_slo_abs_y	// 0x1B: SLO abs,y		undocumented
+		.word 0 - fns_asm + opasm_nop_abs_x	// 0x1C: NOP abs,x		undocumented
+		.word 0 - fns_asm + opasm_ora_abs_x	// 0x1D: ORA abs,x
+		.word 0 - fns_asm + opasm_asl_abs_x	// 0x1E: ASL abs,x
+		.word 0 - fns_asm + opasm_slo_abs_x	// 0x1F: SLO abs,x		undocumented
+		.word 0 - fns_asm + opasm_jsr     	// 0x20: JSR
+		.word 0 - fns_asm + opasm_and_indzx   // 0x21: AND (,x)
+		.word 0 - fns_asm + opasm_undef
+		.word 0 - fns_asm + opasm_rla_indzx	// 0x23: RLA (,x)		undocumented
+		.word 0 - fns_asm + opasm_bit_zp		// 0x24: BIT zp
+		.word 0 - fns_asm + opasm_and_zp		// 0x25: AND zp
+		.word 0 - fns_asm + opasm_rol_zp  	// 0x26: ROL zp
+		.word 0 - fns_asm + opasm_rla_zp  	// 0x27: RLA zp			undocumented
+		.word 0 - fns_asm + opasm_plp     	// 0x28: PLP
+		.word 0 - fns_asm + opasm_and_imm		// 0x29: AND
+		.word 0 - fns_asm + opasm_rol_a   	// 0x2A: ROL A
+		.word 0 				// 0x2B: ANC imm		undocumented
+		.word 0 - fns_asm + opasm_bit_abs		// 0x2C: BIT abs
+		.word 0 - fns_asm + opasm_and_abs		// 0x2D: AND abs
+		.word 0 - fns_asm + opasm_rol_abs		// 0x2E: ROL abs
+		.word 0 - fns_asm + opasm_rla_abs 	// 0x2F: RLA abs		undocumented
+		.word 0 - fns_asm + opasm_bmi 		// 0x30: BMI
+		.word 0 - fns_asm + opasm_and_indzy   // 0x31: AND (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0 - fns_asm + opasm_rla_indzy   // 0x33: RLA (),y		undocumented
+		.word 0 - fns_asm + opasm_nop_zp_x	// 0x34: NOP zp,x		undocumented
+		.word 0 - fns_asm + opasm_and_zp_x	// 0x35: AND zp,x
+		.word 0 - fns_asm + opasm_rol_zp_x	// 0x36: ROL zp,x
+		.word 0 - fns_asm + opasm_rla_zp_x	// 0x37: RLA zp,x		undocumented
+		.word 0 - fns_asm + opasm_sec 		// 0x38: SEC
+		.word 0 - fns_asm + opasm_and_abs_y	// 0x39: AND abs,y
+		.word 0 - fns_asm + opasm_nop	    	// 0x3A: NOP			undocumented
+		.word 0 - fns_asm + opasm_rla_abs_y	// 0x3B: RLA abs,y		undocumented
+		.word 0 - fns_asm + opasm_nop_abs_x	// 0x3C: NOP abs,x		undocumented
+		.word 0 - fns_asm + opasm_and_abs_x	// 0x3D: AND abs,x
+		.word 0 - fns_asm + opasm_rol_abs_x	// 0x3E: ROL abs,x
+		.word 0 - fns_asm + opasm_rla_abs_x	// 0x3F: RLA abs,x		undocumented
+		.word 0 - fns_asm + opasm_rti			// 0x40: RTI
+		.word 0 - fns_asm + opasm_eor_indzx	// 0x41: EOR (,x)
+		.word 0 - fns_asm + opasm_undef
+		.word 0   				// 0x43: SRE (,x)		undocumented
+		.word 0 - fns_asm + opasm_nop_zp  	// 0x44: NOP zp
+		.word 0 - fns_asm + opasm_eor_zp  	// 0x45: EOR zp
+		.word 0 - fns_asm + opasm_lsr_zp  	// 0x46: LSR zp
+		.word 0  				// 0x47: SRE zp			undocumented
+		.word 0 - fns_asm + opasm_pha     	// 0x48: PHA
+		.word 0 - fns_asm + opasm_eor_imm 	// 0x49: EOR imm
+		.word 0 - fns_asm + opasm_lsr_a   	// 0x4A: LSR A
+		.word 0 				// 0x4B: ASR imm		undocumented
+		.word 0 - fns_asm + opasm_jmp			// 0x4C: JMP
+		.word 0 - fns_asm + opasm_eor_abs		// 0x4D: EOR abs
+		.word 0 - fns_asm + opasm_lsr_abs		// 0x4E: LSR abs
+		.word 0 				// 0x4F: SRE abs		undocumented
+		.word 0 - fns_asm + opasm_bvc 		// 0x50: BVC
+		.word 0 - fns_asm + opasm_eor_indzy	// 0x51: EOR (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0   				// 0x53: SRE (),y		undocumented
+		.word 0 - fns_asm + opasm_nop_zp_x	// 0x54: NOP zp,x
+		.word 0 - fns_asm + opasm_eor_zp_x	// 0x55: EOR zp,x
+		.word 0 - fns_asm + opasm_lsr_zp_x	// 0x56: LSR zp,x
+		.word 0					// 0x57: SRE zp,x		undocumented
+		.word 0 - fns_asm + opasm_cli     	// 0x58: CLI
+		.word 0 - fns_asm + opasm_eor_abs_y	// 0x59: EOR abs,y
+		.word 0 - fns_asm + opasm_nop 		// 0x5A: NOP			undocumented
+		.word 0					// 0x5B: SRE abs,y		undocumented
+		.word 0 - fns_asm + opasm_nop_abs_x	// 0x5C: NOP abs,x		undocumented
+		.word 0 - fns_asm + opasm_eor_abs_x	// 0x5D: EOR abs,x
+		.word 0 - fns_asm + opasm_lsr_abs_x	// 0x5E: LSR abs,x
+		.word 0					// 0x5F: SRE abs,x		undocumented
+		.word 0 - fns_asm + opasm_rts 		// 0x60: RTS
+		.word 0 - fns_asm + opasm_adc_indzx   // 0x61: ADC (,x)
+		.word 0 - fns_asm + opasm_undef
+		.word 0 - fns_asm + opasm_rra_indzx   // 0x63: RRA (,x)		undocumented
+		.word 0 - fns_asm + opasm_nop_zp  	// 0x64: NOP zp			undocumented
+		.word 0 - fns_asm + opasm_adc_zp  	// 0x65: ADC zp
+		.word 0 - fns_asm + opasm_ror_zp		// 0x66: ROR zp
+		.word 0 - fns_asm + opasm_rra_zp  	// 0x67: RRA zp			undocumented
+		.word 0 - fns_asm + opasm_pla    		// 0x68: PLA
+		.word 0 - fns_asm + opasm_adc_imm 	// 0x69: ADC imm
+		.word 0 - fns_asm + opasm_ror_a   	// 0x6A: ROR A
+		.word 0     			// 0x6B: ARR			undocumented
+		.word 0 - fns_asm + opasm_jmp_ind		// 0x6C: JMP ()
+		.word 0 - fns_asm + opasm_adc_abs 	// 0x6D: ADC abs
+		.word 0 - fns_asm + opasm_ror_abs 	// 0x6E: ROR abs
+		.word 0 - fns_asm + opasm_rra_abs 	// 0x6F: RRA abs		undocumented
+		.word 0 - fns_asm + opasm_bvs     	// 0x70: BVS
+		.word 0 - fns_asm + opasm_adc_indzy   // 0x71: ADC (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0 - fns_asm + opasm_rra_indzy  	// 0x73: RRA (),y		undocumented
+		.word 0 - fns_asm + opasm_nop_zp_x	// 0x74: NOP zp,x		undocumented
+		.word 0 - fns_asm + opasm_adc_zp_x 	// 0x75: ADC zp,x
+		.word 0 - fns_asm + opasm_ror_zp_x	// 0x76: ROR zp,x
+		.word 0 - fns_asm + opasm_rra_zp_x	// 0x77: RRA zp,x		undocumented
+		.word 0 - fns_asm + opasm_sei     	// 0x78: SEI
+		.word 0 - fns_asm + opasm_adc_abs_y	// 0x79: ADC abs,y
+		.word 0 - fns_asm + opasm_nop			// 0x7A: NOP			undocumented
+		.word 0 - fns_asm + opasm_rra_abs_y	// 0x7B: RRA abs,y		undocumented
+		.word 0 - fns_asm + opasm_undef
+		.word 0 - fns_asm + opasm_adc_abs_x	// 0x7D: ADC abs,x
+		.word 0 - fns_asm + opasm_ror_abs_x	// 0x7E: ROR abs,x
+		.word 0 - fns_asm + opasm_rra_abs_x	// 0x7F: RRA abs,x		undocumented
+		.word 0 - fns_asm + opasm_nop_imm  	// 0x80: NOP imm		undocumented
+		.word 0 - fns_asm + opasm_sta_indzx	// 0x81: STA (,x)
+		.word 0 - fns_asm + opasm_nop_imm 	// 0x82: NOP imm		undocumented
+		.word 0   				// 0x83: SAX (,x)		undocumented
+		.word 0 - fns_asm + opasm_sty_zp  	// 0x84: STY zp
+		.word 0 - fns_asm + opasm_sta_zp  	// 0x85: STA zp
+		.word 0 - fns_asm + opasm_stx_zp  	// 0x86: STX zp
+		.word 0  				// 0x87: SAX zp			undocumented
+		.word 0 - fns_asm + opasm_dey     	// 0x88: DEY
+		.word 0 - fns_asm + opasm_nop_imm 	// 0x89: NOP imm		undocumented
+		.word 0 - fns_asm + opasm_txa     	// 0x8A: TXA
+		.word 0     			// 0x8B: ANE			undocumented
+		.word 0 - fns_asm + opasm_sty_abs 	// 0x8C: STY abs
+		.word 0 - fns_asm + opasm_sta_abs 	// 0x8D: STA abs
+		.word 0 - fns_asm + opasm_stx_abs 	// 0x8E: STX abs
+		.word 0 				// 0x8F: SAX abs		undocumented
+		.word 0 - fns_asm + opasm_bcc     	// 0x90: BCC
+		.word 0 - fns_asm + opasm_sta_indzy	// 0x91: STA (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0   				// 0x93: SHA (),y		undocumented
+		.word 0 - fns_asm + opasm_sty_zp_x	// 0x94: STY zp,x
+		.word 0 - fns_asm + opasm_sta_zp_x	// 0x95: STA zp,x
+		.word 0 - fns_asm + opasm_stx_zp_y	// 0x96: STX zp,y
+		.word 0					// 0x97: SAX zp,y		undocumented
+		.word 0 - fns_asm + opasm_tya     	// 0x98: TYA
+		.word 0 - fns_asm + opasm_sta_abs_y	// 0x99: STA abs,y
+		.word 0 - fns_asm + opasm_txs     	// 0x9A: TXS
+		.word 0					// 0x9B: SHS abs,y		undocumented
+		.word 0					// 0x9C: SHY abs,x		undocumented
+		.word 0 - fns_asm + opasm_sta_abs_x	// 0x9D: STA abs,x
+		.word 0					// 0x9E: SHX abs,y		undocumented
+		.word 0					// 0x9F: SHA abs,y		undocumented
+		.word 0 - fns_asm + opasm_ldy_imm 	// 0xA0: LDY imm
+		.word 0 - fns_asm + opasm_lda_indzx   // 0xA1: LDA (,x)
+		.word 0 - fns_asm + opasm_ldx_imm 	// 0xA2: LDX imm
+		.word 0   				// 0xA3: LAX (,y)		undocumented
+		.word 0 - fns_asm + opasm_ldy_zp  	// 0xA4: LDY zp
+		.word 0 - fns_asm + opasm_lda_zp  	// 0xA5: LDA zp
+		.word 0 - fns_asm + opasm_ldx_zp		// 0xA6: LDX zp
+		.word 0  				// 0xA7: LAX zp			undocumented
+		.word 0 - fns_asm + opasm_tay     	// 0xA8: TAY
+		.word 0 - fns_asm + opasm_lda_imm 	// 0xA9: LDA imm
+		.word 0 - fns_asm + opasm_tax     	// 0xAA: TAX
+		.word 0     			// 0xAB: LAX			undocumented
+		.word 0 - fns_asm + opasm_ldy_abs 	// 0xAC: LDY abs
+		.word 0 - fns_asm + opasm_lda_abs 	// 0xAD: LDA abs
+		.word 0 - fns_asm + opasm_ldx_abs 	// 0xAE: LDX abs
+		.word 0 				// 0xAF: LAX abs
+		.word 0 - fns_asm + opasm_bcs     	// 0xB0: BCS
+		.word 0 - fns_asm + opasm_lda_y   	// 0xB1: LDA (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0  				// 0xB3: LAX (),y
+		.word 0 - fns_asm + opasm_ldy_zp_x	// 0xB4: LDY zp,x
+		.word 0 - fns_asm + opasm_lda_zp_x	// 0xB5: LDA zp,x
+		.word 0 - fns_asm + opasm_ldx_zp_y	// 0xB6: LDX zp,y
+		.word 0 - fns_asm + opasm_lax_zp_y	// 0xB7: LAX zp,y
+		.word 0 - fns_asm + opasm_clv     	// 0xB8: CLV
+		.word 0 - fns_asm + opasm_lda_abs_y	// 0xB9: LDA abs,y
+		.word 0 - fns_asm + opasm_tsx     	// 0xBA: TSX
+		.word 0					// 0xBB: LAS abs,y		undocumented
+		.word 0 - fns_asm + opasm_ldy_abs_x	// 0xBC: LDY abs,x
+		.word 0 - fns_asm + opasm_lda_abs_x	// 0xBD: LDA abs,x
+		.word 0 - fns_asm + opasm_ldx_abs_y	// 0xBE: LDX abs,y
+		.word 0					// 0xBF: LAX abs,y
+		.word 0 - fns_asm + opasm_cpy_imm 	// 0xC0: CPY imm
+		.word 0 - fns_asm + opasm_cmp_indzx	// 0xC1: CMP (,x)
+		.word 0 - fns_asm + opasm_nop_imm 	// 0xC2: NOP imm		undocumented
+		.word 0					// 0xC3: DCP (,x)		undocumented
+		.word 0 - fns_asm + opasm_cpy_zp  	// 0xC4: CPY zp
+		.word 0 - fns_asm + opasm_cmp_zp		// 0xC5: CMP zp
+		.word 0 - fns_asm + opasm_dec_zp  	// 0xC6: DEC zp
+		.word 0  				// 0xC7: DCP zp			undocumented
+		.word 0 - fns_asm + opasm_iny     	// 0xC8: INY
+		.word 0 - fns_asm + opasm_cmp_imm 	// 0xC9: CMP imm
+		.word 0 - fns_asm + opasm_dex     	// 0xCA: DEX
+		.word 0 				// 0xCB: SBX imm		undocumented
+		.word 0 - fns_asm + opasm_cpy_abs		// 0xCC: CPY abs
+		.word 0 - fns_asm + opasm_cmp_abs		// 0xCD: CMP abs
+		.word 0 - fns_asm + opasm_dec_abs		// 0xCE: DEC abs
+		.word 0 				// 0xCF: DCP abs		undocumented
+		.word 0 - fns_asm + opasm_bne     	// 0xD0: BNE
+		.word 0 - fns_asm + opasm_cmp_indzy	// 0xD1: CMP (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0					// 0xD3: DCP (),y		undocumented
+		.word 0 - fns_asm + opasm_nop_zp_x	// 0xD4: NOP zp,x		undocumented
+		.word 0 - fns_asm + opasm_cmp_zp_x	// 0xD5: CMP zp,x
+		.word 0 - fns_asm + opasm_dec_zp_x	// 0xD6: DEC zp,x
+		.word 0					// 0xD7: DCP zp,x		undocumented
+		.word 0 - fns_asm + opasm_cld     	// 0xD8: CLD
+		.word 0 - fns_asm + opasm_cmp_abs_y	// 0xD9: CMP abs,y
+		.word 0 - fns_asm + opasm_nop     	// 0xDA: NOP			undocumented
+		.word 0					// 0xDB: DCP abs,y		undocumented
+		.word 0 - fns_asm + opasm_nop_abs_x	// 0xDC: NOP abs,x		undocumented
+		.word 0 - fns_asm + opasm_cmp_abs_x	// 0xDD: CMP abs,x
+		.word 0 - fns_asm + opasm_dec_abs_x	// 0xDE: DEC abs,x
+		.word 0					// 0xDF: DCP abs,x		undocumented
+		.word 0 - fns_asm + opasm_cpx_imm 	// 0xE0: CPX imm
+		.word 0 - fns_asm + opasm_sbc_indzx	// 0xE1: SBC (,x)
+		.word 0 - fns_asm + opasm_nop_imm 	// 0xE2: NOP imm		undocumented
+		.word 0					// 0xE3: ISB (,x)		undocumented
+		.word 0 - fns_asm + opasm_cpx_zp  	// 0xE4: CPX zp
+		.word 0 - fns_asm + opasm_sbc_zp  	// 0xE5: SBC zp
+		.word 0 - fns_asm + opasm_inc_zp  	// 0xE6: INC zp
+		.word 0  				// 0xE7: ISB zp			undocumented
+		.word 0 - fns_asm + opasm_inx     	// 0xE8: INX
+		.word 0 - fns_asm + opasm_sbc_imm 	// 0xE9: SBC imm
+		.word 0 - fns_asm + opasm_nop     	// 0xEA: NOP
+		.word 0 - fns_asm + opasm_sbc_imm 	// 0xEB: SBC imm		undocumented
+		.word 0 - fns_asm + opasm_cpx_abs		// 0xEC: CPX abs
+		.word 0 - fns_asm + opasm_sbc_abs 	// 0xED: SBC abs
+		.word 0 - fns_asm + opasm_inc_abs 	// 0xEE: INC abs
+		.word 0 				// 0xEF: ISB abs		undocumented
+		.word 0 - fns_asm + opasm_beq    		// 0xF0: BEQ
+		.word 0 - fns_asm + opasm_sbc_indzy	// 0xF1: SBC (),y
+		.word 0 - fns_asm + opasm_undef
+		.word 0					// 0xF3: ISB (),y		undocumented
+		.word 0 - fns_asm + opasm_nop_zp_x 	// 0xF4: NOP zp,x		undocumented
+		.word 0 - fns_asm + opasm_sbc_zp_x	// 0xF5: SBC zp,x
+		.word 0 - fns_asm + opasm_inc_zp_x	// 0xF6: INC zp,x
+		.word 0					// 0xF7: ISB zp,x		undocumented
+		.word 0 - fns_asm + opasm_sed     	// 0xF8: SED
+		.word 0 - fns_asm + opasm_sbc_abs_y	// 0xF9: SBC abs,y
+		.word 0 - fns_asm + opasm_nop     	// 0xFA: NOP			undocumented
+		.word 0					// 0xFB: ISB abs,y		undocumented
+		.word 0 - fns_asm + opasm_nop_abs_x	// 0xFC: NOP abs,x		undocumented
+		.word 0 - fns_asm + opasm_sbc_abs_x	// 0xFD: SBC abs,x
+		.word 0 - fns_asm + opasm_inc_abs_x	// 0xFE: INC abs,x
+		.word 0					// 0xFF: ISB abs,x		undocumented
 

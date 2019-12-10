@@ -71,8 +71,10 @@ void log_asm(int v) {
 	LOGI("here! %08x", v);
 }
 
-void log_undef_opcode_C(M6502* cpu) {
-	LOGI("Undefined opcode! pc=%04x", cpu->pc);
+void log_undef_opcode_C(uint8_t op, void* tab, int off, M6502* cpu) {
+	LOGI("Undefined opcode! cpu=%08x the_cpu=%04x op=%02x off=%08x tab=%08x", cpu, the_cpu, op, off, tab);
+	LOGI("Undefined opcode! mem=%04x [ pc=%04x ]", cpu->mem, cpu->pc );
+	LOGI("Undefined opcode! mem=%04x [ pc=%04x ] = %02x", cpu->mem, cpu->pc, cpu->mem[cpu->pc]);
 	exit(1);
 }
 

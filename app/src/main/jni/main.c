@@ -158,13 +158,13 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
 
     // Position independent code, hopefully!
 	the_cpu->log_cpu_S = &log_cpu_C;
-	the_cpu->readmem_ex_S = &readmem_ex;
-	the_cpu->writemem_ex_S = &writemem_ex;
-	the_cpu->adc_bcd_S = &adc_bcd_C;
-	the_cpu->sbc_bcd_S = &sbc_bcd_C;
-	the_cpu->log_undef_opcode_S = &log_undef_opcode_C;
-    the_cpu->do_poll_S = &do_poll_C;
-    the_cpu->readword_ex_S = &readword_ex;
+//	the_cpu->readmem_ex_S = &readmem_ex;
+//	the_cpu->writemem_ex_S = &writemem_ex;
+//	the_cpu->adc_bcd_S = &adc_bcd_C;
+//	the_cpu->sbc_bcd_S = &sbc_bcd_C;
+//	the_cpu->log_undef_opcode_S = &log_undef_opcode_C;
+//    the_cpu->do_poll_S = &do_poll_C;
+//    the_cpu->readword_ex_S = &readword_ex;
     the_cpu->fns_C = &fns;
     exec6502(the_cpu);
 

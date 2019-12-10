@@ -90,7 +90,7 @@ extern uint8_t readmem_ex(uint16_t addr); // +46 for PIC!
 extern void writemem_ex(uint16_t addr, uint8_t val16);
 extern void adc_bcd_C(M6502*, uint8_t temp); // +54 for PIC!
 extern void sbc_bcd_C(M6502*, uint8_t temp); // +58 for PIC!
-extern void log_undef_opcode_C(M6502*); // +62 for PIC!
+//extern void log_undef_opcode_C(M6502*); // +62 for PIC!
 extern void do_poll_C(M6502*, int c); // +64 for PIC!
 extern uint16_t readword_ex(uint16_t addr); // +68 for PIC!
 
