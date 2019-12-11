@@ -1713,10 +1713,10 @@ loop:
 use_c_fn:
 	ldr   r1, [ r4, #40 ]   @ 40 -> []
 	ldr   r2, [ r1,  r0, lsl #2] // c_fns[ opcode * 4 ]
-    push {r0-r12,lr}
-    mov   r3, r4
-    bl log_c_fn_
-    pop {r0-r12,lr}
+//    push {r0-r12,lr}
+//    mov   r3, r4
+//    bl log_c_fn_
+//    pop {r0-r12,lr}
     strh  r6, [ r4, #4] 	@  r6 = PC
     strb  r7, [ r4, #6] 	@  r7 = A
     strb  r8, [ r4, #7] 	@  r8 = X
