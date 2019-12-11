@@ -39,14 +39,6 @@
 @	int cycles;   // +24
 @	uint16_t pc_trigger_hit; //+28
 @	uint16_t pc_triggers[4]; //+30
-@	int cycles2;	// +38
-@	void (*log_cpu_S)(*M6502); // +42 for PIC!
-@	void (*readmem_ex_S)(*M6502); // +46 for PIC!
-@	void (*writemem_ex_S)(*M6502); // +50 for PIC!
-@	void (*adc_bcd_S)(*M6502); // +54 for PIC!
-@	void (*sbc_bcd_S)(*M6502); // +58 for PIC!
-@	void (*log_undef_opcode_S)(*M6502); // +62 for PIC!
-@	void (*do_poll_S)(*M6502); // +64 for PIC!
 
 
 // branch without labels: count number of lines to skip over, add 1, multiply by 4. So to skip 2 lines, "b .+12"
@@ -1709,14 +1701,22 @@ loop:
 	beq  use_c_fn
 
 	@ Call assembly function
+//    push {r0-r12,lr}
+//    bl log_asm
+//    pop {r0-r12,lr}
 	add  r2, r2, r1  // 0 - fns_asm + asy_func + fns_asm
 	blx  r2 // Call assembly function
 	b done_call
 
 	@ Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
+	// eg 0x4B - 75 - asr
 use_c_fn:
-	ldr   r1, [ r4, #72 ] @ 72 -> c_fns[]
+	ldr   r1, [ r4, #40 ]   @ 40 -> []
 	ldr   r2, [ r1,  r0, lsl #2] // c_fns[ opcode * 4 ]
+    push {r0-r12,lr}
+    mov   r3, r4
+    bl log_c_fn_
+    pop {r0-r12,lr}
     strh  r6, [ r4, #4] 	@  r6 = PC
     strb  r7, [ r4, #6] 	@  r7 = A
     strb  r8, [ r4, #7] 	@  r8 = X

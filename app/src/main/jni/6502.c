@@ -67,6 +67,13 @@ void log_cpu_C(M6502* cpu) {
 */
 }
 
+void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
+// 0x4B - 75 - asr  = !6666=&6060604b ; call 6666
+	LOGI("C here! op=%02x table=%08x (%08x, %08x) fn=%08x cpu=%08x the_cpu=%08x", op, table, &fns, the_cpu->c_fns, fn, cpu, the_cpu);
+// Why is table != fns?
+// C here! op=1a table=00000000 (cbcf0028) fn=fe88fe2c cpu=cbd517c8 the_cpu=cbd517c8
+}
+
 void log_asm(int v) {
 	LOGI("here! %08x", v);
 }
@@ -407,7 +414,7 @@ int fn_brk(M6502* cpu) {
 
 
 
-int fn_asr_imm(M6502* cpu) {
+int fn_asr_imm(M6502* cpu) { // 0x4B - asr
 	cpu->a &= readmem(cpu->pc); cpu->pc++;
 	SET_FLAG(FLAG_C, cpu->a & 1);
 	cpu->a >>= 1;

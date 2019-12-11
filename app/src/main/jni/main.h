@@ -69,18 +69,9 @@ struct M6502_struct {
 	int takeint;  // +20
 	int cycles;   // +24
 	uint16_t pc_trigger_hit; //+28
-	uint16_t pc_triggers[4]; //+30
-	int cycles2;	// +38
-	void (*log_cpu_S)(M6502*); // +42 for PIC!
-	uint8_t (*readmem_ex_S)(uint16_t addr); // +46 for PIC!
-	void (*writemem_ex_S)(uint16_t addr, uint8_t val16); // +50 for PIC!
-	void (*adc_bcd_S)(M6502*, uint8_t); // +54 for PIC!
-	void (*sbc_bcd_S)(M6502*, uint8_t); // +58 for PIC!
-	void (*log_undef_opcode_S)(M6502*); // +62 for PIC!
-	void (*do_poll_S)(M6502*, int c); // +64 for PIC!
-	void (*readword_ex_S)(uint16_t); // +68 for PIC!
-	void (**fns_C)(M6502*); // +72F
-
+	uint16_t pc_triggers[4]; //+30 +32 +34 +36
+	uint16_t padding;	// +38
+	void (**c_fns)(M6502*); // +40 for c_fns table
 };
 
 extern M6502* the_cpu;
