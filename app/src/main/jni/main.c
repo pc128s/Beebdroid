@@ -181,25 +181,27 @@ extern void dump_pages();
 
 JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent(JNIEnv * env, jobject  obj, jint vkey, jint flags, jint down) {
 	//if (vkey==0xaa) return;
+	int ctrl = vkey&0x400;
 	if (vkey&0x100) {
-		vkey &= 0xff;
 		flags = 1;
 	}
 	if (vkey&0x200) {
-		vkey &= 0xff;
 		flags = 0;
 	}
+	vkey &= 0xff;
 	int col=vkey&15;
 	int row=(vkey>>4)&15;
 
-	if (down && vkey==0x37) {
+	if (down && vkey==0x37) { // BeebKeys.P
 		dump_pages();
 	}
 
 	// Press / unpress SHIFT
 	keys[0][0] = flags ? down : 0x00;
+	// Press / unpress CTRL
+	keys[1][0] = ctrl ? down : 0x00;
 	// Press / unpress the key
-	keys[col][row] = down? 1:0;
+	keys[col][row] = down ? 1 : 0;
 	//LOGI("Key event %d,%d = %d", col, row, down);
 }
 

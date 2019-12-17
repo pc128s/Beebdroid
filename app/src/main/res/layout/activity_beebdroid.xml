@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout 
+<LinearLayout
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:lft="http://schemas.android.com/apk/res-auto"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -16,17 +16,35 @@
         android:orientation="horizontal"
         android:gravity="right"
         >
-        <ImageView
-            android:layout_width="?attr/actionBarSize"
-            android:layout_height="?attr/actionBarSize"
-            android:layout_gravity="center"
-            android:layout_marginRight="8dp"
-            android:scaleType="centerInside"
-            android:background="@drawable/button_bg"
-            android:src="@drawable/save"
-            android:clickable="true"
-            android:onClick="onOpenClicked"
-            />
+		<TextView
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:id="@+id/info"
+			android:text="Example"
+			/>
+		<ImageView
+			android:id="@+id/btnKbMap"
+			android:layout_width="?attr/actionBarSize"
+			android:layout_height="?attr/actionBarSize"
+			android:layout_gravity="center"
+			android:layout_marginRight="8dp"
+			android:scaleType="centerInside"
+			android:background="@drawable/button_bg"
+			android:src="@drawable/kbmap"
+			android:clickable="true"
+			android:onClick="onKbMapClicked"
+			/>
+		<ImageView
+			android:layout_width="?attr/actionBarSize"
+			android:layout_height="?attr/actionBarSize"
+			android:layout_gravity="center"
+			android:layout_marginRight="8dp"
+			android:scaleType="centerInside"
+			android:background="@drawable/button_bg"
+			android:src="@drawable/save"
+			android:clickable="true"
+			android:onClick="onOpenClicked"
+			/>
     </LinearLayout>
 
 
@@ -35,7 +53,9 @@
 	android:layout_width="fill_parent"
 	android:layout_height="0dp"
 	android:layout_weight="272"
-	/>
+>
+	<requestFocus/>
+	</view>
 
 <RelativeLayout 	
 	android:layout_width="fill_parent"

@@ -11,8 +11,10 @@ public class BeebKeys {
 	0x20     F0   W    E    T    7    I    9    0    _  down
 	0x30     1    2    D    R    6    U    O    P    [(  up
 	0x40     CAP  A    X    F    Y    J    K    @    :*  RET
-	0x50     SLC  S    C    G    H    N    L    ;+   ])  DEL
+	0x50     SLK  S    C    G    H    N    L    ;+   ])  DEL
 	0x60     TAB  Z    SPC  V    B    M    ,<   .>   /?  CPY
+	*
+	0x00     SHF  CTL
 	 */
 
 	public static final int BBCKEY_BREAK = 0xaa;

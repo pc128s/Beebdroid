@@ -7,13 +7,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -30,7 +25,7 @@ import com.littlefluffytoys.beebdroid.ControllerInfo.TriggerAction;
 import common.Utils;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.graphics.Color;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -40,12 +35,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.content.SharedPreferences;
-import android.content.DialogInterface.OnDismissListener;
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -63,6 +53,10 @@ import android.widget.Toast;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 
+import static android.view.KeyEvent.ACTION_DOWN;
+import static android.view.KeyEvent.META_SHIFT_ON;
+import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToScancode;
+
 
 public class Beebdroid extends Activity
 {
@@ -76,7 +70,7 @@ public class Beebdroid extends Activity
     int keyboardTextWait;
 	AudioTrack audio;
 	ByteBuffer audiobuff;
-    Handler handler = new Handler();
+    static Handler handler = new Handler();
     BeebView beebView;
     Keyboard keyboard;
     ControllerView controller;
@@ -101,7 +95,7 @@ public class Beebdroid extends Activity
     public native int bbcInitGl(int width, int height);
     public native void bbcLoadDisc(ByteBuffer disc, int autoboot);
     public native void bbcSetTriggers(short[] pc_triggers);
-    public native void bbcKeyEvent(int scancode, int flags, int down);
+    public static native void bbcKeyEvent(int scancode, int flags, int down);
     public native int bbcSerialize(byte[] buffer);
     public native void bbcDeserialize(byte[] buffer);
     public native int bbcGetThumbnail(Bitmap bmp);
@@ -144,7 +138,7 @@ public class Beebdroid extends Activity
             else {
             	if (keyboardTextEvents.size() > 0) {
 	            	final KeyEvent event = keyboardTextEvents.remove(0);
-	            	if (event.getAction() == KeyEvent.ACTION_DOWN) {
+	            	if (event.getAction() == ACTION_DOWN) {
 	            		onKeyDown(event.getKeyCode(), event);
 	            	}
 	            	if (event.getAction() == KeyEvent.ACTION_UP) {
@@ -159,17 +153,20 @@ public class Beebdroid extends Activity
             }
     	}
     };
-    
-    
-    
-    @Override
+
+	@Override
+	public void onBackPressed() {
+		bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
+	}
+
+	@Override
 	public boolean onKeyDown(int keycode, KeyEvent event) {
     	//Log.d(TAG, "onKeyDown " + keycode);
     	
     	if (isXperiaPlay && onXperiaKey(keycode, event, 1)) {
 			return true;
 		}
-    	
+
     	// If pressed 'back' while game loaded, reset the emulator rather than exit the app
     	if (keycode == KeyEvent.KEYCODE_BACK) {
     		if (diskInfo != null) {
@@ -180,6 +177,8 @@ public class Beebdroid extends Activity
     			showKeyboard(KeyboardState.KEYBOARD);
     			return true;
     		}
+    		bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
+    		return true;
     	}
     	/*if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
     		shiftDown = true;
@@ -187,10 +186,18 @@ public class Beebdroid extends Activity
     	else {
     		bbcKeyEvent(lookup(keycode), shiftDown?1:0, 1);
     	}*/
-    	if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
-    		shiftDown = true;
-    	}
-    	bbcKeyEvent(lookup(keycode), shiftDown?1:0, 1);
+
+		if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
+			shiftDown = true;
+		}
+		TextView t = (TextView) this.findViewById(R.id.info);
+		int scancode = unicodeToScancode(event);
+		t.setText(
+				event.getUnicodeChar() + " " + event.getUnicodeChar(META_SHIFT_ON) +
+						" " + Integer.toHexString(scancode) +
+						" " + KeyEvent.keyCodeToString(event.getKeyCode()));
+    	//if (scancode != 0) bbcKeyEvent(scancode, shiftDown?1:0, 1);
+    	if (scancode != 0) bbcKeyEvent(scancode, 0, 1);
     	return super.onKeyDown(keycode, event);
     }
     @Override
@@ -214,7 +221,11 @@ public class Beebdroid extends Activity
     	if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
     		shiftDown = false;
     	}
-    	bbcKeyEvent(lookup(keycode), shiftDown?1:0, 0);
+    	// bbcKeyEvent(lookup(keycode), shiftDown?1:0, 0);
+
+		int scancode = unicodeToScancode(event);
+		//if (scancode != 0) bbcKeyEvent(scancode, shiftDown?1:0, 0);
+		if (scancode != 0) bbcKeyEvent(scancode, 0, 0);
     	return super.onKeyUp(keycode, event);
     }
     
@@ -320,15 +331,9 @@ public class Beebdroid extends Activity
         beebView.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 1);
-				bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 1);
-				handler.postDelayed(new Runnable() {
-					@Override
-					public void run() {
-						bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 0);						
-						bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 0);
-					}					
-				}, 50);
+//				bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 1);
+//				bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 1);
+				bbcKeyTap(BeebKeys.BBCKEY_SPACE);
 				hintActioned("hint_space_to_start");
 			}        	
         });
@@ -422,6 +427,13 @@ public class Beebdroid extends Activity
     @Override
     public void onResume() {
     	super.onResume();
+    	handler.postDelayed(new Runnable() {
+								@Override
+								public void run() {
+									beebView.requestFocus();
+								}
+							}, 200
+			);
         handler.postDelayed(runInt50, 20);
         //showHint("hint_load_disks", R.string.hint_load_disks, 5);
     }
@@ -542,7 +554,7 @@ public class Beebdroid extends Activity
     
     
 
-    private int lookup(int keycode) {
+    int lookup(int keycode) {
     	switch (keycode) {
     	//case KeyEvent.KEYCODE_SHIFT_LEFT: return 0x00;
     	//case KeyEvent.KEYCODE_SHIFT_RIGHT: return 0x00;
@@ -615,7 +627,7 @@ public class Beebdroid extends Activity
 	}
 	public static boolean useDpad = false;
 	
-	public static class BeebView extends SurfaceView implements SurfaceHolder.Callback {
+	public static class BeebView extends SurfaceView implements SurfaceHolder.Callback, KeyEvent.Callback {
 		
 		// Emulated display
         static final int W = 672;
@@ -736,9 +748,51 @@ public class Beebdroid extends Activity
 	        getHolder().unlockCanvasAndPost(canvas);
 	    }*/
 
+		@Override
+		public boolean dispatchKeyEventPreIme(KeyEvent event) {
+			if (event.getAction() == ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+//			if (keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(InputDevice.SOURCE_KEYBOARD)) {
+				bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
+				return true;
+			}
+			return super.dispatchKeyEventPreIme(event);
+		}
 
+		@Override
+		public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+			if (keyCode == KeyEvent.KEYCODE_BACK) {
+//			if (keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(InputDevice.SOURCE_KEYBOARD)) {
+				bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
+				return true;
+			}
+			return super.onKeyPreIme(keyCode, event);
+		}
 
+		@Override
+		public boolean onKeyDown(int keyCode, KeyEvent event) {
+			if (keyCode == KeyEvent.KEYCODE_ENTER) {
+				bbcKeyTap(BeebKeys.BBCKEY_ENTER);
+				return true;
+			}
+			if (keyCode == KeyEvent.KEYCODE_BACK) {
+//			if (keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(InputDevice.SOURCE_KEYBOARD)) {
+				bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
+				return true;
+			}
+			return super.onKeyDown(keyCode, event);
+		}
 	}
+
+	static void bbcKeyTap(final int bbckeyCode) {
+		bbcKeyEvent(bbckeyCode, 0, 1);
+		handler.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				bbcKeyEvent(bbckeyCode, 0, 0);
+			}
+		}, 50);
+	}
+
 	public void videoCallback() {
 		fps++;
 		
@@ -847,9 +901,15 @@ public class Beebdroid extends Activity
         //startDisksActivity((diskInfo == null) ? 0 : 2); // i.e. start on 'Installed' tab if no disk loaded, 'Saved' tab if a disk *is* loaded
 	}
 	
-	
-	
-	
+	public void onKbMapClicked(View v) {
+		// While this is blue:
+		// 1. pressing a real keyboard key clears or creates a mapping from that key+modifiers to the last on-screen character (?with toast)
+		// 2. saving a file means the keyboard mapping, not the machine state.
+		// Presumably we should load the last mapping loaded (or saved?) automagically.
+		v.setSelected(!v.isSelected());
+		v.setBackgroundColor(v.isSelected() ? Color.BLUE : Color.DKGRAY);
+	}
+
 	/*
 	 * OpenGL help
 	 */
