@@ -187,7 +187,7 @@ public class SavedGameInfo {
 			dout.close();
 			timestamp = System.currentTimeMillis();
 			current = this;
-			Toast.makeText(beebdroid, "Saved", Toast.LENGTH_SHORT).show();
+			Toast.makeText(beebdroid, "Saved " + filename, Toast.LENGTH_SHORT).show();
 		}
 		catch (IOException ex) {
 			String text = "Error saving state: " + ex;

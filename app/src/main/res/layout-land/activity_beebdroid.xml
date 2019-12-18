@@ -51,7 +51,7 @@
 	android:layout_height="48dp"
 	android:background="@drawable/tab"
 	android:src="@drawable/save"
-	android:onClick="onSaveClicked"
+	android:onClick="onOpenClicked"
 	android:layout_alignParentRight="true"
 />
 

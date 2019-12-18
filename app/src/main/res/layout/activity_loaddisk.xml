@@ -33,6 +33,15 @@
                 android:text="Close"
                 android:onClick="onCloseClicked"/>
 
+            <Button
+                android:id="@+id/save"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Save as new"
+                android:onClick="onSaveClicked"/>
+
         </LinearLayout>
     </LinearLayout>
 </android.support.v4.app.FragmentTabHost>

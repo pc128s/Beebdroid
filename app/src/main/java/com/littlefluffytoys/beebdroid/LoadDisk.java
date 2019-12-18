@@ -380,6 +380,12 @@ public class LoadDisk extends AppCompatActivity implements FilePickerFragment.On
         finish();
     }
 
+    public void onSaveClicked(View view) {
+        Toast.makeText(getApplicationContext(), "onSaveClicked", Toast.LENGTH_SHORT).show();
+        setResult(ID_RESULT_SAVE);
+        finish();
+    }
+
     public  void onFilePicked(Uri file) {
         DiskInfo localDisk = new DiskInfo();
         localDisk.key = file.toString();
