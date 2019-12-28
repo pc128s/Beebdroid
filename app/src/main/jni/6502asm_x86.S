@@ -108,7 +108,7 @@ exec6502:
 	pusha
 
 	# Keep CPU* in EBP
-	lea  ebp,acpu
+	// NOT-PIC lea  ebp,acpu
 
     # update cpu->cycles. Note the constant value 40000 cannot be encoded and has to be ldr'd indirectly.
     mov   eax,[ ebp+24]
@@ -134,7 +134,7 @@ loop:
 	inc  di
 
 	# Get the ASM function. If this doesnt exist, fall back to C version.
-	lea   ebx, fns_asm
+	// NOT-PIC lea   ebx, fns_asm
 	mov   ebx, [ ebx +  eax*4]
 	cmp   ebx, 0
 	jz  use_c_fn
@@ -145,7 +145,7 @@ loop:
 
 	# Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
 use_c_fn:
-	lea   ebx, fns
+	// NOT-PIC lea   ebx, fns
 	mov   ebx, [ ebx +  eax*4]
     mov [ ebp+4],  di 	#  di = PC
     mov [ ebp+6],  cl 	#  cl = A
@@ -209,7 +209,7 @@ no_interrupt:
 	C_CALL_PRE
 	push  eax
 	push  ebp
- 	call do_poll
+ 	//NOT-PIC call do_poll_C
  	add  esp,8
  	C_CALL_POST
 
@@ -246,7 +246,7 @@ no_interrupt:
 1:
 	C_CALL_PRE
 	push \addr16  # push s/w/
-	call readmem_ex
+	//NOT-PIC call readmem_ex
 	add  esp,2
 	C_CALL_POST
 2:
@@ -267,7 +267,7 @@ no_interrupt:
 1:
 	C_CALL_PRE
 	push \src  # s/w/
-	call readword_ex
+	//NOT-PIC call readword_ex
 	add  esp,2
 	C_CALL_POST
 2:
@@ -295,7 +295,7 @@ no_interrupt:
 	push  ax
 	push 0
 	push  bx
-	call writemem_ex
+	//NOT-PIC call writemem_ex
 	add  esp, 8
 	C_CALL_POST
 2:
@@ -424,7 +424,7 @@ no_interrupt:
 	C_CALL_PRE
 	push  eax
 	push  ebp   			# r0=cpu*, r1=imm
-	call adc_bcd
+	//NOT-PIC call adc_bcd_C
 	add  esp, 8
 	C_CALL_POST
 	mov  cl, [ ebp+6]	    # update A
@@ -1597,7 +1597,7 @@ opasm_rts:
 	C_CALL_PRE
 	push  eax
 	push  ebp
-	call sbc_bcd
+	//MOT-PIC call sbc_bcd_C
 	add  esp, 8
 	C_CALL_POST
 	mov  cl,  [ ebp+6]     # update A
@@ -1845,7 +1845,7 @@ opasm_tya:
 opasm_undef:
 	C_CALL_PRE
 	push  ebp
-	call log_undef_opcode
+	//NOT-PIC call log_undef_opcode_C
 	add  esp, 4
 	C_CALL_POST
 	dec  di                  # cpu->pc--;      	// PC never moves on
@@ -1855,264 +1855,264 @@ opasm_undef:
 
 
 
-.section .rodata
+// .section .rodata
 .balign 4
 
 fns_asm:
 	.long 0 				// 0x00 BRK
-	.long opasm_ora_indzx 	// 0x01 ORA (,x)
-	.long opasm_undef
-	.long opasm_slo_indzx   // 0x03: SLO (,x)		undocumented
-	.long opasm_nop_zp  	// 0x04: NOP zp			undocumented
-	.long opasm_ora_zp		// 0x05: ORA zp
-	.long opasm_asl_zp		// 0x06: ASL zp
-	.long opasm_slo_zp  	// 0x07: SLO zp			undocumented
-	.long opasm_php     	// 0x08: PHP
-	.long opasm_ora_imm 	// 0x09: ORA imm
-	.long opasm_asl_a   	// 0x0A: ASL A
+	.long 0 - fns_asm + opasm_ora_indzx 	// 0x01 ORA (,x)
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_slo_indzx   // 0x03: SLO (,x)		undocumented
+	.long 0 - fns_asm + opasm_nop_zp  	// 0x04: NOP zp			undocumented
+	.long 0 - fns_asm + opasm_ora_zp		// 0x05: ORA zp
+	.long 0 - fns_asm + opasm_asl_zp		// 0x06: ASL zp
+	.long 0 - fns_asm + opasm_slo_zp  	// 0x07: SLO zp			undocumented
+	.long 0 - fns_asm + opasm_php     	// 0x08: PHP
+	.long 0 - fns_asm + opasm_ora_imm 	// 0x09: ORA imm
+	.long 0 - fns_asm + opasm_asl_a   	// 0x0A: ASL A
 	.long 0 				// 0x0B: ANC imm		undocumented
-	.long opasm_nop_abs 	// 0x0C: NOP abs		undocumented
-	.long opasm_ora_abs 	// 0x0D: ORA abs
-	.long opasm_asl_abs		// 0x0E: ASL abs
-	.long opasm_slo_abs 	// 0x0F: SLO abs		undocumented
-	.long opasm_bpl 		// 0x10: BPL
-	.long opasm_ora_indzy  	// 0x11: ORA (),y
-	.long opasm_undef
-	.long opasm_slo_indzy   // 0x13: SLO (),y		undocumented
-	.long opasm_nop_zp_x	// 0x14: NOP zp,x		undocumented
-	.long opasm_ora_zp_x	// 0x15: ORA zp,x
-	.long opasm_asl_zp_x	// 0x16: ASL zp,x
-	.long opasm_slo_zp_x	// 0x17: SLO zp,x		undocumented
-	.long opasm_clc 		// 0x18: CLC
-	.long opasm_ora_abs_y	// 0x19: ORA abs,y
-	.long opasm_nop     	// 0x1A: NOP			undocumented
-	.long opasm_slo_abs_y	// 0x1B: SLO abs,y		undocumented
-	.long opasm_nop_abs_x	// 0x1C: NOP abs,x		undocumented
-	.long opasm_ora_abs_x	// 0x1D: ORA abs,x
-	.long opasm_asl_abs_x	// 0x1E: ASL abs,x
-	.long opasm_slo_abs_x	// 0x1F: SLO abs,x		undocumented
-	.long opasm_jsr     	// 0x20: JSR
-	.long opasm_and_indzx   // 0x21: AND (,x)
-	.long opasm_undef
-	.long opasm_rla_indzx	// 0x23: RLA (,x)		undocumented
-	.long opasm_bit_zp		// 0x24: BIT zp
-	.long opasm_and_zp		// 0x25: AND zp
-	.long opasm_rol_zp  	// 0x26: ROL zp
-	.long opasm_rla_zp  	// 0x27: RLA zp			undocumented
-	.long opasm_plp     	// 0x28: PLP
-	.long opasm_and_imm		// 0x29: AND
-	.long opasm_rol_a   	// 0x2A: ROL A
+	.long 0 - fns_asm + opasm_nop_abs 	// 0x0C: NOP abs		undocumented
+	.long 0 - fns_asm + opasm_ora_abs 	// 0x0D: ORA abs
+	.long 0 - fns_asm + opasm_asl_abs		// 0x0E: ASL abs
+	.long 0 - fns_asm + opasm_slo_abs 	// 0x0F: SLO abs		undocumented
+	.long 0 - fns_asm + opasm_bpl 		// 0x10: BPL
+	.long 0 - fns_asm + opasm_ora_indzy  	// 0x11: ORA (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_slo_indzy   // 0x13: SLO (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x14: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_ora_zp_x	// 0x15: ORA zp,x
+	.long 0 - fns_asm + opasm_asl_zp_x	// 0x16: ASL zp,x
+	.long 0 - fns_asm + opasm_slo_zp_x	// 0x17: SLO zp,x		undocumented
+	.long 0 - fns_asm + opasm_clc 		// 0x18: CLC
+	.long 0 - fns_asm + opasm_ora_abs_y	// 0x19: ORA abs,y
+	.long 0 - fns_asm + opasm_nop     	// 0x1A: NOP			undocumented
+	.long 0 - fns_asm + opasm_slo_abs_y	// 0x1B: SLO abs,y		undocumented
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0x1C: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_ora_abs_x	// 0x1D: ORA abs,x
+	.long 0 - fns_asm + opasm_asl_abs_x	// 0x1E: ASL abs,x
+	.long 0 - fns_asm + opasm_slo_abs_x	// 0x1F: SLO abs,x		undocumented
+	.long 0 - fns_asm + opasm_jsr     	// 0x20: JSR
+	.long 0 - fns_asm + opasm_and_indzx   // 0x21: AND (,x)
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rla_indzx	// 0x23: RLA (,x)		undocumented
+	.long 0 - fns_asm + opasm_bit_zp		// 0x24: BIT zp
+	.long 0 - fns_asm + opasm_and_zp		// 0x25: AND zp
+	.long 0 - fns_asm + opasm_rol_zp  	// 0x26: ROL zp
+	.long 0 - fns_asm + opasm_rla_zp  	// 0x27: RLA zp			undocumented
+	.long 0 - fns_asm + opasm_plp     	// 0x28: PLP
+	.long 0 - fns_asm + opasm_and_imm		// 0x29: AND
+	.long 0 - fns_asm + opasm_rol_a   	// 0x2A: ROL A
 	.long 0 				// 0x2B: ANC imm		undocumented
-	.long opasm_bit_abs		// 0x2C: BIT abs
-	.long opasm_and_abs		// 0x2D: AND abs
-	.long opasm_rol_abs		// 0x2E: ROL abs
-	.long opasm_rla_abs 	// 0x2F: RLA abs		undocumented
-	.long opasm_bmi 		// 0x30: BMI
-	.long opasm_and_indzy   // 0x31: AND (),y
-	.long opasm_undef
-	.long opasm_rla_indzy   // 0x33: RLA (),y		undocumented
-	.long opasm_nop_zp_x	// 0x34: NOP zp,x		undocumented
-	.long opasm_and_zp_x	// 0x35: AND zp,x
-	.long opasm_rol_zp_x	// 0x36: ROL zp,x
-	.long opasm_rla_zp_x	// 0x37: RLA zp,x		undocumented
-	.long opasm_sec 		// 0x38: SEC
-	.long opasm_and_abs_y	// 0x39: AND abs,y
-	.long opasm_nop	    	// 0x3A: NOP			undocumented
-	.long opasm_rla_abs_y	// 0x3B: RLA abs,y		undocumented
-	.long opasm_nop_abs_x	// 0x3C: NOP abs,x		undocumented
-	.long opasm_and_abs_x	// 0x3D: AND abs,x
-	.long opasm_rol_abs_x	// 0x3E: ROL abs,x
-	.long opasm_rla_abs_x	// 0x3F: RLA abs,x		undocumented
-	.long opasm_rti			// 0x40: RTI
-	.long opasm_eor_indzx	// 0x41: EOR (,x)
-	.long opasm_undef
+	.long 0 - fns_asm + opasm_bit_abs		// 0x2C: BIT abs
+	.long 0 - fns_asm + opasm_and_abs		// 0x2D: AND abs
+	.long 0 - fns_asm + opasm_rol_abs		// 0x2E: ROL abs
+	.long 0 - fns_asm + opasm_rla_abs 	// 0x2F: RLA abs		undocumented
+	.long 0 - fns_asm + opasm_bmi 		// 0x30: BMI
+	.long 0 - fns_asm + opasm_and_indzy   // 0x31: AND (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rla_indzy   // 0x33: RLA (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x34: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_and_zp_x	// 0x35: AND zp,x
+	.long 0 - fns_asm + opasm_rol_zp_x	// 0x36: ROL zp,x
+	.long 0 - fns_asm + opasm_rla_zp_x	// 0x37: RLA zp,x		undocumented
+	.long 0 - fns_asm + opasm_sec 		// 0x38: SEC
+	.long 0 - fns_asm + opasm_and_abs_y	// 0x39: AND abs,y
+	.long 0 - fns_asm + opasm_nop	    	// 0x3A: NOP			undocumented
+	.long 0 - fns_asm + opasm_rla_abs_y	// 0x3B: RLA abs,y		undocumented
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0x3C: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_and_abs_x	// 0x3D: AND abs,x
+	.long 0 - fns_asm + opasm_rol_abs_x	// 0x3E: ROL abs,x
+	.long 0 - fns_asm + opasm_rla_abs_x	// 0x3F: RLA abs,x		undocumented
+	.long 0 - fns_asm + opasm_rti			// 0x40: RTI
+	.long 0 - fns_asm + opasm_eor_indzx	// 0x41: EOR (,x)
+	.long 0 - fns_asm + opasm_undef
 	.long 0   				// 0x43: SRE (,x)		undocumented
-	.long opasm_nop_zp  	// 0x44: NOP zp
-	.long opasm_eor_zp  	// 0x45: EOR zp
-	.long opasm_lsr_zp  	// 0x46: LSR zp
+	.long 0 - fns_asm + opasm_nop_zp  	// 0x44: NOP zp
+	.long 0 - fns_asm + opasm_eor_zp  	// 0x45: EOR zp
+	.long 0 - fns_asm + opasm_lsr_zp  	// 0x46: LSR zp
 	.long 0  				// 0x47: SRE zp			undocumented
-	.long opasm_pha     	// 0x48: PHA
-	.long opasm_eor_imm 	// 0x49: EOR imm
-	.long opasm_lsr_a   	// 0x4A: LSR A
+	.long 0 - fns_asm + opasm_pha     	// 0x48: PHA
+	.long 0 - fns_asm + opasm_eor_imm 	// 0x49: EOR imm
+	.long 0 - fns_asm + opasm_lsr_a   	// 0x4A: LSR A
 	.long 0 				// 0x4B: ASR imm		undocumented
-	.long opasm_jmp			// 0x4C: JMP
-	.long opasm_eor_abs		// 0x4D: EOR abs
-	.long opasm_lsr_abs		// 0x4E: LSR abs
+	.long 0 - fns_asm + opasm_jmp			// 0x4C: JMP
+	.long 0 - fns_asm + opasm_eor_abs		// 0x4D: EOR abs
+	.long 0 - fns_asm + opasm_lsr_abs		// 0x4E: LSR abs
 	.long 0 				// 0x4F: SRE abs		undocumented
-	.long opasm_bvc 		// 0x50: BVC
-	.long opasm_eor_indzy	// 0x51: EOR (),y
-	.long opasm_undef
+	.long 0 - fns_asm + opasm_bvc 		// 0x50: BVC
+	.long 0 - fns_asm + opasm_eor_indzy	// 0x51: EOR (),y
+	.long 0 - fns_asm + opasm_undef
 	.long 0   				// 0x53: SRE (),y		undocumented
-	.long opasm_nop_zp_x	// 0x54: NOP zp,x
-	.long opasm_eor_zp_x	// 0x55: EOR zp,x
-	.long opasm_lsr_zp_x	// 0x56: LSR zp,x
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x54: NOP zp,x
+	.long 0 - fns_asm + opasm_eor_zp_x	// 0x55: EOR zp,x
+	.long 0 - fns_asm + opasm_lsr_zp_x	// 0x56: LSR zp,x
 	.long 0					// 0x57: SRE zp,x		undocumented
-	.long opasm_cli     	// 0x58: CLI
-	.long opasm_eor_abs_y	// 0x59: EOR abs,y
-	.long opasm_nop 		// 0x5A: NOP			undocumented
+	.long 0 - fns_asm + opasm_cli     	// 0x58: CLI
+	.long 0 - fns_asm + opasm_eor_abs_y	// 0x59: EOR abs,y
+	.long 0 - fns_asm + opasm_nop 		// 0x5A: NOP			undocumented
 	.long 0					// 0x5B: SRE abs,y		undocumented
-	.long opasm_nop_abs_x	// 0x5C: NOP abs,x		undocumented
-	.long opasm_eor_abs_x	// 0x5D: EOR abs,x
-	.long opasm_lsr_abs_x	// 0x5E: LSR abs,x
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0x5C: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_eor_abs_x	// 0x5D: EOR abs,x
+	.long 0 - fns_asm + opasm_lsr_abs_x	// 0x5E: LSR abs,x
 	.long 0					// 0x5F: SRE abs,x		undocumented
-	.long opasm_rts 		// 0x60: RTS
-	.long opasm_adc_indzx   // 0x61: ADC (,x)
-	.long opasm_undef
-	.long opasm_rra_indzx   // 0x63: RRA (,x)		undocumented
-	.long opasm_nop_zp  	// 0x64: NOP zp			undocumented
-	.long opasm_adc_zp  	// 0x65: ADC zp
-	.long opasm_ror_zp		// 0x66: ROR zp
-	.long opasm_rra_zp  	// 0x67: RRA zp			undocumented
-	.long opasm_pla    		// 0x68: PLA
-	.long opasm_adc_imm 	// 0x69: ADC imm
-	.long opasm_ror_a   	// 0x6A: ROR A
+	.long 0 - fns_asm + opasm_rts 		// 0x60: RTS
+	.long 0 - fns_asm + opasm_adc_indzx   // 0x61: ADC (,x)
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rra_indzx   // 0x63: RRA (,x)		undocumented
+	.long 0 - fns_asm + opasm_nop_zp  	// 0x64: NOP zp			undocumented
+	.long 0 - fns_asm + opasm_adc_zp  	// 0x65: ADC zp
+	.long 0 - fns_asm + opasm_ror_zp		// 0x66: ROR zp
+	.long 0 - fns_asm + opasm_rra_zp  	// 0x67: RRA zp			undocumented
+	.long 0 - fns_asm + opasm_pla    		// 0x68: PLA
+	.long 0 - fns_asm + opasm_adc_imm 	// 0x69: ADC imm
+	.long 0 - fns_asm + opasm_ror_a   	// 0x6A: ROR A
 	.long 0     			// 0x6B: ARR			undocumented
-	.long opasm_jmp_ind		// 0x6C: JMP ()
-	.long opasm_adc_abs 	// 0x6D: ADC abs
-	.long opasm_ror_abs 	// 0x6E: ROR abs
-	.long opasm_rra_abs 	// 0x6F: RRA abs		undocumented
-	.long opasm_bvs     	// 0x70: BVS
-	.long opasm_adc_indzy   // 0x71: ADC (),y
-	.long opasm_undef
-	.long opasm_rra_indzy  	// 0x73: RRA (),y		undocumented
-	.long opasm_nop_zp_x	// 0x74: NOP zp,x		undocumented
-	.long opasm_adc_zp_x 	// 0x75: ADC zp,x
-	.long opasm_ror_zp_x	// 0x76: ROR zp,x
-	.long opasm_rra_zp_x	// 0x77: RRA zp,x		undocumented
-	.long opasm_sei     	// 0x78: SEI
-	.long opasm_adc_abs_y	// 0x79: ADC abs,y
-	.long opasm_nop			// 0x7A: NOP			undocumented
-	.long opasm_rra_abs_y	// 0x7B: RRA abs,y		undocumented
-	.long opasm_undef
-	.long opasm_adc_abs_x	// 0x7D: ADC abs,x
-	.long opasm_ror_abs_x	// 0x7E: ROR abs,x
-	.long opasm_rra_abs_x	// 0x7F: RRA abs,x		undocumented
-	.long opasm_nop_imm  	// 0x80: NOP imm		undocumented
-	.long opasm_sta_indzx	// 0x81: STA (,x)
-	.long opasm_nop_imm 	// 0x82: NOP imm		undocumented
+	.long 0 - fns_asm + opasm_jmp_ind		// 0x6C: JMP ()
+	.long 0 - fns_asm + opasm_adc_abs 	// 0x6D: ADC abs
+	.long 0 - fns_asm + opasm_ror_abs 	// 0x6E: ROR abs
+	.long 0 - fns_asm + opasm_rra_abs 	// 0x6F: RRA abs		undocumented
+	.long 0 - fns_asm + opasm_bvs     	// 0x70: BVS
+	.long 0 - fns_asm + opasm_adc_indzy   // 0x71: ADC (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rra_indzy  	// 0x73: RRA (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x74: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_adc_zp_x 	// 0x75: ADC zp,x
+	.long 0 - fns_asm + opasm_ror_zp_x	// 0x76: ROR zp,x
+	.long 0 - fns_asm + opasm_rra_zp_x	// 0x77: RRA zp,x		undocumented
+	.long 0 - fns_asm + opasm_sei     	// 0x78: SEI
+	.long 0 - fns_asm + opasm_adc_abs_y	// 0x79: ADC abs,y
+	.long 0 - fns_asm + opasm_nop			// 0x7A: NOP			undocumented
+	.long 0 - fns_asm + opasm_rra_abs_y	// 0x7B: RRA abs,y		undocumented
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_adc_abs_x	// 0x7D: ADC abs,x
+	.long 0 - fns_asm + opasm_ror_abs_x	// 0x7E: ROR abs,x
+	.long 0 - fns_asm + opasm_rra_abs_x	// 0x7F: RRA abs,x		undocumented
+	.long 0 - fns_asm + opasm_nop_imm  	// 0x80: NOP imm		undocumented
+	.long 0 - fns_asm + opasm_sta_indzx	// 0x81: STA (,x)
+	.long 0 - fns_asm + opasm_nop_imm 	// 0x82: NOP imm		undocumented
 	.long 0   				// 0x83: SAX (,x)		undocumented
-	.long opasm_sty_zp  	// 0x84: STY zp
-	.long opasm_sta_zp  	// 0x85: STA zp
-	.long opasm_stx_zp  	// 0x86: STX zp
+	.long 0 - fns_asm + opasm_sty_zp  	// 0x84: STY zp
+	.long 0 - fns_asm + opasm_sta_zp  	// 0x85: STA zp
+	.long 0 - fns_asm + opasm_stx_zp  	// 0x86: STX zp
 	.long 0  				// 0x87: SAX zp			undocumented
-	.long opasm_dey     	// 0x88: DEY
-	.long opasm_nop_imm 	// 0x89: NOP imm		undocumented
-	.long opasm_txa     	// 0x8A: TXA
+	.long 0 - fns_asm + opasm_dey     	// 0x88: DEY
+	.long 0 - fns_asm + opasm_nop_imm 	// 0x89: NOP imm		undocumented
+	.long 0 - fns_asm + opasm_txa     	// 0x8A: TXA
 	.long 0     			// 0x8B: ANE			undocumented
-	.long opasm_sty_abs 	// 0x8C: STY abs
-	.long opasm_sta_abs 	// 0x8D: STA abs
-	.long opasm_stx_abs 	// 0x8E: STX abs
+	.long 0 - fns_asm + opasm_sty_abs 	// 0x8C: STY abs
+	.long 0 - fns_asm + opasm_sta_abs 	// 0x8D: STA abs
+	.long 0 - fns_asm + opasm_stx_abs 	// 0x8E: STX abs
 	.long 0 				// 0x8F: SAX abs		undocumented
-	.long opasm_bcc     	// 0x90: BCC
-	.long opasm_sta_indzy	// 0x91: STA (),y
-	.long opasm_undef
+	.long 0 - fns_asm + opasm_bcc     	// 0x90: BCC
+	.long 0 - fns_asm + opasm_sta_indzy	// 0x91: STA (),y
+	.long 0 - fns_asm + opasm_undef
 	.long 0   				// 0x93: SHA (),y		undocumented
-	.long opasm_sty_zp_x	// 0x94: STY zp,x
-	.long opasm_sta_zp_x	// 0x95: STA zp,x
-	.long opasm_stx_zp_y	// 0x96: STX zp,y
+	.long 0 - fns_asm + opasm_sty_zp_x	// 0x94: STY zp,x
+	.long 0 - fns_asm + opasm_sta_zp_x	// 0x95: STA zp,x
+	.long 0 - fns_asm + opasm_stx_zp_y	// 0x96: STX zp,y
 	.long 0					// 0x97: SAX zp,y		undocumented
-	.long opasm_tya     	// 0x98: TYA
-	.long opasm_sta_abs_y	// 0x99: STA abs,y
-	.long opasm_txs     	// 0x9A: TXS
+	.long 0 - fns_asm + opasm_tya     	// 0x98: TYA
+	.long 0 - fns_asm + opasm_sta_abs_y	// 0x99: STA abs,y
+	.long 0 - fns_asm + opasm_txs     	// 0x9A: TXS
 	.long 0					// 0x9B: SHS abs,y		undocumented
 	.long 0					// 0x9C: SHY abs,x		undocumented
-	.long opasm_sta_abs_x	// 0x9D: STA abs,x
+	.long 0 - fns_asm + opasm_sta_abs_x	// 0x9D: STA abs,x
 	.long 0					// 0x9E: SHX abs,y		undocumented
 	.long 0					// 0x9F: SHA abs,y		undocumented
-	.long opasm_ldy_imm 	// 0xA0: LDY imm
-	.long opasm_lda_indzx   // 0xA1: LDA (,x)
-	.long opasm_ldx_imm 	// 0xA2: LDX imm
+	.long 0 - fns_asm + opasm_ldy_imm 	// 0xA0: LDY imm
+	.long 0 - fns_asm + opasm_lda_indzx   // 0xA1: LDA (,x)
+	.long 0 - fns_asm + opasm_ldx_imm 	// 0xA2: LDX imm
 	.long 0   				// 0xA3: LAX (,y)		undocumented
-	.long opasm_ldy_zp  	// 0xA4: LDY zp
-	.long opasm_lda_zp  	// 0xA5: LDA zp
-	.long opasm_ldx_zp		// 0xA6: LDX zp
+	.long 0 - fns_asm + opasm_ldy_zp  	// 0xA4: LDY zp
+	.long 0 - fns_asm + opasm_lda_zp  	// 0xA5: LDA zp
+	.long 0 - fns_asm + opasm_ldx_zp		// 0xA6: LDX zp
 	.long 0  				// 0xA7: LAX zp			undocumented
-	.long opasm_tay     	// 0xA8: TAY
-	.long opasm_lda_imm 	// 0xA9: LDA imm
-	.long opasm_tax     	// 0xAA: TAX
+	.long 0 - fns_asm + opasm_tay     	// 0xA8: TAY
+	.long 0 - fns_asm + opasm_lda_imm 	// 0xA9: LDA imm
+	.long 0 - fns_asm + opasm_tax     	// 0xAA: TAX
 	.long 0     			// 0xAB: LAX			undocumented
-	.long opasm_ldy_abs 	// 0xAC: LDY abs
-	.long opasm_lda_abs 	// 0xAD: LDA abs
-	.long opasm_ldx_abs 	// 0xAE: LDX abs
+	.long 0 - fns_asm + opasm_ldy_abs 	// 0xAC: LDY abs
+	.long 0 - fns_asm + opasm_lda_abs 	// 0xAD: LDA abs
+	.long 0 - fns_asm + opasm_ldx_abs 	// 0xAE: LDX abs
 	.long 0 				// 0xAF: LAX abs
-	.long opasm_bcs     	// 0xB0: BCS
-	.long opasm_lda_y   	// 0xB1: LDA (),y
-	.long opasm_undef
+	.long 0 - fns_asm + opasm_bcs     	// 0xB0: BCS
+	.long 0 - fns_asm + opasm_lda_y   	// 0xB1: LDA (),y
+	.long 0 - fns_asm + opasm_undef
 	.long 0  				// 0xB3: LAX (),y
-	.long opasm_ldy_zp_x	// 0xB4: LDY zp,x
-	.long opasm_lda_zp_x	// 0xB5: LDA zp,x
-	.long opasm_ldx_zp_y	// 0xB6: LDX zp,y
-	.long opasm_lax_zp_y	// 0xB7: LAX zp,y
-	.long opasm_clv     	// 0xB8: CLV
-	.long opasm_lda_abs_y	// 0xB9: LDA abs,y
-	.long opasm_tsx     	// 0xBA: TSX
+	.long 0 - fns_asm + opasm_ldy_zp_x	// 0xB4: LDY zp,x
+	.long 0 - fns_asm + opasm_lda_zp_x	// 0xB5: LDA zp,x
+	.long 0 - fns_asm + opasm_ldx_zp_y	// 0xB6: LDX zp,y
+	.long 0 - fns_asm + opasm_lax_zp_y	// 0xB7: LAX zp,y
+	.long 0 - fns_asm + opasm_clv     	// 0xB8: CLV
+	.long 0 - fns_asm + opasm_lda_abs_y	// 0xB9: LDA abs,y
+	.long 0 - fns_asm + opasm_tsx     	// 0xBA: TSX
 	.long 0					// 0xBB: LAS abs,y		undocumented
-	.long opasm_ldy_abs_x	// 0xBC: LDY abs,x
-	.long opasm_lda_abs_x	// 0xBD: LDA abs,x
-	.long opasm_ldx_abs_y	// 0xBE: LDX abs,y
+	.long 0 - fns_asm + opasm_ldy_abs_x	// 0xBC: LDY abs,x
+	.long 0 - fns_asm + opasm_lda_abs_x	// 0xBD: LDA abs,x
+	.long 0 - fns_asm + opasm_ldx_abs_y	// 0xBE: LDX abs,y
 	.long 0					// 0xBF: LAX abs,y
-	.long opasm_cpy_imm 	// 0xC0: CPY imm
-	.long opasm_cmp_indzx	// 0xC1: CMP (,x)
-	.long opasm_nop_imm 	// 0xC2: NOP imm		undocumented
+	.long 0 - fns_asm + opasm_cpy_imm 	// 0xC0: CPY imm
+	.long 0 - fns_asm + opasm_cmp_indzx	// 0xC1: CMP (,x)
+	.long 0 - fns_asm + opasm_nop_imm 	// 0xC2: NOP imm		undocumented
 	.long 0					// 0xC3: DCP (,x)		undocumented
-	.long opasm_cpy_zp  	// 0xC4: CPY zp
-	.long opasm_cmp_zp		// 0xC5: CMP zp
-	.long opasm_dec_zp  	// 0xC6: DEC zp
+	.long 0 - fns_asm + opasm_cpy_zp  	// 0xC4: CPY zp
+	.long 0 - fns_asm + opasm_cmp_zp		// 0xC5: CMP zp
+	.long 0 - fns_asm + opasm_dec_zp  	// 0xC6: DEC zp
 	.long 0  				// 0xC7: DCP zp			undocumented
-	.long opasm_iny     	// 0xC8: INY
-	.long opasm_cmp_imm 	// 0xC9: CMP imm
-	.long opasm_dex     	// 0xCA: DEX
+	.long 0 - fns_asm + opasm_iny     	// 0xC8: INY
+	.long 0 - fns_asm + opasm_cmp_imm 	// 0xC9: CMP imm
+	.long 0 - fns_asm + opasm_dex     	// 0xCA: DEX
 	.long 0 				// 0xCB: SBX imm		undocumented
-	.long opasm_cpy_abs		// 0xCC: CPY abs
-	.long opasm_cmp_abs		// 0xCD: CMP abs
-	.long opasm_dec_abs		// 0xCE: DEC abs
+	.long 0 - fns_asm + opasm_cpy_abs		// 0xCC: CPY abs
+	.long 0 - fns_asm + opasm_cmp_abs		// 0xCD: CMP abs
+	.long 0 - fns_asm + opasm_dec_abs		// 0xCE: DEC abs
 	.long 0 				// 0xCF: DCP abs		undocumented
-	.long opasm_bne     	// 0xD0: BNE
-	.long opasm_cmp_indzy	// 0xD1: CMP (),y
-	.long opasm_undef
+	.long 0 - fns_asm + opasm_bne     	// 0xD0: BNE
+	.long 0 - fns_asm + opasm_cmp_indzy	// 0xD1: CMP (),y
+	.long 0 - fns_asm + opasm_undef
 	.long 0					// 0xD3: DCP (),y		undocumented
-	.long opasm_nop_zp_x	// 0xD4: NOP zp,x		undocumented
-	.long opasm_cmp_zp_x	// 0xD5: CMP zp,x
-	.long opasm_dec_zp_x	// 0xD6: DEC zp,x
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0xD4: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_cmp_zp_x	// 0xD5: CMP zp,x
+	.long 0 - fns_asm + opasm_dec_zp_x	// 0xD6: DEC zp,x
 	.long 0					// 0xD7: DCP zp,x		undocumented
-	.long opasm_cld     	// 0xD8: CLD
-	.long opasm_cmp_abs_y	// 0xD9: CMP abs,y
-	.long opasm_nop     	// 0xDA: NOP			undocumented
+	.long 0 - fns_asm + opasm_cld     	// 0xD8: CLD
+	.long 0 - fns_asm + opasm_cmp_abs_y	// 0xD9: CMP abs,y
+	.long 0 - fns_asm + opasm_nop     	// 0xDA: NOP			undocumented
 	.long 0					// 0xDB: DCP abs,y		undocumented
-	.long opasm_nop_abs_x	// 0xDC: NOP abs,x		undocumented
-	.long opasm_cmp_abs_x	// 0xDD: CMP abs,x
-	.long opasm_dec_abs_x	// 0xDE: DEC abs,x
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0xDC: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_cmp_abs_x	// 0xDD: CMP abs,x
+	.long 0 - fns_asm + opasm_dec_abs_x	// 0xDE: DEC abs,x
 	.long 0					// 0xDF: DCP abs,x		undocumented
-	.long opasm_cpx_imm 	// 0xE0: CPX imm
-	.long opasm_sbc_indzx	// 0xE1: SBC (,x)
-	.long opasm_nop_imm 	// 0xE2: NOP imm		undocumented
+	.long 0 - fns_asm + opasm_cpx_imm 	// 0xE0: CPX imm
+	.long 0 - fns_asm + opasm_sbc_indzx	// 0xE1: SBC (,x)
+	.long 0 - fns_asm + opasm_nop_imm 	// 0xE2: NOP imm		undocumented
 	.long 0					// 0xE3: ISB (,x)		undocumented
-	.long opasm_cpx_zp  	// 0xE4: CPX zp
-	.long opasm_sbc_zp  	// 0xE5: SBC zp
-	.long opasm_inc_zp  	// 0xE6: INC zp
+	.long 0 - fns_asm + opasm_cpx_zp  	// 0xE4: CPX zp
+	.long 0 - fns_asm + opasm_sbc_zp  	// 0xE5: SBC zp
+	.long 0 - fns_asm + opasm_inc_zp  	// 0xE6: INC zp
 	.long 0  				// 0xE7: ISB zp			undocumented
-	.long opasm_inx     	// 0xE8: INX
-	.long opasm_sbc_imm 	// 0xE9: SBC imm
-	.long opasm_nop     	// 0xEA: NOP
-	.long opasm_sbc_imm 	// 0xEB: SBC imm		undocumented
-	.long opasm_cpx_abs		// 0xEC: CPX abs
-	.long opasm_sbc_abs 	// 0xED: SBC abs
-	.long opasm_inc_abs 	// 0xEE: INC abs
+	.long 0 - fns_asm + opasm_inx     	// 0xE8: INX
+	.long 0 - fns_asm + opasm_sbc_imm 	// 0xE9: SBC imm
+	.long 0 - fns_asm + opasm_nop     	// 0xEA: NOP
+	.long 0 - fns_asm + opasm_sbc_imm 	// 0xEB: SBC imm		undocumented
+	.long 0 - fns_asm + opasm_cpx_abs		// 0xEC: CPX abs
+	.long 0 - fns_asm + opasm_sbc_abs 	// 0xED: SBC abs
+	.long 0 - fns_asm + opasm_inc_abs 	// 0xEE: INC abs
 	.long 0 				// 0xEF: ISB abs		undocumented
-	.long opasm_beq    		// 0xF0: BEQ
-	.long opasm_sbc_indzy	// 0xF1: SBC (),y
-	.long opasm_undef
+	.long 0 - fns_asm + opasm_beq    		// 0xF0: BEQ
+	.long 0 - fns_asm + opasm_sbc_indzy	// 0xF1: SBC (),y
+	.long 0 - fns_asm + opasm_undef
 	.long 0					// 0xF3: ISB (),y		undocumented
-	.long opasm_nop_zp_x 	// 0xF4: NOP zp,x		undocumented
-	.long opasm_sbc_zp_x	// 0xF5: SBC zp,x
-	.long opasm_inc_zp_x	// 0xF6: INC zp,x
+	.long 0 - fns_asm + opasm_nop_zp_x 	// 0xF4: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_sbc_zp_x	// 0xF5: SBC zp,x
+	.long 0 - fns_asm + opasm_inc_zp_x	// 0xF6: INC zp,x
 	.long 0					// 0xF7: ISB zp,x		undocumented
-	.long opasm_sed     	// 0xF8: SED
-	.long opasm_sbc_abs_y	// 0xF9: SBC abs,y
-	.long opasm_nop     	// 0xFA: NOP			undocumented
+	.long 0 - fns_asm + opasm_sed     	// 0xF8: SED
+	.long 0 - fns_asm + opasm_sbc_abs_y	// 0xF9: SBC abs,y
+	.long 0 - fns_asm + opasm_nop     	// 0xFA: NOP			undocumented
 	.long 0					// 0xFB: ISB abs,y		undocumented
-	.long opasm_nop_abs_x	// 0xFC: NOP abs,x		undocumented
-	.long opasm_sbc_abs_x	// 0xFD: SBC abs,x
-	.long opasm_inc_abs_x	// 0xFE: INC abs,x
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0xFC: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_sbc_abs_x	// 0xFD: SBC abs,x
+	.long 0 - fns_asm + opasm_inc_abs_x	// 0xFE: INC abs,x
 	.long 0					// 0xFF: ISB abs,x		undocumented
 

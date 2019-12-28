@@ -242,6 +242,7 @@ public class LoadDisk extends AppCompatActivity implements FilePickerFragment.On
         b.putBoolean(FilePickerFragment.KEY_ALLOW_DIR_CREATE, false);
         b.putBoolean(FilePickerFragment.KEY_ALLOW_MULTIPLE, false);
         b.putInt(FilePickerFragment.KEY_MODE, FilePickerFragment.MODE_FILE);
+        b.putString(FilePickerFragment.KEY_START_PATH, getApplicationContext().getFilesDir().getAbsolutePath());
 
         mTabHost.addTab(
                 mTabHost.newTabSpec("local").setIndicator("Local", null),
