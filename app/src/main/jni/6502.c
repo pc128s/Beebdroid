@@ -51,8 +51,15 @@ void LOGF(char* format, ...) {
 */
 
 }
+static int last_cycles;
 void log_cpu_C(M6502* cpu) {
-    if (callcount < 12) return;
+// stx fef2 <- 0f , readmem esp 8 -> 4
+//    int mfc = 12 ; int mcy = 4500 ;
+// cli , push ax -> eax
+//    int mfc = 14 ; int mcy = 17168 ;
+    int mfc = 14000 ; int mcy = 0 ;
+    if (framecount < mfc) return;
+    if (framecount == mfc && cpu->cycles > mcy) return;
 	unsigned char* p = cpu->mem;
 	/*char buff[256];
 	int i;
@@ -67,8 +74,9 @@ void log_cpu_C(M6502* cpu) {
 */
 //    LOGI("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
 //          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
-    LOGI("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
-          cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
+    LOGI("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X (%i/%i+%i)\n",
+          cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, framecount, cpu->cycles, last_cycles - cpu->cycles);
+          last_cycles = cpu->cycles;
 }
 
 void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
@@ -222,7 +230,7 @@ LOGF("writemem_ex! addr=%04X val=%02X", addr, val16);
 				break;
 	}
 if (lgd > -1) {
-	LOGI("written %02X to %04X!", val, addr);
+	LOGI("written %02X to %04X! pc=%X cycle=%i", val, addr, the_cpu->pc, the_cpu->cycles);
 }
 }
 

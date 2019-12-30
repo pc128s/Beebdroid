@@ -16,7 +16,7 @@ int* current_palette;
 unsigned short *current_palette16;
 
 int samples;
-int callcount=0;
+int framecount=0;
 int autoboot=0;
 int joybutton[2];
 int ideenable=0;
@@ -157,7 +157,7 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
 	if (autoboot)
 		autoboot--;
 
-    if (callcount++ == 0) {
+    if (framecount++ == 0) {
     // Position independent code, hopefully!
     the_cpu->c_fns = &fns; // +40
     
@@ -184,7 +184,7 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
     LOGI("the_cpu->log_cpu_C   = %X", &log_cpu_C); // +76 for log_cpu_C
     }
 
-    LOGI("%i exec6502=%X &acpu=%X the_cpu=%X  c_fns=%X", callcount, exec6502, &(*the_cpu), the_cpu, the_cpu->c_fns);
+    LOGI("%i exec6502=%X &acpu=%X the_cpu=%X  c_fns=%X", framecount, exec6502, &(*the_cpu), the_cpu, the_cpu->c_fns, the_cpu->cycles);
 
     void* ret = exec6502(the_cpu);
 

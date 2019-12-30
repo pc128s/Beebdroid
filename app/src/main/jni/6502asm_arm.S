@@ -499,7 +499,7 @@ opasm_clv:
 opasm_cli:
 	UPDATE_TAKEINT			@ cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	bic  r11, #4			@ cpu->p &= ~FLAG_I;
-	RETURN #-2				@ return -2;
+	RETURN #-2				@ return -2;   # sei returns -2 too.
 
 
 /*******
@@ -1652,7 +1652,7 @@ exec6502: // Was exec6502(), but now exec6502(M6502*)
 
     @ update cpu->cycles. Note the constant value 40000 cannot be encoded and has to be ldr'd indirectly.
     ldr   r0,[ r4, #24] // ->24=cycles
-    ldr   r1, =40000  // 40000 more instructions
+    ldr   r1, =40000  // 40000 more instructions - related to 50 frames/sec for PAL vsync?
     add   r0,  r0,  r1
     str   r0,[ r4, #24]
 

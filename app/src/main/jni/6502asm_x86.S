@@ -131,7 +131,7 @@ exec6502:
 
     # update cpu->cycles. Note the constant value 40000 cannot be encoded and has to be ldr'd indirectly.
     mov   eax,[ ebp+24]
-    add   eax, 40000
+    add   eax, 40000 // perhaps related to 50Hz PAL vsync?
     mov  [ ebp+24],  eax
 
     # load some of 6502 CPU state into registers
@@ -144,8 +144,8 @@ exec6502:
     mov  ch,  [ ebp+9] 	#  ch = r10 = S
 
     // eax,ebx are free for general use
-loop:
     LOG_CPU
+loop:
 
     //LOG 1
 
@@ -164,8 +164,10 @@ loop:
 
 	# Call assembly function: ebx is (cop
     //LOG 3
+    push eax // preserve?
     mov eax, [ebp + 44] // 44 = fns_asm
     add ebx, eax
+    pop eax // preserve?
 	call  ebx
 	jmp done_call
 
@@ -192,7 +194,7 @@ use_c_fn:
 
 done_call:
     //LOG 5
-	bt   eax, 31
+	bt   eax, 31   // sei cli return -2.
 	jc  already_updated_interrupts
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	UPDATE_TAKEINT
@@ -200,8 +202,10 @@ done_call:
 already_updated_interrupts:
 	xor   eax, 0xFFFFFFFF
 	inc   eax
+//	LOG eax  // 02
+//	LOG esp  //..1c
 done_interrupts:
-    push  eax
+    push  eax   // cycles for that instruction
 
 	# Update interrupts
 	cmp dword ptr [ ebp+16], 0   # ebp+16 = cpu->nmi
@@ -213,20 +217,33 @@ no_nmi:
 	cmp dword ptr [ ebp+20], 0   # ebp+20 = cpu->take_int
 	jz no_interrupt
 	mov dword ptr [ ebp+20], 0
+//LOG esp //..18
+//LOG 0xfffe
 	push 0xfffe
 do_interrupt:
+//LOG esp //..14
+//LOG edi // f12e
 	PUSHWORD  di			# push(cpu->pc)
 	movzx  eax, byte ptr [ ebp+10]
 	or   eax, 0x20   	# uint8_t temp = cpu->p | 0x20;
+//LOG esp // ..14
+//LOG eax // 25
 	PUSH_BYTE  al             # push(temp);
-	pop  ax
+//LOG esp //..14
+	pop  eax //  hmmm? ax
+//LOG eax // fffe
+//LOG esp //..16
 	mov  di, [ esi+ eax] 		# cpu->pc=*(uint16_t*)&(cpu->mem[0xfffe]);
 	or byte ptr [ ebp+10], 4 	# cpu->p |= FLAG_I;
 	mov [ ebp+4], di            # Remove when C-only
 	mov [ ebp+9], ch    	    # Remove when C-only
 	pop  eax
+//LOG eax
+//LOG esp
 	add  eax,7		            # c += 7;
-	push  eax
+	push  eax  // cycles
+//LOG esp
+//LOG eax
 no_interrupt:
     and dword ptr [ ebp+12], 0xFFFFFF7f   # cpu->interrupt &= ~128
 
@@ -324,17 +341,24 @@ no_interrupt:
 	mov [ esi +  ebx], \val
 	jmp 2f
 1:
+//LOG esp  //...18
 	C_CALL_PRE
+//LOG esp  //...10
 	movzx  eax,\val
-	push 0
+//LOG eax  // 0f
+//	push 0
 	push  ax
-	push 0
+//	push 0
 	push  bx
 	//NOT-PIC call writemem_ex
+//LOG esp // ...0c
 	mov eax, [ebp + 60]
 	call eax
-	add  esp, 8
+//LOG esp // ...0c
+	add  esp, 4 # 8
+//LOG esp // ...14
 	C_CALL_POST
+//LOG esp // ...1c
 2:
 .endm
 
@@ -443,7 +467,7 @@ no_interrupt:
 	bt  bx,0
 	adc  cl,  al
 	pushf
-	pop  eax
+	pop  ax // eax
 	and  bl, 0xBE # clear C and V
 	bt  ax,0
 	jnc 1f
@@ -710,7 +734,7 @@ opasm_clv:
 opasm_cli:
 	UPDATE_TAKEINT			        # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	and byte ptr [ ebp+10], 0xFB	# cpu->p &= ~FLAG_I;
-	RETURN -2
+	RETURN -2    # sei returns -2 too.
 
 
 /*******
@@ -1616,14 +1640,18 @@ opasm_rts:
     cmc
     sbb  cl,  al            # x86 SBB  works similarly to 6502 SBC
     cmc
+//    LOG esp
 	pushf
+//    LOG esp
 	and  bl, 0xBE           # clear C and V
 	xor  ah,  cl
 	bt  ax, 15
     jnc 2f
 	or  bx, 0x40           # set V
 2:
-	pop  eax
+//    LOG esp
+	pop  ax # eax was too wide for pushf
+//    LOG esp
 	bt  ax,0
 	jnc 1f
 	or  bl,1                # set C
@@ -1650,8 +1678,11 @@ opasm_rts:
 // 0xE9: SBC imm
 // 0xEB: SBC imm
 opasm_sbc_imm:
+//LOG esp  // pushf was too narrow for pop eax
 	READBYTE_PC     		# register uint8_t temp=readmem(cpu->pc); cpu->pc++;
+//LOG esp
 	BODY_SBC
+//LOG esp
 	RETURN 2
 
 // 0xE5: SBC zp
@@ -1711,8 +1742,12 @@ opasm_sed:
 opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	or byte ptr [ ebp+10], 4			# cpu->p |= FLAG_I;
-	RETURN -2
+//LOG esp
+//	RETURN -2  # ARM returns -2 too. Waiting for an interrupt?
 
+	mov  eax, -2
+//	LOG eax
+	ret
 
 /**************************************
  * SLO - Undocumented Shift Left & Or *
@@ -1805,8 +1840,11 @@ opasm_sta_abs:
 
 // 0x8E: STX abs
 opasm_stx_abs:
+   // LOG esp // stx
 	READWORD_PC;
+//	LOG esp // stx
 	WRITEBYTE  dl,  ax
+//	LOG esp // stx
 	RETURN 4
 
 // 0x99: STA abs,y

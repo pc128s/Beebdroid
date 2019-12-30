@@ -106,7 +106,7 @@ extern int fdctime;
 extern int motoron;
 extern int disctime;
 extern int frames;
-extern int callcount;
+extern int framecount;
 
 typedef struct VIA
 {
