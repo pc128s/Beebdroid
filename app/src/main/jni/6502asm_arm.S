@@ -8,6 +8,8 @@
 
 .text
 .global exec6502
+.global fns_asm
+
 
 @ This implementation keeps 6502 state entirely in ARM registers during exec6502(), in order to reduce memory accesses.
 @ We haven't yet exploited the performance gains because we are still calling do_poll() after every
@@ -1634,7 +1636,7 @@ opasm_tya:
  //********************/
 opasm_undef:
 	mov  r3,  r4
-	bl log_undef_opcode_C
+	bl log_undef_opcode_C_arm
 	sub  r6,  r6, #1;		@ cpu->pc--;      	// PC never moves on
 	mov  r0, #0
     str  r0, [ r4, #20]		@ cpu->takeint=0; 	// Interrupts never occur

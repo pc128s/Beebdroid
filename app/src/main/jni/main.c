@@ -16,6 +16,7 @@ int* current_palette;
 unsigned short *current_palette16;
 
 int samples;
+int callcount=0;
 int autoboot=0;
 int joybutton[2];
 int ideenable=0;
@@ -156,9 +157,38 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
 	if (autoboot)
 		autoboot--;
 
+    if (callcount++ == 0) {
     // Position independent code, hopefully!
     the_cpu->c_fns = &fns; // +40
-    exec6502(the_cpu);
+    
+    	// All the following are bodges for x86 because I don't understand the loader.
+    the_cpu->fns_asm = &fns_asm; // +44 for fns_asm table
+    the_cpu->do_poll_C = &do_poll_C ; // +48 for do_poll_C
+    the_cpu->readmem_ex = &readmem_ex; // +52 for readmem_ex
+    the_cpu->readword_ex = &readword_ex; // +56 for readword_ex
+    the_cpu->writemem_ex = &writemem_ex; // +60 for writemem_ex
+    the_cpu->adc_bcd_C = &adc_bcd_C; // +64 for adc_bcd_C
+    the_cpu->sbc_bcd_C = &sbc_bcd_C; // +68 for sbc_bcd_C
+    the_cpu->log_undef_opcode_C = &log_undef_opcode_C_x86; // +72 for log_undef_opcode_C
+    the_cpu->log_cpu_C = &log_cpu_C; // +76 for log_cpu_C
+    the_cpu->log_asm_C = &log_asm; // +80 for log_cpu_C
+
+    LOGI("the_cpu->fns_asm     = %X", &fns_asm); // +44 for fns_asm table
+    LOGI("the_cpu->do_poll_C   = %X", &do_poll_C ); // +48 for do_poll_C
+    LOGI("the_cpu->readmem_ex  = %X", &readmem_ex); // +52 for readmem_ex
+    LOGI("the_cpu->readword_ex = %X", &readword_ex); // +56 for readword_ex
+    LOGI("the_cpu->writemem_ex = %X", &writemem_ex); // +60 for writemem_ex
+    LOGI("the_cpu->adc_bcd_C   = %X", &adc_bcd_C); // +64 for adc_bcd_C
+    LOGI("the_cpu->sbc_bcd_C   = %X", &sbc_bcd_C); // +68 for sbc_bcd_C
+    LOGI("the_cpu->log_un_op_C = %X", &log_undef_opcode_C_x86); // +72 for log_undef_opcode_C
+    LOGI("the_cpu->log_cpu_C   = %X", &log_cpu_C); // +76 for log_cpu_C
+    }
+
+    LOGI("%i exec6502=%X &acpu=%X the_cpu=%X  c_fns=%X", callcount, exec6502, &(*the_cpu), the_cpu, the_cpu->c_fns);
+
+    void* ret = exec6502(the_cpu);
+
+    //LOGI("exec6502() <= %X", ret);
 
 	checkkeys();
 

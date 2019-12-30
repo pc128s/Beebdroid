@@ -52,9 +52,9 @@ void LOGF(char* format, ...) {
 
 }
 void log_cpu_C(M6502* cpu) {
-
-	/*char buff[256];
+    if (callcount < 12) return;
 	unsigned char* p = cpu->mem;
+	/*char buff[256];
 	int i;
 
 	// Checksum RAM
@@ -62,9 +62,13 @@ void log_cpu_C(M6502* cpu) {
 	for (i=0 ; i<65536 ; i++) {
 		sum += cpu->mem[i];
 	}
-
-    LOGF("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X\n", cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, sum);
+    LOGF("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X\n",
+          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, sum);
 */
+//    LOGI("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
+//          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
+    LOGI("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
+          cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
 }
 
 void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
@@ -78,8 +82,15 @@ void log_asm(int v) {
 	LOGI("here! %08x", v);
 }
 
-void log_undef_opcode_C(uint8_t op, void* tab, int off, M6502* cpu) {
+void log_undef_opcode_C_arm(uint8_t op, void* tab, int off, M6502* cpu) {
 	LOGI("Undefined opcode! cpu=%08x the_cpu=%04x op=%02x off=%08x tab=%08x", cpu, the_cpu, op, off, tab);
+	LOGI("Undefined opcode! mem=%04x [ pc=%04x ]", cpu->mem, cpu->pc );
+	LOGI("Undefined opcode! mem=%04x [ pc=%04x ] = %02x", cpu->mem, cpu->pc, cpu->mem[cpu->pc]);
+	exit(1);
+}
+
+void log_undef_opcode_C_x86(M6502* cpu) {
+	LOGI("Undefined opcode! cpu=%08x the_cpu=%04x", cpu, the_cpu);
 	LOGI("Undefined opcode! mem=%04x [ pc=%04x ]", cpu->mem, cpu->pc );
 	LOGI("Undefined opcode! mem=%04x [ pc=%04x ] = %02x", cpu->mem, cpu->pc, cpu->mem[cpu->pc]);
 	exit(1);
@@ -153,10 +164,11 @@ uint16_t readword_ex(uint16_t addr)
 
 void writemem_ex(uint16_t addr, uint8_t val16)
 {
-
+int lgd = -1;
 uint8_t val = val16 & 0xff;
-if (addr == 0xFE4f) {
-//	LOGI("writing %02X to fe4f!", val);
+if (addr == 0xFE4f || addr == 0xFE42) {
+	LOGI("writing %02X to %04X!", val, addr);
+	lgd = val;
 }
 LOGF("writemem_ex! addr=%04X val=%02X", addr, val16);
 
@@ -209,6 +221,9 @@ LOGF("writemem_ex! addr=%04X val=%02X", addr, val16);
 				// writetubehost(addr,val);
 				break;
 	}
+if (lgd > -1) {
+	LOGI("written %02X to %04X!", val, addr);
+}
 }
 
 

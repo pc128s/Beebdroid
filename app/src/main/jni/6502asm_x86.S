@@ -9,6 +9,7 @@
 
 .text
 .global exec6502
+.global fns_asm
 .global acpu
 
 # This implementation keeps 6502 state entirely in ARM registers during exec6502(), in order to reduce memory accesses.
@@ -45,7 +46,9 @@
     mov [ ebp+9],  ch 	#  r10 = S
     pusha
 	push  ebp
-	call log_cpu_C
+	// NOT-PIC call log_cpu_C
+	mov eax, [ ebp + 76 ]
+	call eax
 	add  esp,4
 	popa
     mov  di,  [ ebp+4] 	#  di = r6  = PC
@@ -59,7 +62,8 @@
     pusha
     mov  eax, \arg
 	push  eax
-	call log_asm
+	mov eax, [ebp + 80] // log_asm
+	call eax
 	add  esp,4
 	popa
 .endm
@@ -105,10 +109,25 @@
 .endm
 
 exec6502:
+//	mov eax, [esp + 4] //&acpu is first parameter - let's hope this works.
+//	ret  // This returns &acpu
+
+//	mov eax, [esp + 4] //&acpu is first parameter - let's hope this works.
+//	mov eax, [eax + 76] // acpu.log_cpu_C should be offset 76
+//	ret // This returns log_cpu_C
+
 	pusha
 
 	# Keep CPU* in EBP
 	// NOT-PIC lea  ebp,acpu
+	//mov ebp, [esp] // acpu is first parameter - let's hope this works.
+
+    mov ebp, [esp + 4 + 32] // hopefully first param = acpu
+
+//    mov eax, [ebp + 76] // log-cpu-c again, hopefully
+//    mov [esp + 28], eax // return in eax from pop
+//	popa
+//	ret
 
     # update cpu->cycles. Note the constant value 40000 cannot be encoded and has to be ldr'd indirectly.
     mov   eax,[ ebp+24]
@@ -126,7 +145,9 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-    //LOG_CPU
+    LOG_CPU
+
+    //LOG 1
 
 	# Get the opcode into eax and update cpu->PC
 	xor  eax, eax
@@ -135,17 +156,24 @@ loop:
 
 	# Get the ASM function. If this doesnt exist, fall back to C version.
 	// NOT-PIC lea   ebx, fns_asm
+    //LOG 2
+	mov ebx, [ebp + 44 ] // 44 = fns_asm
 	mov   ebx, [ ebx +  eax*4]
 	cmp   ebx, 0
 	jz  use_c_fn
 
 	# Call assembly function: ebx is (cop
+    //LOG 3
+    mov eax, [ebp + 44] // 44 = fns_asm
+    add ebx, eax
 	call  ebx
 	jmp done_call
 
 	# Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
 use_c_fn:
 	// NOT-PIC lea   ebx, fns
+   // LOG 4
+	mov ebx, [ebp + 40] // 40=c_fns
 	mov   ebx, [ ebx +  eax*4]
     mov [ ebp+4],  di 	#  di = PC
     mov [ ebp+6],  cl 	#  cl = A
@@ -163,6 +191,7 @@ use_c_fn:
     mov  ch,  [ ebp+9] 	#  ch = r10 = S
 
 done_call:
+    //LOG 5
 	bt   eax, 31
 	jc  already_updated_interrupts
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
@@ -210,6 +239,8 @@ no_interrupt:
 	push  eax
 	push  ebp
  	//NOT-PIC call do_poll_C
+ 	mov eax, [ebp + 48]
+ 	call eax
  	add  esp,8
  	C_CALL_POST
 
@@ -247,6 +278,8 @@ no_interrupt:
 	C_CALL_PRE
 	push \addr16  # push s/w/
 	//NOT-PIC call readmem_ex
+	mov eax, [ebp + 52] // readmem_ex
+	call eax
 	add  esp,2
 	C_CALL_POST
 2:
@@ -268,6 +301,8 @@ no_interrupt:
 	C_CALL_PRE
 	push \src  # s/w/
 	//NOT-PIC call readword_ex
+	mov eax, [ebp + 56] // readword_ex
+	call eax // readword_ex
 	add  esp,2
 	C_CALL_POST
 2:
@@ -296,6 +331,8 @@ no_interrupt:
 	push 0
 	push  bx
 	//NOT-PIC call writemem_ex
+	mov eax, [ebp + 60]
+	call eax
 	add  esp, 8
 	C_CALL_POST
 2:
@@ -425,6 +462,8 @@ no_interrupt:
 	push  eax
 	push  ebp   			# r0=cpu*, r1=imm
 	//NOT-PIC call adc_bcd_C
+	mov eax, [ebp+64] // adc_bcd_C
+	call eax  // adc_bcd_C
 	add  esp, 8
 	C_CALL_POST
 	mov  cl, [ ebp+6]	    # update A
@@ -1597,7 +1636,10 @@ opasm_rts:
 	C_CALL_PRE
 	push  eax
 	push  ebp
-	//MOT-PIC call sbc_bcd_C
+	//NOT-PIC call sbc_bcd_C
+		mov eax, [ebp+68] // sbc_bcd_C
+    	call eax  // sbc_bcd_C
+
 	add  esp, 8
 	C_CALL_POST
 	mov  cl,  [ ebp+6]     # update A
@@ -1846,6 +1888,8 @@ opasm_undef:
 	C_CALL_PRE
 	push  ebp
 	//NOT-PIC call log_undef_opcode_C
+	mov eax, [ebp+72] // log_undef_opcode_C
+	call eax  // log_undef_opcode
 	add  esp, 4
 	C_CALL_POST
 	dec  di                  # cpu->pc--;      	// PC never moves on
