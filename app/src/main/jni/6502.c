@@ -57,7 +57,8 @@ void log_cpu_C(M6502* cpu) {
 //    int mfc = 12 ; int mcy = 4500 ;
 // cli , push ax -> eax
 //    int mfc = 14 ; int mcy = 17168 ;
-    int mfc = 14000 ; int mcy = 0 ;
+ //   int mfc = 14000 ; int mcy = 0 ;
+    int mfc = 0 ; int mcy = 50000 ;
     if (framecount < mfc) return;
     if (framecount == mfc && cpu->cycles > mcy) return;
 	unsigned char* p = cpu->mem;

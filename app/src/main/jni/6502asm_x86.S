@@ -164,10 +164,12 @@ loop:
 
 	# Call assembly function: ebx is (cop
     //LOG 3
-    push eax // preserve?
-    mov eax, [ebp + 44] // 44 = fns_asm
-    add ebx, eax
-    pop eax // preserve?
+//    push eax // preserve?
+//    mov eax, [ebp + 44] // 44 = fns_asm
+//    add ebx, eax
+//    pop eax // preserve?
+    add ebx, [ebp + 44] // 44 = fns_asm
+// hohoho?
 	call  ebx
 	jmp done_call
 
@@ -734,7 +736,7 @@ opasm_clv:
 opasm_cli:
 	UPDATE_TAKEINT			        # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	and byte ptr [ ebp+10], 0xFB	# cpu->p &= ~FLAG_I;
-	RETURN -2    # sei returns -2 too.
+	RETURN -2    # -ve means interrupt taken.
 
 
 /*******
@@ -1743,7 +1745,7 @@ opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	or byte ptr [ ebp+10], 4			# cpu->p |= FLAG_I;
 //LOG esp
-//	RETURN -2  # ARM returns -2 too. Waiting for an interrupt?
+//	RETURN -2  # ARM returns -2 to show interrupt taken
 
 	mov  eax, -2
 //	LOG eax
