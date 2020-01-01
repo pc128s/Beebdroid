@@ -7,6 +7,7 @@
 #include "main.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <sys/time.h>
 
 extern BITMAP* b;
 extern uint8_t crtc[];
@@ -150,6 +151,7 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInit(JNI
 
 // Without the .S file, PIC is achieved
 // void exec6502(M6502* f) {}
+struct timeval tval_before, tval_after, tval_result;
 
 JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIEnv * env, jobject  obj)
 {
@@ -186,7 +188,13 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
 
     LOGI("%i exec6502=%X &acpu=%X the_cpu=%X  c_fns=%X", framecount, exec6502, &(*the_cpu), the_cpu, the_cpu->c_fns, the_cpu->cycles);
 
+gettimeofday(&tval_before, NULL);
     void* ret = exec6502(the_cpu);
+gettimeofday(&tval_after, NULL);
+
+timersub(&tval_after, &tval_before, &tval_result);
+
+LOGI("Time elapsed: %ld.%06ld\n", (long int)tval_result.tv_sec, (long int)tval_result.tv_usec);
 
     //LOGI("exec6502() <= %X", ret);
 

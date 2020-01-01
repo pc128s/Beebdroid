@@ -144,8 +144,8 @@ exec6502:
     mov  ch,  [ ebp+9] 	#  ch = r10 = S
 
     // eax,ebx are free for general use
-    LOG_CPU
 loop:
+    LOG_CPU
 
     //LOG 1
 

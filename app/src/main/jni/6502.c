@@ -8,6 +8,7 @@
  */
 
 #include "main.h"
+#include <sys/time.h>
 
 
 M6502 acpu;
@@ -24,45 +25,60 @@ int FEslowdown[8]={1,0,1,1,0,0,1,0};
 
 static int s_logflag = 0;
 FILE* s_file = NULL;
+static int framecurrent = -1;
 
 void LOGF(char* format, ...) {
-	/*char buff[256];
+	char buff[256];
 	va_list args;
 	va_start (args, format);
-	vsprintf (buff,format, args);
 
-  	if (!s_file) {
+  	if (!s_file || framecurrent != framecount) {
+  	    if (s_file) fclose(s_file);
 #ifdef _ARM_
-		s_file = fopen("/sdcard/6502_arm.log","w+");
+        char* fmt = "/sdcard/6502_arm.%03i.log";
 #else
-		s_file = fopen("/sdcard/6502_x86.log","w+");
+		//s_file = fopen("/data/local/tmp/6502_x86.log","w+");
+        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
 #endif
+        sprintf(buff, fmt, framecurrent = framecount);
+        LOGI("fopen - %s", buff);
+        s_file = fopen(buff, "w+");
 	}
+
+	vsprintf (buff,format, args);
 
     if (s_file) {
         fputs(buff, s_file);
         fflush(s_file);
         //fclose(file);
     } else {
-    	LOGI("Oops! Cant log!");
+    	LOGI("fopen failed - errno= %i %s", errno, strerror(errno));
     	//LOGI("%s", buff);
     }
     va_end (args);
-*/
-
 }
 static int last_cycles;
+static struct timeval tval_0, tval_1, tval_diff;
+static int tval_first=1;
 void log_cpu_C(M6502* cpu) {
 // stx fef2 <- 0f , readmem esp 8 -> 4
 //    int mfc = 12 ; int mcy = 4500 ;
 // cli , push ax -> eax
 //    int mfc = 14 ; int mcy = 17168 ;
  //   int mfc = 14000 ; int mcy = 0 ;
-    int mfc = 0 ; int mcy = 50000 ;
-    if (framecount < mfc) return;
-    if (framecount == mfc && cpu->cycles > mcy) return;
+//    int mfc = 0 ; int mcy = 50000 ;
+//    if (framecount < mfc) return;
+//    if (framecount == mfc && cpu->cycles > mcy) return;
+    if (framecount > 16) return;
+    if (tval_first) {
+        gettimeofday(&tval_1, NULL);
+        tval_first = 0;
+    }
+    gettimeofday(&tval_0, NULL);
+    timersub(&tval_0, &tval_1, &tval_diff);
+
 	unsigned char* p = cpu->mem;
-	/*char buff[256];
+	char buff[256];
 	int i;
 
 	// Checksum RAM
@@ -70,14 +86,20 @@ void log_cpu_C(M6502* cpu) {
 	for (i=0 ; i<65536 ; i++) {
 		sum += cpu->mem[i];
 	}
-    LOGF("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X\n",
-          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, sum);
-*/
+    LOGF("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X cycles:%i %ld.%06ld\n",
+          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, sum, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec);
+
 //    LOGI("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
 //          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
-    LOGI("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X (%i/%i+%i)\n",
-          cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, framecount, cpu->cycles, last_cycles - cpu->cycles);
-          last_cycles = cpu->cycles;
+   // LOGI("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X (%i/%i+%i)\n",
+     //     cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, framecount, cpu->cycles, last_cycles - cpu->cycles);
+       //   last_cycles = cpu->cycles;
+
+     if (tval_diff.tv_sec>1 || tval_diff.tv_usec>10000) {
+        LOGI("Prior instruction took %ld.%06ld\n",  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec);
+     }
+
+     gettimeofday(&tval_1, NULL);
 }
 
 void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
@@ -124,7 +146,7 @@ uint8_t readmem_ex(uint16_t addr)
 	//if (addr == 0xFE4f) {
 	//	LOGI("reading %02X from fe4f!", rv);
 	//}
-	LOGF("readmem_ex! addr=%04X val=%02X", addr, rv);
+	LOGF("readmem_ex! addr=%04X val=%02X\n", addr, rv);
 
 	return rv;
 }
@@ -179,7 +201,7 @@ if (addr == 0xFE4f || addr == 0xFE42) {
 	LOGI("writing %02X to %04X!", val, addr);
 	lgd = val;
 }
-LOGF("writemem_ex! addr=%04X val=%02X", addr, val16);
+LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val16);
 
 	int c;
 	if (addr<0xFC00 || addr>=0xFF00) return;
@@ -244,7 +266,7 @@ void reset6502()
 	the_cpu->p |= FLAG_I;
 	the_cpu->nmi =0;
 	//output=0;
-	LOGI("\n\n6502 RESET!\n");
+	LOGI("\n\n6502 RESET! PC=%X\n", the_cpu->pc);
 }
 
 

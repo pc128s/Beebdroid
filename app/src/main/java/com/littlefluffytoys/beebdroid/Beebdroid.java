@@ -265,6 +265,13 @@ public class Beebdroid extends Activity
         
         //Log.d("Build", "Its a " + Build.DEVICE);
 
+		File root = getExternalFilesDir(null);
+		Log.d("Build", "\nExternal file system root: " + root);
+		File f = new File(root, "6502_x86.log");
+		try {
+			f.createNewFile();
+		} catch(IOException e) { throw new RuntimeException(e); }
+
         setContentView(R.layout.activity_beebdroid);
 
         DPI_MULT = getResources().getDisplayMetrics().density;

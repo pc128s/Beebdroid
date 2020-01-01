@@ -126,7 +126,7 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-    //LOG_CPU
+    LOG_CPU
 
 	# Get the opcode into eax and update cpu->PC
 	xor  eax, eax
