@@ -145,7 +145,7 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-    LOG_CPU
+//    LOG_CPU
 
     //LOG 1
 
@@ -254,12 +254,7 @@ no_interrupt:
 	sub [ ebp+24],  eax
 //LOG 0x71
 	# Update intermediate cycle counter
-//	C_CALL_PRE
-	push  ecx
-//LOG 0x72
-	push  edx
-	// end macro expansion
-//LOG 0x82
+	C_CALL_PRE
 	push  eax
 	push  ebp
  	//NOT-PIC call do_poll_C
@@ -1750,12 +1745,8 @@ opasm_sed:
 opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	or byte ptr [ ebp+10], 4			# cpu->p |= FLAG_I;
-//LOG esp
-//	RETURN -2  # ARM returns -2 to show interrupt taken
+	RETURN -2  # ARM returns -2 to show interrupt taken
 
-	mov  eax, -2
-//	LOG eax
-	ret
 
 /**************************************
  * SLO - Undocumented Shift Left & Or *

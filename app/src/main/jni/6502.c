@@ -27,7 +27,10 @@ static int s_logflag = 0;
 FILE* s_file = NULL;
 static int framecurrent = -1;
 
+#define LOGGING 0
+
 void LOGF(char* format, ...) {
+#if LOGGING
 	char buff[256];
 	va_list args;
 	va_start (args, format);
@@ -57,11 +60,13 @@ void LOGF(char* format, ...) {
     	//LOGI("%s", buff);
     }
     va_end (args);
+#endif
 }
 static int last_cycles;
 static struct timeval tval_1, tval_0, tval_diff;
 static int tval_first=1;
 void log_cpu_C(M6502* cpu) {
+#if LOGGING
 // stx fef2 <- 0f , readmem esp 8 -> 4
 //    int mfc = 12 ; int mcy = 4500 ;
 // cli , push ax -> eax
@@ -101,20 +106,25 @@ void log_cpu_C(M6502* cpu) {
      }
 
      gettimeofday(&tval_0, NULL);
+#endif
 }
 
 void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
+#if LOGGING
 // 0x4B - 75 - asr  = !6666=&6060604b ; call 6666
 	LOGI("C here! op=%02x table=%08x (%08x, %08x) fn=%08x cpu=%08x the_cpu=%08x", op, table, &fns, the_cpu->c_fns, fn, cpu, the_cpu);
 // Why is table != fns?
 // C here! op=1a table=00000000 (cbcf0028) fn=fe88fe2c cpu=cbd517c8 the_cpu=cbd517c8
+#endif
 }
 
 void log_asm(int v) {
+#if LOGGING
     gettimeofday(&tval_1, NULL);
     timersub(&tval_1, &tval_0, &tval_diff);
 	//LOGI("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, cpu->cycles, cpu->pc);
 	LOGF("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, the_cpu->cycles, the_cpu->pc);
+#endif
 }
 
 void log_undef_opcode_C_arm(uint8_t op, void* tab, int off, M6502* cpu) {
@@ -260,9 +270,11 @@ LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
 				// writetubehost(addr,val);
 				break;
 	}
+#if LOGGING
 if (lgd > -1) {
 	LOGI("written %02X to %04X! pc=%X cycle=%i", val, addr, the_cpu->pc, the_cpu->cycles);
 }
+#endif
 }
 
 

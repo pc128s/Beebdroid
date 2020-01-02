@@ -186,7 +186,7 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
     LOGI("the_cpu->log_cpu_C   = %X", &log_cpu_C); // +76 for log_cpu_C
     }
 
-    LOGI("%i exec6502=%X &acpu=%X the_cpu=%X  c_fns=%X", framecount, exec6502, &(*the_cpu), the_cpu, the_cpu->c_fns, the_cpu->cycles);
+//    LOGI("%i exec6502=%X &acpu=%X the_cpu=%X  c_fns=%X", framecount, exec6502, &(*the_cpu), the_cpu, the_cpu->c_fns, the_cpu->cycles);
 
 gettimeofday(&tval_before, NULL);
     void* ret = exec6502(the_cpu);
@@ -194,7 +194,7 @@ gettimeofday(&tval_after, NULL);
 
 timersub(&tval_after, &tval_before, &tval_result);
 
-LOGI("Time elapsed: %ld.%06ld\n", (long int)tval_result.tv_sec, (long int)tval_result.tv_usec);
+//LOGI("Time elapsed: %ld.%06ld\n", (long int)tval_result.tv_sec, (long int)tval_result.tv_usec);
 
     //LOGI("exec6502() <= %X", ret);
 
