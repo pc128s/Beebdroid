@@ -54,6 +54,7 @@ typedef struct M6502_struct M6502;
 
 typedef int (*FN)(M6502*);
 extern FN fns[];
+extern char* ops[];
 
 struct M6502_struct {
 	uint8_t* mem; // +0
@@ -90,7 +91,15 @@ extern M6502* the_cpu;
 extern void log_cpu_C(M6502*); // +76 for PIC!
 extern void log_asm(int); // +80 for PIC!
 extern uint8_t readmem_ex(uint16_t addr); // +46 for PIC!
+
+//extern void writemem_ex(uint16_t addr, uint8_t val16);
+
+#ifdef _ARM_
 extern void writemem_ex(uint16_t addr, uint8_t val16);
+#else
+extern void writemem_ex(uint32_t addr, uint32_t val16);
+#endif
+
 extern void adc_bcd_C(M6502*, uint8_t temp); // +54 for PIC!
 extern void sbc_bcd_C(M6502*, uint8_t temp); // +58 for PIC!
   extern void log_undef_opcode_C_x86(M6502*); // +72 for PIC!

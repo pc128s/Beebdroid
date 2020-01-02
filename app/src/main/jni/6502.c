@@ -35,7 +35,8 @@ void LOGF(char* format, ...) {
   	if (!s_file || framecurrent != framecount) {
   	    if (s_file) fclose(s_file);
 #ifdef _ARM_
-        char* fmt = "/sdcard/6502_arm.%03i.log";
+        //char* fmt = "/sdcard/6502_arm.%03i.log";
+        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_arm.%03i.log";
 #else
 		//s_file = fopen("/data/local/tmp/6502_x86.log","w+");
         char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
@@ -58,7 +59,7 @@ void LOGF(char* format, ...) {
     va_end (args);
 }
 static int last_cycles;
-static struct timeval tval_0, tval_1, tval_diff;
+static struct timeval tval_1, tval_0, tval_diff;
 static int tval_first=1;
 void log_cpu_C(M6502* cpu) {
 // stx fef2 <- 0f , readmem esp 8 -> 4
@@ -71,11 +72,11 @@ void log_cpu_C(M6502* cpu) {
 //    if (framecount == mfc && cpu->cycles > mcy) return;
     if (framecount > 16) return;
     if (tval_first) {
-        gettimeofday(&tval_1, NULL);
+        gettimeofday(&tval_0, NULL);
         tval_first = 0;
     }
-    gettimeofday(&tval_0, NULL);
-    timersub(&tval_0, &tval_1, &tval_diff);
+    gettimeofday(&tval_1, NULL);
+    timersub(&tval_1, &tval_0, &tval_diff);
 
 	unsigned char* p = cpu->mem;
 	char buff[256];
@@ -86,8 +87,8 @@ void log_cpu_C(M6502* cpu) {
 	for (i=0 ; i<65536 ; i++) {
 		sum += cpu->mem[i];
 	}
-    LOGF("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X cycles:%i %ld.%06ld\n",
-          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, sum, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec);
+    LOGF("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X %i:%i %ld.%06ld %s\n",
+          cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, sum, framecount, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, ops[p[cpu->pc]]);
 
 //    LOGI("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
 //          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
@@ -96,10 +97,10 @@ void log_cpu_C(M6502* cpu) {
        //   last_cycles = cpu->cycles;
 
      if (tval_diff.tv_sec>1 || tval_diff.tv_usec>10000) {
-        LOGI("Prior instruction took %ld.%06ld\n",  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec);
+        LOGI("Prior instruction took %ld.%06ld (%i/%i  pc ~%02X)\n",  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, framecount, cpu->cycles, cpu->pc);
      }
 
-     gettimeofday(&tval_1, NULL);
+     gettimeofday(&tval_0, NULL);
 }
 
 void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
@@ -110,7 +111,10 @@ void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
 }
 
 void log_asm(int v) {
-	LOGI("here! %08x", v);
+    gettimeofday(&tval_1, NULL);
+    timersub(&tval_1, &tval_0, &tval_diff);
+	//LOGI("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, cpu->cycles, cpu->pc);
+	LOGF("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, the_cpu->cycles, the_cpu->pc);
 }
 
 void log_undef_opcode_C_arm(uint8_t op, void* tab, int off, M6502* cpu) {
@@ -192,16 +196,20 @@ uint16_t readword_ex(uint16_t addr)
 	return readmem_ex(addr) | (readmem_ex(addr+1)<<8);
 }
 
-
+#ifdef _ARM_
 void writemem_ex(uint16_t addr, uint8_t val16)
+#else
+void writemem_ex(uint32_t addr, uint32_t val16)
+#endif
 {
 int lgd = -1;
-uint8_t val = val16 & 0xff;
+uint8_t val = (val16) & 0xff;
+addr &= 0xffff;
 if (addr == 0xFE4f || addr == 0xFE42) {
-	LOGI("writing %02X to %04X!", val, addr);
+	LOGF("writing %02X(%04X) to %04X!", val, val16, addr);
 	lgd = val;
 }
-LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val16);
+LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
 
 	int c;
 	if (addr<0xFC00 || addr>=0xFF00) return;
@@ -376,8 +384,7 @@ int vidclockacc=0;
 
 void do_poll_C(M6502* cpu, int c) {
 
-	//LOGI("do_poll %d", c);
-
+//	LOGF("do_poll %d\n", c);
 	if (otherstuffcount<=0) {
 		otherstuffcount+=128;
 		logvols();
@@ -396,7 +403,9 @@ void do_poll_C(M6502* cpu, int c) {
 			pollvideo(vidclockacc);
 			vidclockacc=0;
 		}*/
-		pollvideo(c);
+//log_asm(0xAB);
+		pollvideo(c); // Takes 10ms every 6 instrutions from frame 14?
+//log_asm(0xAC);
 		sysvia.t1c -= c;
 		if (!(sysvia.acr&0x20))  sysvia.t2c-=c;
 		if (sysvia.t1c<-3  || sysvia.t2c<-3)  updatesystimers();
@@ -404,6 +413,7 @@ void do_poll_C(M6502* cpu, int c) {
 		if (!(uservia.acr&0x20)) uservia.t2c-=c;
 		if (uservia.t1c<-3 || uservia.t2c<-3) updateusertimers();
 		otherstuffcount-=c;
+//log_asm(0xAD);
 		if (motoron) {
 			if (fdctime) {
 				fdctime-=c;
@@ -415,6 +425,7 @@ void do_poll_C(M6502* cpu, int c) {
 			}
 		}
 	}
+//log_asm(0xAF);
 
 }
 
@@ -1120,6 +1131,267 @@ FN fns[] = {
 	fn_isb_abs_x,//0xFF: Undocumented - ISB abs,x
 };
 //*/
+
+
+char* ops[] = {
+	"00c BRK",
+    "01: ORA (,x)",
+	"02: -?-",
+    "03: U SLO (,x)",
+    "04: U NOP zp",
+    "05: ORA zp",
+    "06: ASL zp",
+    "07: U SLO zp",
+    "08: PHP",
+    "09: ORA imm",
+    "0A: ASL A",
+    "0Bc U ANC imm",
+    "0C: U NOP abs",
+    "0D: ORA abs",
+    "0E: ASL abs",
+    "0F: U SLO abs",
+    "10: BPL",
+    "11: ORA (),y",
+	"12: -?-",
+    "13: U SLO (),y",
+    "14: U NOP zp,x",
+    "15: ORA zp,x",
+    "16: ASL zp,x",
+    "17: U SLO zp,x",
+    "18: CLC",
+    "19: ORA abs,y",
+    "1A: U NOP",
+    "1B: U SLO abs,y",
+    "1C: U NOP abs,x",
+    "1D: ORA abs,x",
+    "1E: ASL abs,x",
+    "1F: U SLO abs,x",
+    "20: JSR",
+    "21: AND (,x)",
+	"22: -?-",
+    "23: U RLA (,x)",
+    "24: BIT zp",
+    "25: AND zp",
+    "26: ROL zp",
+    "27: U RLA zp",
+    "28: PLP",
+    "29: AND",
+    "2A: ROL A",
+    "2Bc U ANC imm",
+    "2C: BIT abs",
+    "2D: AND abs",
+    "2E: ROL abs",
+    "2F: U RLA abs",
+    "30: BMI",
+    "31: AND (),y",
+	"32: -?-",
+    "33: U RLA (),y",
+    "34: U NOP zp,x",
+    "35: AND zp,x",
+    "36: ROL zp,x",
+    "37: U RLA zp,x",
+    "38: SEC",
+    "39: AND abs,y",
+    "3A: U NOP",
+    "3B: U RLA abs,y",
+    "3C: U NOP abs,x",
+    "3D: AND abs,x",
+    "3E: ROL abs,x",
+    "3F: U RLA abs,x",
+    "40: RTI",
+    "41: EOR (,x)",
+	"22: -?-",
+    "43c U SRE (,x)",
+    "44:",
+    "45: EOR zp",
+    "46: LSR zp",
+    "47c U SRE zp",
+    "48: PHA",
+    "49: EOR imm",
+    "4A: LSR A",
+    "4Bc U ASR imm",
+    "4C: JMP",
+    "4D: EOR abs",
+    "4E: LSR abs",
+    "4Fc U SRE abs",
+    "50: BVC",
+    "51: EOR (),y",
+	"52: -?-",
+    "53c U SRE (),y",
+    "54:",
+    "55: EOR zp,x",
+    "56: LSR zp,x",
+    "57: U SRE zp,x",
+    "58: CLI",
+    "59: EOR abs,y",
+    "5A: U NOP",
+    "5Bc U SRE abs,y",
+    "5C: U NOP abs,x",
+    "5D: EOR abs,x",
+    "5E: LSR abs,x",
+    "5Fc U SRE abs,x",
+    "60: RTS",
+    "61: ADC (,x)",
+	"62: -?-",
+    "63: U RRA (,x)",
+    "64: U NOP zp",
+    "65: ADC zp",
+    "66: ROR zp",
+    "67: U RRA zp",
+    "68: PLA",
+    "69: ADC imm",
+    "6A: ROR A",
+    "6Bc U ARR",
+    "6C: JMP ()",
+    "6D: ADC abs",
+    "6E: ROR abs",
+    "6F: U RRA abs",
+    "70: BVS",
+    "71: ADC (),y",
+	"72: -?-",
+    "73: U RRA (,y)",
+    "74: U NOP zp,x",
+    "75: ADC zp,x",
+    "76: ROR zp,x",
+    "77: U RRA zp,x",
+    "78: SEI",
+    "79: ADC abs,y",
+    "7A: U NOP",
+    "7B: U RRA abs,y",
+	"7C: -?-",
+    "7D: ADC abs,x",
+    "7E: ROR abs,x",
+    "7F: U RRA abs,x",
+    "80: U NOP imm",
+    "81: STA (,x)",
+    "82: U NOP imm",
+    "83c U SAX (,x)",
+    "84: STY zp",
+    "85: STA zp",
+    "86: STX zp",
+    "87c U SAX zp",
+    "88: DEY",
+    "89: U NOP imm",
+    "8A: TXA",
+    "8Bc U ANE",
+    "8C: STY abs",
+    "8D: STA abs",
+    "8E: STX abs",
+    "8Fc U SAX abs",
+    "90: BCC",
+    "91: STA (),y",
+	"92: -?-",
+    "93c U SHA (),y",
+    "94: STY zp,x",
+    "95: STA zp,x",
+    "96: STX zp,y",
+    "97c U SAX zp,y",
+    "98: TYA",
+    "99: STA abs,y",
+    "9A: TXS",
+    "9Bc U SHS abs,y",
+    "9Cc U SHY abs,x",
+    "9D: STA abs,x",
+    "9Ec U SHX abs,y",
+    "9Fc U SHA abs,y",
+    "A0: LDY imm",
+    "A1: LDA (,x)",
+    "A2: LDX imm",
+    "A3c U LAX (,y)",
+    "A4: LDY zp",
+    "A5: LDA zp",
+    "A6: LDX zp",
+    "A7c U LAX zp",
+    "A8: TAY",
+    "A9: LDA imm",
+    "AA: TAX",
+    "ABc U LAX",
+    "AC: LDY abs",
+    "AD: LDA abs",
+    "AE: LDX abs",
+    "AF: LAX abs",
+    "B0: BCS",
+    "B1: LDA (),y",
+	"82: -?-",
+    "B3c  LAX (),y",
+    "B4: LDY zp,x",
+    "B5: LDA zp,x",
+    "B6: LDX zp,y",
+    "B7: LAX zp,y",
+    "B8: CLV",
+    "B9: LDA abs,y",
+    "BA: TSX",
+    "BBc U LAS abs,y",
+    "BC: LDY abs,x",
+    "BD: LDA abs,x",
+    "BE: LDX abs,y",
+    "BF: LAX abs,y",
+    "C0: CPY imm",
+    "C1: CMP (,x)",
+    "C2: U NOP imm",
+    "C3c U DCP (,x)",
+    "C4: CPY zp",
+    "C5: CMP zp",
+    "C6: DEC zp",
+    "C7c U DCP zp",
+    "C8: INY",
+    "C9: CMP imm",
+    "CA: DEX",
+    "CBc U SBX imm",
+    "CC: CPY abs",
+    "CD: CMP abs",
+    "CE: DEC abs",
+    "CFc U DCP abs",
+    "D0: BNE",
+    "D1: CMP (),y",
+	"D2: -?-",
+    "D3c U DCP (),y",
+    "D4: U NOP zp,x",
+    "D5: CMP zp,x",
+    "D6: DEC zp,x",
+    "D7c U DCP zp,x",
+    "D8: CLD",
+    "D9: CMP abs,y",
+    "DA: U NOP",
+    "DBc U DCP abs,y",
+    "DC: U NOP abs,x",
+    "DD: CMP abs,x",
+    "DE: DEC abs,x",
+    "DFc U DCP abs,x",
+    "E0: CPX imm",
+    "E1: SBC (,x)",
+    "E2: U NOP imm",
+    "E3c U ISB (,x)",
+    "E4: CPX zp",
+    "E5: SBC zp",
+    "E6: INC zp",
+    "E7c U ISB zp",
+    "E8: INX",
+    "E9: SBC imm",
+    "EA: NOP",
+    "EB: U SBC imm",
+    "EC: CPX abs",
+    "ED: SBC abs",
+    "EE: INC abs",
+    "EFc U ISB abs",
+    "F0: BEQ",
+    "F1: SBC (),y",
+	"F2: -?-",
+    "F3c U ISB (),y",
+    "F4: U NOP zpx",
+    "F5: SBC zp,x",
+    "F6: INC zp,x",
+    "F7c U ISB zp,x",
+    "F8: SED",
+    "F9: SBC abs,y",
+    "FA: U NOP",
+    "FBc U ISB abs,y",
+    "FC: U NOP abs,x",
+    "FD: SBC abs,x",
+    "FE: INC abs,x",
+    "FFc U ISB abs,x",
+};
+
 
 uint8_t* save_cpu(uint8_t* p)
 {

@@ -605,10 +605,18 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInitGl(J
 
 }
 
-
+static char b4096[4096];
 
 void blit_to_screen(int source_x, int source_y, int width, int height)
 {
+    LOGF("blit_to_screen(%i, %i, %i, %i)\n", source_x, source_y, width, height);
+    char *p=b4096;
+    for (int i=0; i <32; ++i) {
+        int c = sprintf(p, "%i, ", crtc[i]);
+        if ( c > 0 ) p += c; else break;
+    }
+    LOGF("CRTC %s", b4096);
+	log_asm(0xb1140000);
 	glViewport(0, 0, beebview_width, beebview_height);
 
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -640,9 +648,11 @@ void blit_to_screen(int source_x, int source_y, int width, int height)
     glVertexAttribPointer(gvTexCoord, 2, GL_FLOAT, GL_FALSE, sizeof(VERTEX), (void*)(3*sizeof(float)));
     glEnableVertexAttribArray(gvTexCoord);
     glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, 0);
+	log_asm(0xb1140001);
 
 	// Swap buffers on the java side (also updates FPS display)
 	(*env)->CallVoidMethod(env, g_obj, midVideoCallback);
+	log_asm(0xb1140002);
 
 }
 

@@ -195,7 +195,7 @@ use_c_fn:
     mov  ch,  [ ebp+9] 	#  ch = r10 = S
 
 done_call:
-    //LOG 5
+ //   LOG 5   // It's quick to here!
 	bt   eax, 31   // sei cli return -2.
 	jc  already_updated_interrupts
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
@@ -252,9 +252,14 @@ no_interrupt:
 	# Update CPU->cycles
 	pop  eax
 	sub [ ebp+24],  eax
-
+//LOG 0x71
 	# Update intermediate cycle counter
-	C_CALL_PRE
+//	C_CALL_PRE
+	push  ecx
+//LOG 0x72
+	push  edx
+	// end macro expansion
+//LOG 0x82
 	push  eax
 	push  ebp
  	//NOT-PIC call do_poll_C
@@ -262,7 +267,7 @@ no_interrupt:
  	call eax
  	add  esp,8
  	C_CALL_POST
-
+//LOG 0x93
 	mov  eax, [ ebp+24]
 
 	# Loop back until cpu->cycles <=0
@@ -349,15 +354,16 @@ no_interrupt:
 	movzx  eax,\val
 //LOG eax  // 0f
 //	push 0
-	push  ax
+	push  eax  //ax
+	LOG eax
 //	push 0
-	push  bx
+	push  ebx // bx
 	//NOT-PIC call writemem_ex
 //LOG esp // ...0c
 	mov eax, [ebp + 60]
 	call eax
 //LOG esp // ...0c
-	add  esp, 4 # 8
+	add  esp,  8 // 4
 //LOG esp // ...14
 	C_CALL_POST
 //LOG esp // ...1c
