@@ -25,7 +25,6 @@ import com.littlefluffytoys.beebdroid.ControllerInfo.TriggerAction;
 import common.Utils;
 
 import android.app.Activity;
-import android.graphics.Color;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -53,8 +52,6 @@ import android.widget.Toast;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 
-import static android.view.KeyEvent.ACTION_DOWN;
-import static android.view.KeyEvent.META_SHIFT_ON;
 import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToBeebKey;
 
 
@@ -64,7 +61,6 @@ public class Beebdroid extends Activity
 	public static boolean use25fps = false;
 	private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD};
 
-	int kbcolour = Color.DKGRAY;
 	Model model;
     DiskInfo diskInfo;
     int last_trigger;
@@ -139,7 +135,7 @@ public class Beebdroid extends Activity
             else {
             	if (keyboardTextEvents.size() > 0) {
 	            	final KeyEvent event = keyboardTextEvents.remove(0);
-	            	if (event.getAction() == ACTION_DOWN) {
+	            	if (event.getAction() == KeyEvent.ACTION_DOWN) {
 	            		onKeyDown(event.getKeyCode(), event);
 	            	}
 	            	if (event.getAction() == KeyEvent.ACTION_UP) {
@@ -155,27 +151,30 @@ public class Beebdroid extends Activity
     	}
     };
 
-	@Override
-	public void onBackPressed() {
-		bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
-	}
 
-	@Override
+
+    @Override
 	public boolean onKeyDown(int keycode, KeyEvent event) {
-    	//Log.d(TAG, "onKeyDown " + keycode);
+    	Log.d(TAG, "onKeyDown " + keycode + " - " + event.getUnicodeChar(0) + event.isAltPressed());
 
 		if (isXperiaPlay && onXperiaKey(keycode, event, 1)) {
 			return true;
 		}
 
+		if (event.isAltPressed())
+			if (event.getUnicodeChar(0) == '2') {
+			Log.d(TAG, "ToggleKbd");
+			toggleKeyboard();
+		}
+
 		if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
-			int bbcKeyCode = bbcKeyActionFromUnicode(event);
+			int scancode = bbcKeyActionFromUnicode(event);
 			TextView t = (TextView) this.findViewById(R.id.info);
 			t.setText(
-					event.getUnicodeChar() + " " + event.getUnicodeChar(META_SHIFT_ON) +
-							" " + Integer.toHexString(bbcKeyCode) +
+					event.getUnicodeChar() + " " + event.getUnicodeChar(KeyEvent.META_SHIFT_ON) +
+							" " + Integer.toHexString(scancode) +
 							" " + KeyEvent.keyCodeToString(event.getKeyCode()));
-			if (bbcKeyCode != 0) return true; // handled.
+			if (scancode != 0) return true; // handled.
 		}
 
     	// If pressed 'back' while game loaded, reset the emulator rather than exit the app
@@ -188,8 +187,6 @@ public class Beebdroid extends Activity
     			showKeyboard(KeyboardState.SCREEN_KEYBOARD);
     			return true;
     		}
-    		bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
-    		return true;
     	}
     	/*if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
     		shiftDown = true;
@@ -197,7 +194,6 @@ public class Beebdroid extends Activity
     	else {
     		bbcKeyEvent(lookup(keycode), shiftDown?1:0, 1);
     	}*/
-
 		if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
 			shiftDown = true;
 		}
@@ -205,9 +201,9 @@ public class Beebdroid extends Activity
     }
 
 	private int bbcKeyActionFromUnicode(KeyEvent event) {
-		int bbcKeyCode = unicodeToBeebKey(event);
-		if (bbcKeyCode != 0) { bbcKeyEvent(bbcKeyCode, 0, event.getAction() == ACTION_DOWN ? 1 : 0); }
-		return bbcKeyCode;
+		int scancode = unicodeToBeebKey(event);
+		if (scancode != 0) { bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0); }
+		return scancode;
 	}
 
 	@Override
@@ -235,7 +231,7 @@ public class Beebdroid extends Activity
     	if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
     		shiftDown = false;
     	}
-    	// bbcKeyEvent(lookup(keycode), shiftDown?1:0, 0);
+    	bbcKeyEvent(lookup(keycode), shiftDown?1:0, 0);
     	return super.onKeyUp(keycode, event);
     }
     
@@ -246,7 +242,7 @@ public class Beebdroid extends Activity
     	if (keycode==KeyEvent.KEYCODE_BACK && !event.isAltPressed()) return false;
     	ControllerInfo.KeyInfo info = controller.controllerInfo.keyinfosMappedByAndroidKeycode.get(keycode);
     	if (info != null) {
-    		bbcKeyEvent(info.bbcKeyCode, shiftDown?1:0, isDown);
+    		bbcKeyEvent(info.scancode, shiftDown?1:0, isDown);
     		return true;
     	}
 		return false;
@@ -274,13 +270,6 @@ public class Beebdroid extends Activity
         use25fps = Build.DEVICE.equals("bravo");
         
         //Log.d("Build", "Its a " + Build.DEVICE);
-
-		File root = getExternalFilesDir(null);
-		Log.d("Build", "\nExternal file system root: " + root);
-		File f = new File(root, "6502_x86.log");
-		try {
-			f.createNewFile();
-		} catch(IOException e) { throw new RuntimeException(e); }
 
         setContentView(R.layout.activity_beebdroid);
 
@@ -348,9 +337,17 @@ public class Beebdroid extends Activity
         beebView.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) {
-//				bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 1);
-//				bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 1);
-				bbcKeyTap(BeebKeys.BBCKEY_SPACE);
+				if (keyboardShowing == KeyboardState.BLUETOOTH_KBD)
+					return;
+				bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 1);
+				bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 1);
+				handler.postDelayed(new Runnable() {
+					@Override
+					public void run() {
+						bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 0);
+						bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 0);
+					}
+				}, 50);
 				hintActioned("hint_space_to_start");
 			}        	
         });
@@ -444,7 +441,8 @@ public class Beebdroid extends Activity
     @Override
     public void onResume() {
     	super.onResume();
-    	handler.postDelayed(new Runnable() {
+		if (keyboardShowing == KeyboardState.BLUETOOTH_KBD)
+			handler.postDelayed(new Runnable() {
 								@Override
 								public void run() {
 									beebView.requestFocus();
@@ -778,51 +776,9 @@ public class Beebdroid extends Activity
 	        getHolder().unlockCanvasAndPost(canvas);
 	    }*/
 
-		@Override
-		public boolean dispatchKeyEventPreIme(KeyEvent event) {
-			if (event.getAction() == ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
-//			if (keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(InputDevice.SOURCE_KEYBOARD)) {
-				bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
-				return true;
-			}
-			return super.dispatchKeyEventPreIme(event);
-		}
 
-		@Override
-		public boolean onKeyPreIme(int keyCode, KeyEvent event) {
-			if (keyCode == KeyEvent.KEYCODE_BACK) {
-//			if (keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(InputDevice.SOURCE_KEYBOARD)) {
-				bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
-				return true;
-			}
-			return super.onKeyPreIme(keyCode, event);
-		}
 
-		@Override
-		public boolean onKeyDown(int keyCode, KeyEvent event) {
-			if (keyCode == KeyEvent.KEYCODE_ENTER) {
-				bbcKeyTap(BeebKeys.BBCKEY_ENTER);
-				return true;
-			}
-			if (keyCode == KeyEvent.KEYCODE_BACK) {
-//			if (keyCode == KeyEvent.KEYCODE_BACK && event.isFromSource(InputDevice.SOURCE_KEYBOARD)) {
-				bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
-				return true;
-			}
-			return super.onKeyDown(keyCode, event);
-		}
 	}
-
-	static void bbcKeyTap(final int bbckeyCode) {
-		bbcKeyEvent(bbckeyCode, 0, 1);
-		handler.postDelayed(new Runnable() {
-			@Override
-			public void run() {
-				bbcKeyEvent(bbckeyCode, 0, 0);
-			}
-		}, 50);
-	}
-
 	public void videoCallback() {
 		fps++;
 		

@@ -94,13 +94,6 @@ void doblit()
 	c=(lasty+firsty)/2;
 	s_firsty=c-136;
 	s_lasty=c+136;
-//ARM:
-// blit_to_screen(336, 20, 672, 272)
-// CRTC 63, 40, 51, 36, 30, 2, 25, 28, 147, 18, 114, 19, 40, 0, 41, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, here! b1140000 0.000022 (cycle 5087  pc ~E464
-
-// x86:
-// blit_to_screen(-256, -131, 672, 272)
-// CRTC 0, 0, 0, 0, 0, 0, 0, 0, 32, 9, 0, 0, 0, 0, 0, 0, 48, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, here! b1140000 0.000124 (cycle 27501  pc ~CA38
 
 	blit_to_screen(s_firstx,s_firsty, s_lastx-s_firstx, s_lasty-s_firsty);
 	firstx=firsty=65535;
@@ -507,7 +500,6 @@ void pollvideo(int clocks)
 	uint8_t dat;
 
 	while (clocks--) {
-//log_asm(clocks);
 
 		scrx+=8;
 		vidclocks++;
@@ -529,7 +521,6 @@ void pollvideo(int clocks)
 			scry++;
 			if (scry>=384) {
 				scry=0;
-log_asm(0xd0B1E4);
 				doblit();
 			}
 		}
@@ -550,7 +541,6 @@ log_asm(0xd0B1E4);
 
 			if (scrx<1024) {
 				if ((crtc[8]&0x30)==0x30 || ((sc&8) && !(ulactrl&2))) {
-//					log_asm(0x444444);
 					for (c=0;c<((ulactrl&0x10)?8:16);c+=4) {
 						resetPixelQuad(scry, scrx+c);
 					}
@@ -562,7 +552,6 @@ log_asm(0xd0B1E4);
 					switch (crtcmode) {
 					case 0:
 						rendermode7(dat&0x7F);
-					log_asm(0x7777777);
 						break;
 					case 1:
 						if (scrx<firstx) firstx=scrx;
@@ -625,7 +614,6 @@ log_asm(0xd0B1E4);
 
 		else {
 			if (charsleft) {
-//					log_asm(0x77777FF);
 				if (charsleft!=1) rendermode7(255);
 				charsleft--;
 			}
@@ -653,7 +641,6 @@ log_asm(0xd0B1E4);
 		if (hvblcount) {
 			hvblcount--;
 			if (!hvblcount) {
-					log_asm(0xb1c100);
 					vblankintlow();
 			}
 		}
@@ -722,14 +709,10 @@ log_asm(0xd0B1E4);
 					interlline=frameodd && (crtc[8]&1);
 					oldr8=crtc[8]&1;
 					if (vidclocks>2) {
-//		log_asm(0x7777772);
 						doblit();
-//		log_asm(0x7777774);
 					}
 					scry=0;
 					vblankint();
-//		log_asm(0xb1ac144);
-
 					vsynctime=(crtc[3]>>4)+1;
 					if (!(crtc[3]>>4)) vsynctime=17;
 					m7flashtime++;
@@ -768,7 +751,6 @@ log_asm(0xd0B1E4);
 			if (adcconvert) {
 				adcconvert--;
 				if (!adcconvert) polladc();
-					log_asm(0xadcadcadc);
 			}
         }
         else {

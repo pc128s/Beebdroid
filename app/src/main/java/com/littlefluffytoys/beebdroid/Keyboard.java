@@ -7,20 +7,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import com.littlefluffytoys.beebdroid.TouchpadsView.Key;
-
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
-import android.view.InputEvent;
 import android.view.KeyEvent;
-import android.widget.Toast;
-
-import static android.view.KeyEvent.KEYCODE_ENTER;
-import static android.view.KeyEvent.KEYCODE_SPACE;
-import static android.view.KeyEvent.KEYCODE_TAB;
 
 public class Keyboard extends TouchpadsView {
 
@@ -40,23 +32,23 @@ public class Keyboard extends TouchpadsView {
     static class KeyMap {
         static Map<String, Integer> kmap = new HashMap<String, Integer>();
 
-        KeyMap(String label, String top, float weight, int bbcKeyCode, int flags) {
+        KeyMap(String label, String top, float weight, int scancode, int flags) {
             this.label = label;
             this.top = top;
             this.weight = weight;
-            this.bbcKeyCode = bbcKeyCode;
+            this.scancode = scancode;
             this.flags = flags;
             if (label != null) {
-                kmap.put(label.toLowerCase(), bbcKeyCode | 0x200);
+                kmap.put(label.toLowerCase(), scancode | 0x200);
                 if (top != null)
-                    kmap.put(top, bbcKeyCode | 0x100);
+                    kmap.put(top, scancode | 0x100);
                 else
-                    kmap.put(label.toUpperCase(), bbcKeyCode | 0x100);
+                    kmap.put(label.toUpperCase(), scancode | 0x100);
             }
         }
 
-        KeyMap(String label, String top, float weight, int bbcKeyCode) {
-            this(label, top, weight, bbcKeyCode, 0);
+        KeyMap(String label, String top, float weight, int scancode) {
+            this(label, top, weight, scancode, 0);
         }
 
         KeyMap() {
@@ -65,7 +57,7 @@ public class Keyboard extends TouchpadsView {
 
         String label, top;
         float weight;
-        int bbcKeyCode, flags;
+        int scancode, flags;
     }
 
     public static int altKey(int keycode) {
@@ -78,12 +70,12 @@ public class Keyboard extends TouchpadsView {
             switch (keyCode) {
                 case KeyEvent.KEYCODE_GRAVE: return BeebKeys.BBCKEY_CAPS;
                 case KeyEvent.KEYCODE_1: return BeebKeys.BBCKEY_SHIFTLOCK;
-                case KeyEvent.KEYCODE_3: return BeebKeys.BBCKEY_POUND;
+                case KeyEvent.KEYCODE_3: return BeebKeys.BBCKEY_POUND; // vs US mapping.
                 case KeyEvent.KEYCODE_DPAD_UP: return BeebKeys.BBCKEY_ARROW_UP;
                 case KeyEvent.KEYCODE_DPAD_DOWN: return BeebKeys.BBCKEY_ARROW_DOWN;
                 case KeyEvent.KEYCODE_DPAD_LEFT: return BeebKeys.BBCKEY_ARROW_LEFT;
                 case KeyEvent.KEYCODE_DPAD_RIGHT: return BeebKeys.BBCKEY_ARROW_RIGHT;
-                case KeyEvent.KEYCODE_ALT_RIGHT: return BeebKeys.BBCKEY_COPY;
+                case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_COPY;
             }
         }
         switch (keyCode) {
@@ -91,6 +83,7 @@ public class Keyboard extends TouchpadsView {
             case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_SPACE;
             case KeyEvent.KEYCODE_ENTER: return BeebKeys.BBCKEY_ENTER;
             case KeyEvent.KEYCODE_TAB: return BeebKeys.BBCKEY_TAB;
+            case KeyEvent.KEYCODE_BACK: return BeebKeys.BBCKEY_ESCAPE;
         }
         if (event.isCtrlPressed()) {
             int unicodeChar = event.getUnicodeChar(KeyEvent.META_SHIFT_ON);
@@ -195,7 +188,7 @@ public class Keyboard extends TouchpadsView {
                 addRow();
             } else {
                 if (key.weight > 0)
-                    add(key.label, key.top, key.weight, key.bbcKeyCode, key.flags);
+                    add(key.label, key.top, key.weight, key.scancode, key.flags);
             }
         }
         addRow();
@@ -207,7 +200,8 @@ public class Keyboard extends TouchpadsView {
                 if (pressed) {
                     shiftMode = SHIFTMODE_ONCE;
                     shiftPressed = true;
-                } else {
+                }
+                else {
                     if (shiftMode == SHIFTMODE_NORMAL) {
                         shiftPressed = false;
                     }
@@ -222,12 +216,12 @@ public class Keyboard extends TouchpadsView {
         add("RETURN", null, 2f, BeebKeys.BBCKEY_ENTER);
     }
 
-    public Key add(String label, String labelTop, float weight, int bbcKeyCode, int flags) {
+    public Key add(String label, String labelTop, float weight, int scancode, int flags) {
         KeyRow row = rows.get(rows.size() - 1);
         Key pad = new Key();
         pad.label = label;
         pad.labelTop = labelTop;
-        pad.bbcKeyCode = bbcKeyCode;
+        pad.scancode = scancode;
         pad.layout_width = 0;
         pad.layout_weight = weight;
         pad.flags = flags;
@@ -236,8 +230,8 @@ public class Keyboard extends TouchpadsView {
         return pad;
     }
 
-    public Key add(String label, String labelTop, float weight, int bbcKeyCode) {
-        return add(label, labelTop, weight, bbcKeyCode, 0);
+    public Key add(String label, String labelTop, float weight, int scancode) {
+        return add(label, labelTop, weight, scancode, 0);
     }
 
     @Override
@@ -283,12 +277,12 @@ public class Keyboard extends TouchpadsView {
     }
 
 
+
     //
     // KeyRow
     //
     public static class KeyRow {
         public ArrayList<Key> keys = new ArrayList<Key>();
-
         public void layout(int width, float ftop, float fbottom) {
             float sumweights = 0;
             float sumwidths = 0;
