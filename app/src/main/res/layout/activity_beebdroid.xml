@@ -16,23 +16,34 @@
         android:orientation="horizontal"
         android:gravity="right"
         >
-		<TextView
+		<LinearLayout
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
-			android:id="@+id/info"
-			android:text="Example"
-			/>
+			android:orientation="vertical"
+			>
+			<TextView
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:layout_alignParentLeft="true"
+				android:text="Alt-`=CaLk Alt-1=ShLk Alt-3=£ "
+				/>
+			<TextView
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:id="@+id/info"
+				android:text="Example"
+				/>
+		</LinearLayout>
 		<ImageView
-			android:id="@+id/btnKbMap"
+			android:id="@+id/btnInput"
 			android:layout_width="?attr/actionBarSize"
 			android:layout_height="?attr/actionBarSize"
 			android:layout_gravity="center"
 			android:layout_marginRight="8dp"
 			android:scaleType="centerInside"
-			android:background="@drawable/button_bg"
-			android:src="@drawable/kbmap"
+			android:background="@drawable/tab"
+			android:src="@drawable/keyboard"
 			android:clickable="true"
-			android:onClick="onKbMapClicked"
 			/>
 		<ImageView
 			android:layout_width="?attr/actionBarSize"

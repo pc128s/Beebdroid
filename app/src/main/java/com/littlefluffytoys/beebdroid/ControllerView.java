@@ -16,10 +16,10 @@ public class ControllerView extends TouchpadsView implements DPad.Listener {
 	ControllerInfo controllerInfo;
 	DPad dpad;
 	int dpadSize;
-	int scancodeLeft;
-	int scancodeRight;
-	int scancodeUp;
-	int scancodeDown;
+	int bbcKeyCodeLeft;
+	int bbcKeyCodeRight;
+	int bbcKeyCodeUp;
+	int bbcKeyCodeDown;
 	
 	public void setController(ControllerInfo info) {
 		controllerInfo = info;
@@ -56,7 +56,7 @@ public class ControllerView extends TouchpadsView implements DPad.Listener {
 		int height = getHeight();
 		for (ControllerInfo.KeyInfo keyinfo : controllerInfo.keyinfos) {
 			Key key = new Key();
-			key.scancode = keyinfo.scancode;
+			key.bbcKeyCode = keyinfo.bbcKeyCode;
 			key.label = keyinfo.label;
 			
     		float l = (keyinfo.xc<0) ? (width + keyinfo.xc*padwidth) : (keyinfo.xc*padwidth);
@@ -64,10 +64,10 @@ public class ControllerView extends TouchpadsView implements DPad.Listener {
     		key.bounds = new RectF(l, t, (l+padwidth*keyinfo.width), (t+padwidth*keyinfo.height));
     		
     		if (dpad != null) {
-	    		if (keyinfo.label.equals("Left")) {scancodeLeft = keyinfo.scancode; continue;}
-	      		if (keyinfo.label.equals("Right")) {scancodeRight = keyinfo.scancode; continue;}
-	      		if (keyinfo.label.equals("Up")) {scancodeUp = keyinfo.scancode; continue;}
-	      		if (keyinfo.label.equals("Down")) {scancodeDown = keyinfo.scancode; continue;}
+	    		if (keyinfo.label.equals("Left")) {bbcKeyCodeLeft = keyinfo.bbcKeyCode; continue;}
+	      		if (keyinfo.label.equals("Right")) {bbcKeyCodeRight = keyinfo.bbcKeyCode; continue;}
+	      		if (keyinfo.label.equals("Up")) {bbcKeyCodeUp = keyinfo.bbcKeyCode; continue;}
+	      		if (keyinfo.label.equals("Down")) {bbcKeyCodeDown = keyinfo.bbcKeyCode; continue;}
     		}
     		
     		allkeys.add(key);
@@ -118,22 +118,22 @@ public class ControllerView extends TouchpadsView implements DPad.Listener {
 	//
 	@Override
 	public void onLeft(boolean pressed) {
-		beebdroid.bbcKeyEvent(scancodeLeft, 0, pressed?1:0);
+		beebdroid.bbcKeyEvent(bbcKeyCodeLeft, 0, pressed?1:0);
 		invalidate();
 	}
 	@Override
 	public void onUp(boolean pressed) {
-		beebdroid.bbcKeyEvent(scancodeUp, 0, pressed?1:0);
+		beebdroid.bbcKeyEvent(bbcKeyCodeUp, 0, pressed?1:0);
 		invalidate();
 	}
 	@Override
 	public void onRight(boolean pressed) {
-		beebdroid.bbcKeyEvent(scancodeRight, 0, pressed?1:0);
+		beebdroid.bbcKeyEvent(bbcKeyCodeRight, 0, pressed?1:0);
 		invalidate();
 	}
 	@Override
 	public void onDown(boolean pressed) {
-		beebdroid.bbcKeyEvent(scancodeDown, 0, pressed?1:0);
+		beebdroid.bbcKeyEvent(bbcKeyCodeDown, 0, pressed?1:0);
 		invalidate();
 	}	
 }

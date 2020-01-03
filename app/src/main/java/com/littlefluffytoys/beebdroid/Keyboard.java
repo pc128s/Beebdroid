@@ -18,6 +18,10 @@ import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.widget.Toast;
 
+import static android.view.KeyEvent.KEYCODE_ENTER;
+import static android.view.KeyEvent.KEYCODE_SPACE;
+import static android.view.KeyEvent.KEYCODE_TAB;
+
 public class Keyboard extends TouchpadsView {
 
     // The height of a row of keys
@@ -36,23 +40,23 @@ public class Keyboard extends TouchpadsView {
     static class KeyMap {
         static Map<String, Integer> kmap = new HashMap<String, Integer>();
 
-        KeyMap(String label, String top, float weight, int scancode, int flags) {
+        KeyMap(String label, String top, float weight, int bbcKeyCode, int flags) {
             this.label = label;
             this.top = top;
             this.weight = weight;
-            this.scancode = scancode;
+            this.bbcKeyCode = bbcKeyCode;
             this.flags = flags;
             if (label != null) {
-                kmap.put(label.toLowerCase(), scancode | 0x200);
+                kmap.put(label.toLowerCase(), bbcKeyCode | 0x200);
                 if (top != null)
-                    kmap.put(top, scancode | 0x100);
+                    kmap.put(top, bbcKeyCode | 0x100);
                 else
-                    kmap.put(label.toUpperCase(), scancode | 0x100);
+                    kmap.put(label.toUpperCase(), bbcKeyCode | 0x100);
             }
         }
 
-        KeyMap(String label, String top, float weight, int scancode) {
-            this(label, top, weight, scancode, 0);
+        KeyMap(String label, String top, float weight, int bbcKeyCode) {
+            this(label, top, weight, bbcKeyCode, 0);
         }
 
         KeyMap() {
@@ -61,34 +65,32 @@ public class Keyboard extends TouchpadsView {
 
         String label, top;
         float weight;
-        int scancode, flags;
+        int bbcKeyCode, flags;
     }
 
     public static int altKey(int keycode) {
-        switch (keycode) {
-            case KeyEvent.KEYCODE_GRAVE: return BeebKeys.BBCKEY_CAPS;
-            case KeyEvent.KEYCODE_1: return BeebKeys.BBCKEY_SHIFTLOCK;
-            case KeyEvent.KEYCODE_2: return BeebKeys.BBCKEY_CARET;
-            case KeyEvent.KEYCODE_3: return BeebKeys.BBCKEY_POUND;
-            case KeyEvent.KEYCODE_4: return BeebKeys.BBCKEY_COPY;
-            case KeyEvent.KEYCODE_DPAD_UP: return BeebKeys.BBCKEY_ARROW_UP;
-            case KeyEvent.KEYCODE_DPAD_DOWN: return BeebKeys.BBCKEY_ARROW_DOWN;
-            case KeyEvent.KEYCODE_DPAD_LEFT: return BeebKeys.BBCKEY_ARROW_LEFT;
-            case KeyEvent.KEYCODE_DPAD_RIGHT: return BeebKeys.BBCKEY_ARROW_RIGHT;
-            case KeyEvent.KEYCODE_ALT_RIGHT: return BeebKeys.BBCKEY_COPY;
-        }
         return 0;
     }
 
-    public static int unicodeToScancode(KeyEvent event) {
+    public static int unicodeToBeebKey(KeyEvent event) {
+        int keyCode = event.getKeyCode();
         if (event.isAltPressed()) {
-            int alt = altKey(event.getKeyCode());
-            if (alt != 0) {
-                return alt;
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_GRAVE: return BeebKeys.BBCKEY_CAPS;
+                case KeyEvent.KEYCODE_1: return BeebKeys.BBCKEY_SHIFTLOCK;
+                case KeyEvent.KEYCODE_3: return BeebKeys.BBCKEY_POUND;
+                case KeyEvent.KEYCODE_DPAD_UP: return BeebKeys.BBCKEY_ARROW_UP;
+                case KeyEvent.KEYCODE_DPAD_DOWN: return BeebKeys.BBCKEY_ARROW_DOWN;
+                case KeyEvent.KEYCODE_DPAD_LEFT: return BeebKeys.BBCKEY_ARROW_LEFT;
+                case KeyEvent.KEYCODE_DPAD_RIGHT: return BeebKeys.BBCKEY_ARROW_RIGHT;
+                case KeyEvent.KEYCODE_ALT_RIGHT: return BeebKeys.BBCKEY_COPY;
             }
         }
-        if (event.getKeyCode() == KeyEvent.KEYCODE_DEL) {
-            return BeebKeys.BBCKEY_DELETE;
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DEL: return BeebKeys.BBCKEY_DELETE;
+            case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_SPACE;
+            case KeyEvent.KEYCODE_ENTER: return BeebKeys.BBCKEY_ENTER;
+            case KeyEvent.KEYCODE_TAB: return BeebKeys.BBCKEY_TAB;
         }
         if (event.isCtrlPressed()) {
             int unicodeChar = event.getUnicodeChar(KeyEvent.META_SHIFT_ON);
@@ -193,7 +195,7 @@ public class Keyboard extends TouchpadsView {
                 addRow();
             } else {
                 if (key.weight > 0)
-                    add(key.label, key.top, key.weight, key.scancode, key.flags);
+                    add(key.label, key.top, key.weight, key.bbcKeyCode, key.flags);
             }
         }
         addRow();
@@ -220,12 +222,12 @@ public class Keyboard extends TouchpadsView {
         add("RETURN", null, 2f, BeebKeys.BBCKEY_ENTER);
     }
 
-    public Key add(String label, String labelTop, float weight, int scancode, int flags) {
+    public Key add(String label, String labelTop, float weight, int bbcKeyCode, int flags) {
         KeyRow row = rows.get(rows.size() - 1);
         Key pad = new Key();
         pad.label = label;
         pad.labelTop = labelTop;
-        pad.scancode = scancode;
+        pad.bbcKeyCode = bbcKeyCode;
         pad.layout_width = 0;
         pad.layout_weight = weight;
         pad.flags = flags;
@@ -234,8 +236,8 @@ public class Keyboard extends TouchpadsView {
         return pad;
     }
 
-    public Key add(String label, String labelTop, float weight, int scancode) {
-        return add(label, labelTop, weight, scancode, 0);
+    public Key add(String label, String labelTop, float weight, int bbcKeyCode) {
+        return add(label, labelTop, weight, bbcKeyCode, 0);
     }
 
     @Override

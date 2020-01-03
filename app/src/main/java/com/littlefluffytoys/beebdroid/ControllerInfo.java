@@ -18,7 +18,7 @@ public class ControllerInfo {
 		String label;
 		int labelIconId;
 		String keylabel;
-		int scancode;
+		int bbcKeyCode;
 		float xc,yc, width, height;
     }
 	
@@ -43,13 +43,13 @@ public class ControllerInfo {
 	}
 
 	
-	public void addKey(String label, String keylabel, float xc, float yc, float width, float height, int scancode) {
-		addKey(label, keylabel, xc, yc, width, height, scancode, 0);
+	public void addKey(String label, String keylabel, float xc, float yc, float width, float height, int bbcKeyCode) {
+		addKey(label, keylabel, xc, yc, width, height, bbcKeyCode, 0);
 	}
-	public void addKey(String label, String keylabel, float xc, float yc, float width, float height, int scancode, int androidKeycode) {
-		addKey(label, keylabel, xc, yc, width, height, scancode, androidKeycode, 0);
+	public void addKey(String label, String keylabel, float xc, float yc, float width, float height, int bbcKeyCode, int androidKeycode) {
+		addKey(label, keylabel, xc, yc, width, height, bbcKeyCode, androidKeycode, 0);
 	}
-	public void addKey(String label, String keylabel, float xc, float yc, float width, float height, int scancode, int androidKeycode, int androidKeycode2) {	
+	public void addKey(String label, String keylabel, float xc, float yc, float width, float height, int bbcKeyCode, int androidKeycode, int androidKeycode2) {
 		KeyInfo key = new KeyInfo();
 		key.label = label;
 		key.keylabel = keylabel;
@@ -57,7 +57,7 @@ public class ControllerInfo {
 		key.yc = yc;
 		key.width = width;
 		key.height = height;
-		key.scancode = scancode;
+		key.bbcKeyCode = bbcKeyCode;
 		keyinfos.add(key);
 		if (androidKeycode != 0) {
 			keyinfosMappedByAndroidKeycode.put(androidKeycode, key);

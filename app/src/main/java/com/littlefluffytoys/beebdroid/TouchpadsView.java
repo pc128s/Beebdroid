@@ -35,7 +35,7 @@ public class TouchpadsView extends View {
     	int flags;
     	float layout_width;
     	float layout_weight;
-    	int scancode;
+    	int bbcKeyCode;
     	boolean pressed;
     	RectF bounds;
     	KeyListener listener;
@@ -140,7 +140,7 @@ public class TouchpadsView extends View {
 			touchedPad = hitTest((int)event.getX(pid), (int)event.getY(pid));
 			pressedPads[pid] = touchedPad;
 			if (touchedPad != null) {
-				beebdroid.bbcKeyEvent(touchedPad.scancode, shiftPressed?1:0, 1);
+				beebdroid.bbcKeyEvent(touchedPad.bbcKeyCode, shiftPressed?1:0, 1);
 				touchedPad.press(true);
 				invalidate();
 				//Log.d("Touch", touchedPad.label + " in pid=" + pid);
@@ -153,7 +153,7 @@ public class TouchpadsView extends View {
 			touchedPad = hitTest((int)event.getX(pid), (int)event.getY(pid));
 			pressedPads[pid] = touchedPad;
 			if (touchedPad != null) {
-				beebdroid.bbcKeyEvent(touchedPad.scancode, shiftPressed?1:0, 1);
+				beebdroid.bbcKeyEvent(touchedPad.bbcKeyCode, shiftPressed?1:0, 1);
 				touchedPad.press(true);
 				invalidate();
 	//			Log.d("Touch", touchedPad.label + " in pid=" + pid);
@@ -167,7 +167,7 @@ public class TouchpadsView extends View {
 			prevPad = pressedPads[pid];
 			if (prevPad != null) {
 				prevPad.press(false);
-				beebdroid.bbcKeyEvent(prevPad.scancode, shiftPressed?1:0, 0);
+				beebdroid.bbcKeyEvent(prevPad.bbcKeyCode, shiftPressed?1:0, 0);
 				invalidate();
 			//	Log.d("Touch", prevPad.label + " out pid=" + pid);
 			}
@@ -179,7 +179,7 @@ public class TouchpadsView extends View {
 			prevPad = pressedPads[pid];
 			if (prevPad != null) {
 				prevPad.press(false);
-				beebdroid.bbcKeyEvent(prevPad.scancode, shiftPressed?1:0, 0);
+				beebdroid.bbcKeyEvent(prevPad.bbcKeyCode, shiftPressed?1:0, 0);
 				invalidate();
 				//Log.d("Touch", prevPad.label + " out pid=" + pid);
 			}
@@ -206,13 +206,13 @@ public class TouchpadsView extends View {
 				
 				// Moved into a new pad OR out of one we were in before
 				if (prevPad!=null) { 
-					beebdroid.bbcKeyEvent(prevPad.scancode, 0, 0);
+					beebdroid.bbcKeyEvent(prevPad.bbcKeyCode, 0, 0);
 					prevPad.press(false);
 					//Log.d("Touch", prevPad.label + " dragout pid=" + pid);
 					invalidate();
 				}
 				if (touchedPad != null) {
-					beebdroid.bbcKeyEvent(touchedPad.scancode, 0, 1);
+					beebdroid.bbcKeyEvent(touchedPad.bbcKeyCode, 0, 1);
 					touchedPad.press(true);
 					invalidate();
 					//Log.d("Touch", touchedPad.label + " dragin pid=" + pid);

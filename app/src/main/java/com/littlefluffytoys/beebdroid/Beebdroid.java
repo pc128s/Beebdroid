@@ -55,15 +55,16 @@ import android.graphics.Rect;
 
 import static android.view.KeyEvent.ACTION_DOWN;
 import static android.view.KeyEvent.META_SHIFT_ON;
-import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToScancode;
+import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToBeebKey;
 
 
 public class Beebdroid extends Activity
 {
 	private static final String TAG="Beebdroid";
 	public static boolean use25fps = false;
-	private enum KeyboardState {KEYBOARD, CONTROLLER, NONE};
-	
+	private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD};
+
+	int kbcolour = Color.DKGRAY;
 	Model model;
     DiskInfo diskInfo;
     int last_trigger;
@@ -78,7 +79,7 @@ public class Beebdroid extends Activity
 	KeyCharacterMap map  = KeyCharacterMap.load(0);
 	int fps, skipped;
 	TextView tvFps;
-	private KeyboardState keyboardShowing = KeyboardState.KEYBOARD;
+	private KeyboardState keyboardShowing = KeyboardState.SCREEN_KEYBOARD;
 	ControllerInfo currentController;
 	boolean isXperiaPlay;
 	
@@ -95,7 +96,7 @@ public class Beebdroid extends Activity
     public native int bbcInitGl(int width, int height);
     public native void bbcLoadDisc(ByteBuffer disc, int autoboot);
     public native void bbcSetTriggers(short[] pc_triggers);
-    public static native void bbcKeyEvent(int scancode, int flags, int down);
+    public static native void bbcKeyEvent(int bbcKeycode, int flags, int down);
     public native int bbcSerialize(byte[] buffer);
     public native void bbcDeserialize(byte[] buffer);
     public native int bbcGetThumbnail(Bitmap bmp);
@@ -162,9 +163,19 @@ public class Beebdroid extends Activity
 	@Override
 	public boolean onKeyDown(int keycode, KeyEvent event) {
     	//Log.d(TAG, "onKeyDown " + keycode);
-    	
-    	if (isXperiaPlay && onXperiaKey(keycode, event, 1)) {
+
+		if (isXperiaPlay && onXperiaKey(keycode, event, 1)) {
 			return true;
+		}
+
+		if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
+			int bbcKeyCode = bbcKeyActionFromUnicode(event);
+			TextView t = (TextView) this.findViewById(R.id.info);
+			t.setText(
+					event.getUnicodeChar() + " " + event.getUnicodeChar(META_SHIFT_ON) +
+							" " + Integer.toHexString(bbcKeyCode) +
+							" " + KeyEvent.keyCodeToString(event.getKeyCode()));
+			if (bbcKeyCode != 0) return true; // handled.
 		}
 
     	// If pressed 'back' while game loaded, reset the emulator rather than exit the app
@@ -174,7 +185,7 @@ public class Beebdroid extends Activity
     	        bbcBreak(0);
     			diskInfo = null;
     			SavedGameInfo.current = null;
-    			showKeyboard(KeyboardState.KEYBOARD);
+    			showKeyboard(KeyboardState.SCREEN_KEYBOARD);
     			return true;
     		}
     		bbcKeyTap(BeebKeys.BBCKEY_ESCAPE);
@@ -190,20 +201,23 @@ public class Beebdroid extends Activity
 		if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
 			shiftDown = true;
 		}
-		TextView t = (TextView) this.findViewById(R.id.info);
-		int scancode = unicodeToScancode(event);
-		t.setText(
-				event.getUnicodeChar() + " " + event.getUnicodeChar(META_SHIFT_ON) +
-						" " + Integer.toHexString(scancode) +
-						" " + KeyEvent.keyCodeToString(event.getKeyCode()));
-    	//if (scancode != 0) bbcKeyEvent(scancode, shiftDown?1:0, 1);
-    	if (scancode != 0) bbcKeyEvent(scancode, 0, 1);
     	return super.onKeyDown(keycode, event);
     }
-    @Override
+
+	private int bbcKeyActionFromUnicode(KeyEvent event) {
+		int bbcKeyCode = unicodeToBeebKey(event);
+		if (bbcKeyCode != 0) { bbcKeyEvent(bbcKeyCode, 0, event.getAction() == ACTION_DOWN ? 1 : 0); }
+		return bbcKeyCode;
+	}
+
+	@Override
 	public boolean onKeyUp(int keycode, KeyEvent event) {
     	if (isXperiaPlay && onXperiaKey(keycode, event, 0)) {
 			return true;
+		}
+
+		if (keyboardShowing == KeyboardState.BLUETOOTH_KBD && bbcKeyActionFromUnicode(event) != 0) {
+			return true; // handled, thankyouverymuch
 		}
     	//final int kc = keycode;
     	//Log.d(TAG, "onKeyUp " + kc);
@@ -222,10 +236,6 @@ public class Beebdroid extends Activity
     		shiftDown = false;
     	}
     	// bbcKeyEvent(lookup(keycode), shiftDown?1:0, 0);
-
-		int scancode = unicodeToScancode(event);
-		//if (scancode != 0) bbcKeyEvent(scancode, shiftDown?1:0, 0);
-		if (scancode != 0) bbcKeyEvent(scancode, 0, 0);
     	return super.onKeyUp(keycode, event);
     }
     
@@ -236,7 +246,7 @@ public class Beebdroid extends Activity
     	if (keycode==KeyEvent.KEYCODE_BACK && !event.isAltPressed()) return false;
     	ControllerInfo.KeyInfo info = controller.controllerInfo.keyinfosMappedByAndroidKeycode.get(keycode);
     	if (info != null) {
-    		bbcKeyEvent(info.scancode, shiftDown?1:0, isDown);
+    		bbcKeyEvent(info.bbcKeyCode, shiftDown?1:0, isDown);
     		return true;
     	}
 		return false;
@@ -350,15 +360,15 @@ public class Beebdroid extends Activity
 
     private void toggleKeyboard() {
 		switch (keyboardShowing) {
-			case KEYBOARD:
+			case SCREEN_KEYBOARD:
 				showKeyboard(KeyboardState.CONTROLLER);
 				break;
 			case CONTROLLER:
-				showKeyboard(KeyboardState.NONE);
+				showKeyboard(KeyboardState.BLUETOOTH_KBD);
 				break;
-			case NONE:
+			case BLUETOOTH_KBD:
 			default:
-				showKeyboard(KeyboardState.KEYBOARD);
+				showKeyboard(KeyboardState.SCREEN_KEYBOARD);
 				break;
 		}
 		hintActioned("hint_switch_keyboards");
@@ -439,8 +449,7 @@ public class Beebdroid extends Activity
 								public void run() {
 									beebView.requestFocus();
 								}
-							}, 200
-			);
+							}, 200);
         handler.postDelayed(runInt50, 20);
         //showHint("hint_load_disks", R.string.hint_load_disks, 5);
     }
@@ -538,7 +547,7 @@ public class Beebdroid extends Activity
 		setController(controllerInfo);
 		
 		// Show the controller overlay rather than the keyboard
-		showKeyboard(KeyboardState.KEYBOARD);
+		showKeyboard(KeyboardState.SCREEN_KEYBOARD);
 		
     }
     
@@ -549,15 +558,28 @@ public class Beebdroid extends Activity
     }
 
     public void showKeyboard(KeyboardState keyboardState) {
-    	Utils.setVisible(this, R.id.keyboard, keyboardState == KeyboardState.KEYBOARD);
+    	Utils.setVisible(this, R.id.keyboard, keyboardState == KeyboardState.SCREEN_KEYBOARD);
     	Utils.setVisible(this, R.id.controller, keyboardState == KeyboardState.CONTROLLER);
 		final ImageView btnInput = (ImageView)findViewById(R.id.btnInput);
 		if (btnInput != null) {
-			btnInput.setImageResource(keyboardState == KeyboardState.KEYBOARD?(isXperiaPlay? R.drawable.keyboard_cancel : R.drawable.controller) : R.drawable.keyboard);
+			btnInput.setImageResource(kbdImageForState(keyboardState));
 		}
 		keyboardShowing = keyboardState;		
     }
-    boolean shiftDown;
+
+	private int kbdImageForState(KeyboardState keyboardState) {
+    	switch (keyboardState) {
+			case SCREEN_KEYBOARD:
+				return isXperiaPlay ? R.drawable.keyboard_cancel : R.drawable.controller;
+			case CONTROLLER:
+				return R.drawable.btkbabc;
+			case BLUETOOTH_KBD:
+			default:
+				return R.drawable.keyboard;
+		}
+	}
+
+	boolean shiftDown;
     
     
 
@@ -908,15 +930,6 @@ public class Beebdroid extends Activity
         //startDisksActivity((diskInfo == null) ? 0 : 2); // i.e. start on 'Installed' tab if no disk loaded, 'Saved' tab if a disk *is* loaded
 	}
 	
-	public void onKbMapClicked(View v) {
-		// While this is blue:
-		// 1. pressing a real keyboard key clears or creates a mapping from that key+modifiers to the last on-screen character (?with toast)
-		// 2. saving a file means the keyboard mapping, not the machine state.
-		// Presumably we should load the last mapping loaded (or saved?) automagically.
-		v.setSelected(!v.isSelected());
-		v.setBackgroundColor(v.isSelected() ? Color.BLUE : Color.DKGRAY);
-	}
-
 	/*
 	 * OpenGL help
 	 */
