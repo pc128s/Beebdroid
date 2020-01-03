@@ -75,14 +75,15 @@
 	android:src="@drawable/keyboard"
 />
 	<TextView
+		android:id="@+id/kb_bt_alt"
 		android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
 		android:layout_below="@id/btnInput"
 		android:layout_alignParentLeft="true"
-		android:text="Alt-`=CaLk Alt-1=ShLk Alt-3=£"
+		android:text="Alt-`=Caps Alt-1=ShLk Alt-3=£\nAlt-Alt=Copy Alt-\u2190\u2191\u2192\u2193"
 		android:rotation="90"
-		android:transformPivotX="20dp"
-		android:transformPivotY="20dp"
+		android:transformPivotX="10dp"
+		android:transformPivotY="38dp"
 		/>
 <TextView 
 	android:id="@+id/fps"

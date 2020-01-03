@@ -560,6 +560,7 @@ public class Beebdroid extends Activity
     public void showKeyboard(KeyboardState keyboardState) {
     	Utils.setVisible(this, R.id.keyboard, keyboardState == KeyboardState.SCREEN_KEYBOARD);
     	Utils.setVisible(this, R.id.controller, keyboardState == KeyboardState.CONTROLLER);
+    	Utils.setVisible(this, R.id.kb_bt_alt, keyboardState == KeyboardState.BLUETOOTH_KBD);
 		final ImageView btnInput = (ImageView)findViewById(R.id.btnInput);
 		if (btnInput != null) {
 			btnInput.setImageResource(kbdImageForState(keyboardState));
