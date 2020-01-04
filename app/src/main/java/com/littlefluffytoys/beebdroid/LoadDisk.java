@@ -216,6 +216,117 @@ public class LoadDisk extends AppCompatActivity implements FilePickerFragment.On
             task.execute();
         }
     }
+    public static class SavedGamesListFragment extends ListFragment {
+        public SavedGamesListFragment() {
+            setListAdapter(adapter);
+            refreshSerialImages();
+        }
+
+        BaseAdapter adapter = new BaseAdapter() {
+
+            private static final int TYPE_SERIALISATION = 0;
+            private static final int TYPE_SEPARATOR = 1;
+
+            @Override
+            public int getItemViewType(int position) {
+                if (position == 0) {
+                    return TYPE_SEPARATOR;
+                }
+                if (position<=SavedGameInfo.savedGames.size()) {
+                    return TYPE_SERIALISATION;
+                }
+                if (position == SavedGameInfo.savedGames.size() + 1) {
+                    return TYPE_SEPARATOR;
+                }
+                return TYPE_SERIALISATION;
+            }
+
+            @Override
+            public int getViewTypeCount() {
+                return 2;
+            }
+
+            @Override
+            public int getCount() {
+                return 1 + SavedGameInfo.savedGames.size();
+            }
+
+            @Override
+            public String getItem(int position) {
+                return null;
+            }
+
+            @Override
+            public long getItemId(int position) {
+                return position;
+            }
+
+            public View getView(int position, View view, ViewGroup parent) {
+                int rowType = getItemViewType(position);
+
+                if (view == null) {
+                    if (rowType == TYPE_SERIALISATION) {
+                        view = getActivity().getLayoutInflater().inflate(R.layout.listitem_savedgame, null);
+                    } else {
+                        view = getActivity().getLayoutInflater().inflate(R.layout.listitem_add_new_saved_game, null);
+                    }
+                }
+
+                if (rowType == TYPE_SERIALISATION) {
+                    position--;
+                    SavedGameInfo info = SavedGameInfo.savedGames.get(position);
+                    view.setTag(position);
+
+                    ImageView img = (ImageView)view.findViewById(R.id.image);
+                    img.setBackgroundDrawable(new BitmapDrawable(info.thumbnail));
+                    //img.setImageBitmap(info.thumbnail);
+
+                    Utils.setText(view, R.id.title, (info.diskInfo==null)? "No disk" : info.diskInfo.title);
+                    Utils.setText(view, R.id.age, Utils.age(info.timestamp) + " ");
+
+                    // Expand load/save buttons area
+                    View buttons = view.findViewById(R.id.buttons);
+                    if (info.equals(SavedGameInfo.current)) {
+                        buttons.setVisibility(View.VISIBLE);
+                        view.setBackgroundColor(0xffd0d0ff);
+                        buttons.findViewById(R.id.btnRestore).setTag(position);
+                        buttons.findViewById(R.id.btnOverwrite).setTag(position);
+                    }
+                    else {
+                        buttons.setVisibility(View.GONE);
+                        view.setBackgroundDrawable(null);
+                    }
+                } else {
+                    view.setTag(position-1);
+                }
+                return view;
+            }
+        };
+
+        private void refreshSerialImages() {
+//            SavedGameInfo.init();
+        }
+
+        @Override
+        public void onListItemClick(ListView l, View view, int position, long id) {
+            int result;
+            int index;
+            if (position == 0) {
+                result = ID_RESULT_SAVE;
+                index = -1;
+            }
+            else {
+                index = (Integer)view.getTag();
+                result = ID_RESULT_RESTORE;
+            }
+            Intent data = new Intent();
+            data.putExtra("index", index);
+            getActivity().setResult(result, data);
+            getActivity().finish();
+            return;
+
+        }
+    }
 
 	/*
 	 * ACTIVITY MANAGEMENT (i.e. functions generally called by the OS)
@@ -250,6 +361,16 @@ public class LoadDisk extends AppCompatActivity implements FilePickerFragment.On
 
         //TabSpec spec = mTabHost.newTabSpec(tag);
 
+
+        Bundle c = new Bundle();
+        c.putBoolean(FilePickerFragment.KEY_ALLOW_DIR_CREATE, false);
+        c.putBoolean(FilePickerFragment.KEY_ALLOW_MULTIPLE, false);
+        c.putInt(FilePickerFragment.KEY_MODE, FilePickerFragment.MODE_FILE);
+        c.putString(FilePickerFragment.KEY_START_PATH, getApplicationContext().getFilesDir().getAbsolutePath());
+
+        mTabHost.addTab(
+                mTabHost.newTabSpec("saved").setIndicator("Saved", null),
+                SavedGamesListFragment.class, c);
 
         //setupTab("Saved", savedAdapter, R.layout.listview, onSaveItemClickListener);
         //int tab = getIntent().getIntExtra("startTab", 0);
@@ -378,12 +499,6 @@ public class LoadDisk extends AppCompatActivity implements FilePickerFragment.On
 
     public void onCloseClicked(View view) {
         setResult(Activity.RESULT_CANCELED);
-        finish();
-    }
-
-    public void onSaveClicked(View view) {
-        Toast.makeText(getApplicationContext(), "onSaveClicked", Toast.LENGTH_SHORT).show();
-        setResult(ID_RESULT_SAVE);
         finish();
     }
 

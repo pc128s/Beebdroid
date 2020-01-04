@@ -497,9 +497,10 @@ public class Beebdroid extends Activity
     		
 		case LoadDisk.ID_RESULT_RESTORE:
 			info = SavedGameInfo.savedGames.get(index);
-			loadDisk(info.diskInfo, false);
-			byte[] buffer = new byte[65*1024];
 			try {
+				if (info.diskInfo != null)
+					loadDisk(info.diskInfo, false);
+				byte[] buffer = new byte[65*1024];
 				FileInputStream fileIn = openFileInput(info.filename);
 				DataInputStream din = new DataInputStream(fileIn);
 				din.skip(info.offsetToMachineData);
@@ -833,23 +834,31 @@ public class Beebdroid extends Activity
 	//private static final int ID_CONTROLLERS = 2;
 	private static final int ID_ABOUT = 3;
 	private static final int ID_SAVEDGAMES = 4;
-	
+	private static final int ID_SAVEMACHINE = 5;
+
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		menu.add(0, ID_SWITCHKEYBOARD, 0, getString(R.string.button_switch_keyboard));
 		menu.add(0, ID_LOADDISK, 1, getString(R.string.button_load_disk));
-		menu.add(0, ID_ABOUT, 2, getString(R.string.button_about));
+		menu.add(0, ID_SAVEMACHINE, 2, getString(R.string.button_save_machine));
+		menu.add(0, ID_ABOUT, 3, getString(R.string.button_about));
 		return true;
 	}
 	@Override
 	public boolean onOptionsItemSelected (MenuItem item) {
 		switch (item.getItemId()) {
-		case ID_SWITCHKEYBOARD:
-			toggleKeyboard();
-			return true;
-		case ID_ABOUT:
-			startActivity(new Intent(Beebdroid.this, AboutActivity.class));
-			return true;
+			case ID_SWITCHKEYBOARD:
+				toggleKeyboard();
+				return true;
+			case ID_LOADDISK:
+				onOpenClicked(null);
+				return true;
+			case ID_SAVEMACHINE:
+				onOpenClicked(null);
+				return true;
+			case ID_ABOUT:
+				startActivity(new Intent(Beebdroid.this, AboutActivity.class));
+				return true;
 		}
 
 		return false;
