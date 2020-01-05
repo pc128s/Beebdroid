@@ -32,7 +32,8 @@
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
 				android:id="@+id/info"
-				android:text="Example"
+				android:lines="1"
+				android:text="__________\n__________________"
 				/>
 		</LinearLayout>
 

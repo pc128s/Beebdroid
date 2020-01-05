@@ -167,7 +167,7 @@ public class Beebdroid extends Activity
 
     @Override
 	public boolean onKeyDown(int keycode, KeyEvent event) {
-    	Log.d(TAG, "onKeyDown " + keycode + " - " + event.getUnicodeChar(0) + event.isAltPressed());
+    	//Log.d(TAG, "onKeyDown " + keycode + " - " + event.getUnicodeChar(0) + event.isAltPressed());
 
 		if (isXperiaPlay && onXperiaKey(keycode, event, 1)) {
 			return true;
@@ -185,10 +185,10 @@ public class Beebdroid extends Activity
 			int u0 = event.getUnicodeChar();
 			int u1 = event.getUnicodeChar(KeyEvent.META_SHIFT_ON);
 			t.setText(
-					new String(Character.toChars(u0)) + "=" + u0 +
-							" " + new String(Character.toChars(u1)) + "=" + u1 +
-							" bbc=" + Integer.toHexString(scancode) +
-							" " + KeyEvent.keyCodeToString(event.getKeyCode()));
+					uToStr(u0) + "=" + u0 +
+							" " + uToStr(u1) + "=" + u1 +
+							" " + Integer.toHexString(scancode) + "=inkey(-" +(0xff&scancode+1)+ ")" +
+							"\n" + KeyEvent.keyCodeToString(event.getKeyCode()));
 			if (scancode != 0) return true; // handled.
 		}
 
@@ -215,7 +215,17 @@ public class Beebdroid extends Activity
     	return super.onKeyDown(keycode, event);
     }
 
-    HashMap<Integer, Integer> downs = new HashMap<Integer, Integer>();
+	private String uToStr(int u0) {
+    	try {
+			return new String(Character.toChars(u0));
+		}
+    	catch (IllegalArgumentException e) {
+			Log.e(TAG, "uToStr("+u0+") threw " + e);
+			return "";
+		}
+	}
+
+	HashMap<Integer, Integer> downs = new HashMap<Integer, Integer>();
 
 	private int bbcKeyActionFromUnicode(KeyEvent event) {
 		int keycode = event.getKeyCode();

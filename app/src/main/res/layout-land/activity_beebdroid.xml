@@ -56,13 +56,11 @@
 />
 
 	<TextView
-		android:layout_width="wrap_content"
+		android:layout_width="48dp"
 		android:layout_height="wrap_content"
 		android:id="@+id/info"
-		android:text="Example"
+		android:text=""
 		android:layout_alignParentRight="true"
-		android:translationX="50px"
-		android:rotation="90"
 		android:layout_centerVertical="true"
 		/>
 
@@ -84,14 +82,11 @@
 />
 	<TextView
 		android:id="@+id/kb_bt_alt"
-		android:layout_width="wrap_content"
+		android:layout_width="26pt"
 		android:layout_height="wrap_content"
-		android:layout_below="@id/btnInput"
+		android:layout_below="@id/lock"
 		android:layout_alignParentLeft="true"
-		android:text="Alt-`=Caps Alt-1=ShLk Alt-2=TKbd\nAlt-3=£ Alt-Spc=Copy"
-		android:rotation="90"
-		android:transformPivotX="10dp"
-		android:transformPivotY="38dp"
+		android:text="\nAlt+...\n\n`=Caps\n1=ShLk\n2=TKbd\n3=£\nSpc=Cpy"
 		/>
 	<!--  Alt-\u2190\u2191\u2192\u2193" -->
 <TextView 
