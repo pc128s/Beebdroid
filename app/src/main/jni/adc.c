@@ -38,15 +38,14 @@ void writeadc(uint16_t addr, uint8_t val)
 
 void polladc()
 {
-	/*
         uint32_t val;
-        joy1x=joy1y=0;
+        //joy1x=joy1y=0;
         switch (adcstatus&3)
         {
-                case 0: val=(128-joy[0].stick[0].axis[0].pos)*256; break;
-                case 1: val=(128-joy[0].stick[0].axis[1].pos)*256; break;
-                case 2: val=(128-joy[1].stick[0].axis[0].pos)*256; break;
-                case 3: val=(128-joy[1].stick[0].axis[1].pos)*256; break;
+                case 0: val=joy1x; break; // (128-joy[0].stick[0].axis[0].pos)*256; break;
+                case 1: val=joy1y; break; // (128-joy[0].stick[0].axis[1].pos)*256; break;
+                case 2: val=joy2x; break; // (128-joy[1].stick[0].axis[0].pos)*256; break;
+                case 3: val=joy2y; break; // (128-joy[1].stick[0].axis[1].pos)*256; break;
         }
         if (val>0xFFFF) val=0xFFFF;
         if (val<0)      val=0;
@@ -55,7 +54,6 @@ void polladc()
         adchigh=val>>8;
         adclow=val&0xFF;
         syscb1();
-        */
 }
 
 void initadc()

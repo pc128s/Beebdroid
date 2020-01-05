@@ -43,6 +43,7 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -100,6 +101,7 @@ public class Beebdroid extends Activity
     public native void bbcDeserialize(byte[] buffer);
     public native int bbcGetThumbnail(Bitmap bmp);
     public native int bbcGetLocks();
+    public native void bbcPushAdc(int x1, int y1, int x2, int y2);
 
     long time_fps;
 
@@ -162,8 +164,6 @@ public class Beebdroid extends Activity
             }
     	}
     };
-
-
 
     @Override
 	public boolean onKeyDown(int keycode, KeyEvent event) {
@@ -321,15 +321,34 @@ public class Beebdroid extends Activity
         if (Build.DEVICE.equalsIgnoreCase("R800i") || Build.DEVICE.equalsIgnoreCase("zeus")) {
         	isXperiaPlay = true;
         }
-        
-        // Find UI bits and wire things up
+
+		// Find UI bits and wire things up
         beebView = (BeebView)findViewById(R.id.beeb);
         keyboard = (Keyboard)findViewById(R.id.keyboard);
         keyboard.beebdroid = this;
         controller = (ControllerView)findViewById(R.id.controller);
         controller.beebdroid = this;
 
-        // See if we're a previous instance of the same activity, or a totally fresh one
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+			View.OnHoverListener hoverListener = new View.OnHoverListener() {
+				long last_ms = 0;
+
+				@Override
+				public boolean onHover(View v, MotionEvent event) {
+					long ms = event.getEventTime();
+					if (last_ms + 20 < ms) {
+						last_ms = ms;
+//						Log.e(TAG, "Hover " + (event.getX() + v.getX()) + ", " + (event.getY() + v.getY()));
+						bbcPushAdc((int)(event.getX() + v.getX()), (int)(event.getY() + v.getY()),0,0);
+					}
+					return false;
+				}
+			};
+			findViewById(R.id.root).setOnHoverListener(hoverListener);
+			beebView.setOnHoverListener(hoverListener);
+		}
+
+		// See if we're a previous instance of the same activity, or a totally fresh one
         Beebdroid prev = (Beebdroid)getLastNonConfigurationInstance();
         if (prev == null) {
         	InstalledDisks.load(this);

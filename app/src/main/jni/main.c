@@ -348,6 +348,15 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcGetLocks
     return IC32;
 }
 
+JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcPushAdc(JNIEnv * env, jobject  obj, jint x1, jint y1, jint x2, jint y2)
+{
+    joy1x = x1;
+    joy1y = y1;
+    joy2x = x2;
+    joy2y = y2;
+    return IC32;
+}
+
 JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcGetThumbnail(JNIEnv * env, jobject  obj, jobject jbitmap)
 {
 	AndroidBitmapInfo info;
