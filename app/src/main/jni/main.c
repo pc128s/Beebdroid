@@ -343,6 +343,11 @@ void set_palette(int* p) {
 extern int s_firstx, s_lastx, s_firsty, s_lasty;
 
 
+JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcGetLocks(JNIEnv * env, jobject  obj)
+{
+    return IC32;
+}
+
 JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcGetThumbnail(JNIEnv * env, jobject  obj, jobject jbitmap)
 {
 	AndroidBitmapInfo info;

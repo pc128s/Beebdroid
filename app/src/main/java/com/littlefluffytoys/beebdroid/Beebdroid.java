@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -61,6 +62,8 @@ public class Beebdroid extends Activity
 	public static boolean use25fps = false;
 	private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD};
 
+	static int locks=0;
+
 	Model model;
     DiskInfo diskInfo;
     int last_trigger;
@@ -96,6 +99,7 @@ public class Beebdroid extends Activity
     public native int bbcSerialize(byte[] buffer);
     public native void bbcDeserialize(byte[] buffer);
     public native int bbcGetThumbnail(Bitmap bmp);
+    public native int bbcGetLocks();
 
     long time_fps;
 
@@ -127,7 +131,15 @@ public class Beebdroid extends Activity
 	    		}
     		}
     		
-            
+			int ic32 = bbcGetLocks();
+    		if (locks != ic32) {
+    			String s = "No";
+				if ((ic32&64)==0) s = "Caps";
+				if ((ic32&128)==0) s = "Sh";
+				((TextView)findViewById(R.id.lock)).setText(s + "Lk");
+				locks = ic32;
+			}
+
             // Automatic keyboard text
             if (keyboardTextWait > 0) {
             	keyboardTextWait--;
@@ -170,9 +182,12 @@ public class Beebdroid extends Activity
 		if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
 			int scancode = bbcKeyActionFromUnicode(event);
 			TextView t = (TextView) this.findViewById(R.id.info);
+			int u0 = event.getUnicodeChar();
+			int u1 = event.getUnicodeChar(KeyEvent.META_SHIFT_ON);
 			t.setText(
-					event.getUnicodeChar() + " " + event.getUnicodeChar(KeyEvent.META_SHIFT_ON) +
-							" " + Integer.toHexString(scancode) +
+					new String(Character.toChars(u0)) + "=" + u0 +
+							" " + new String(Character.toChars(u1)) + "=" + u1 +
+							" bbc=" + Integer.toHexString(scancode) +
 							" " + KeyEvent.keyCodeToString(event.getKeyCode()));
 			if (scancode != 0) return true; // handled.
 		}
@@ -200,10 +215,26 @@ public class Beebdroid extends Activity
     	return super.onKeyDown(keycode, event);
     }
 
+    HashMap<Integer, Integer> downs = new HashMap<Integer, Integer>();
+
 	private int bbcKeyActionFromUnicode(KeyEvent event) {
-		int scancode = unicodeToBeebKey(event);
-		if (scancode != 0) { bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0); }
-		return scancode;
+		int keycode = event.getKeyCode();
+    	if (event.getAction() == KeyEvent.ACTION_DOWN) {
+			int scancode = unicodeToBeebKey(event);
+			if (scancode != 0) {
+				downs.put(keycode, scancode);
+				bbcKeyEvent(scancode, 0, 1);
+			}
+			return scancode;
+		}
+    	else {
+    		Integer scancode = downs.remove(keycode);
+			if (scancode != null && scancode != 0) {
+				bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0);
+				return scancode;
+			}
+			return 0;
+		}
 	}
 
 	@Override

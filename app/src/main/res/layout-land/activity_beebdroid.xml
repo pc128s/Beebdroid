@@ -66,8 +66,16 @@
 		android:layout_centerVertical="true"
 		/>
 
+	<TextView
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:id="@+id/lock"
+		android:text="ShCaLck"
+		android:layout_alignParentLeft="true"
+		android:layout_below="@id/btnInput"
+		/>
 
-<ImageView 
+	<ImageView
 	android:id="@+id/btnInput"
 	android:layout_width="48dp"
 	android:layout_height="48dp"
