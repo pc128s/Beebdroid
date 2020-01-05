@@ -188,7 +188,7 @@ public class Beebdroid extends Activity
 					uToStr(u0) + "=" + u0 +
 							" " + uToStr(u1) + "=" + u1 +
 							" " + Integer.toHexString(scancode) + "=inkey(-" +(0xff&scancode+1)+ ")" +
-							"\n" + KeyEvent.keyCodeToString(event.getKeyCode()));
+							" " + KeyEvent.keyCodeToString(event.getKeyCode()));
 			if (scancode != 0) return true; // handled.
 		}
 
