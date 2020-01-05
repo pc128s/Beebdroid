@@ -88,11 +88,12 @@
 		android:layout_height="wrap_content"
 		android:layout_below="@id/btnInput"
 		android:layout_alignParentLeft="true"
-		android:text="Alt-`=Caps Alt-1=ShLk Alt-2=TKbd Alt-3=£\nAlt-Spc=Copy Alt-\u2190\u2191\u2192\u2193"
+		android:text="Alt-`=Caps Alt-1=ShLk Alt-2=TKbd\nAlt-3=£ Alt-Spc=Copy"
 		android:rotation="90"
 		android:transformPivotX="10dp"
 		android:transformPivotY="38dp"
 		/>
+	<!--  Alt-\u2190\u2191\u2192\u2193" -->
 <TextView 
 	android:id="@+id/fps"
 	android:layout_width="fill_parent"

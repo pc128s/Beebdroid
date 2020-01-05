@@ -25,8 +25,9 @@
 				android:id="@+id/kb_bt_alt"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
-				android:text="Alt-`=Caps Alt-1=ShLk Alt-2=TKbd\nAlt-3=£ Alt-Spc=Copy Alt-\u2190\u2191\u2192\u2193"
+				android:text="Alt-`=Caps Alt-1=ShLk Alt-2=TKbd\nAlt-3=£ Alt-Spc=Copy"
 				/>
+			<!-- narf="Alt-\u2190\u2191\u2192\u2193" -->
 			<TextView
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"

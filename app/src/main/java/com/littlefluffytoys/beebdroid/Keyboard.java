@@ -71,11 +71,8 @@ public class Keyboard extends TouchpadsView {
                 case KeyEvent.KEYCODE_GRAVE: return BeebKeys.BBCKEY_CAPS;
                 case KeyEvent.KEYCODE_1: return BeebKeys.BBCKEY_SHIFTLOCK;
                 case KeyEvent.KEYCODE_3: return BeebKeys.BBCKEY_POUND; // vs US mapping.
-                case KeyEvent.KEYCODE_DPAD_UP: return BeebKeys.BBCKEY_ARROW_UP;
-                case KeyEvent.KEYCODE_DPAD_DOWN: return BeebKeys.BBCKEY_ARROW_DOWN;
-                case KeyEvent.KEYCODE_DPAD_LEFT: return BeebKeys.BBCKEY_ARROW_LEFT;
-                case KeyEvent.KEYCODE_DPAD_RIGHT: return BeebKeys.BBCKEY_ARROW_RIGHT;
                 case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_COPY;
+                case KeyEvent.KEYCODE_DEL: return BeebKeys.BBCKEY_COPY;
             }
         }
         switch (keyCode) {
@@ -84,6 +81,12 @@ public class Keyboard extends TouchpadsView {
             case KeyEvent.KEYCODE_ENTER: return BeebKeys.BBCKEY_ENTER;
             case KeyEvent.KEYCODE_TAB: return BeebKeys.BBCKEY_TAB;
             case KeyEvent.KEYCODE_BACK: return BeebKeys.BBCKEY_ESCAPE;
+            case KeyEvent.KEYCODE_DPAD_UP: return BeebKeys.BBCKEY_ARROW_UP;
+            case KeyEvent.KEYCODE_DPAD_DOWN: return BeebKeys.BBCKEY_ARROW_DOWN;
+            case KeyEvent.KEYCODE_DPAD_LEFT: return BeebKeys.BBCKEY_ARROW_LEFT;
+            case KeyEvent.KEYCODE_DPAD_RIGHT: return BeebKeys.BBCKEY_ARROW_RIGHT;
+            case KeyEvent.KEYCODE_DPAD_CENTER: return BeebKeys.BBCKEY_COPY;
+            case KeyEvent.KEYCODE_FORWARD_DEL: return BeebKeys.BBCKEY_COPY;
         }
         if (event.isCtrlPressed()) {
             int unicodeChar = event.getUnicodeChar(KeyEvent.META_SHIFT_ON);
