@@ -4,7 +4,7 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 23
-    buildToolsVersion '25.0.0'
+    buildToolsVersion '28.0.2'
     defaultConfig {
         applicationId "com.littlefluffytoys.beebdroid"
         targetSdkVersion 23
@@ -20,7 +20,7 @@ android {
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
             commandLine 'ndk-build.cmd', '-C', file('src/main').absolutePath
         } else {
-            commandLine '/home/tim/lib/android-sdk-linux/ndk/20.0.5594570/ndk-build', '-C', file('src/main').absolutePath
+            commandLine '/home/tim/Android/Sdk/ndk/20.1.5948944/ndk-build', '-C', file('src/main').absolutePath
         }
     }
     // add this task as a dependency of Java compilation
