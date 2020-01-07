@@ -20,7 +20,10 @@ android {
         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
             commandLine 'ndk-build.cmd', '-C', file('src/main').absolutePath
         } else {
-            commandLine '/home/tim/Android/Sdk/ndk/20.1.5948944/ndk-build', '-C', file('src/main').absolutePath
+            Properties properties = new Properties()
+            properties.load(project.rootProject.file('local.properties').newDataInputStream())
+            def ndkDir = properties.getProperty('ndk.dir')
+            commandLine "${ndkDir}/ndk-build", '-C', file('src/main').absolutePath
         }
     }
     // add this task as a dependency of Java compilation
