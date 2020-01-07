@@ -23,6 +23,15 @@ android {
             Properties properties = new Properties()
             properties.load(project.rootProject.file('local.properties').newDataInputStream())
             def ndkDir = properties.getProperty('ndk.dir')
+            if (ndkDir == null) {
+                def sdkDir = properties.getProperty('sdk.dir')
+                ndkDir = "${sdkDir}/ndk"
+                def candidates = new File(ndkDir).grep({ new File(it, "ndk-build").exists() })
+                if (candidates.size() != 1) {
+                    throw new RuntimeException("Wanted one NDK in local.properties:sdk.dir but found ${candidates.size()}")
+                }
+                ndkDir = candidates[0]
+            }
             commandLine "${ndkDir}/ndk-build", '-C', file('src/main').absolutePath
         }
     }
