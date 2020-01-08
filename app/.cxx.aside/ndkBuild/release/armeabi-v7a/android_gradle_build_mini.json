@@ -1,0 +1,18 @@
+{
+  "buildFiles": [
+    "/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Android.mk",
+    "/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Application.mk"
+  ],
+  "cleanCommands": [
+    "/home/tim/lib/android-sdk-linux/ndk/20.0.5594570/ndk-build NDK_PROJECT_PATH\u003dnull APP_BUILD_SCRIPT\u003d/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Android.mk NDK_APPLICATION_MK\u003d/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Application.mk APP_ABI\u003darmeabi-v7a NDK_ALL_ABIS\u003darmeabi-v7a NDK_DEBUG\u003d0 APP_PLATFORM\u003dandroid-16 NDK_OUT\u003d/home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/obj NDK_LIBS_OUT\u003d/home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/lib clean"
+  ],
+  "buildTargetsCommand": "/home/tim/lib/android-sdk-linux/ndk/20.0.5594570/ndk-build NDK_PROJECT_PATH\u003dnull APP_BUILD_SCRIPT\u003d/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Android.mk NDK_APPLICATION_MK\u003d/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Application.mk APP_ABI\u003darmeabi-v7a NDK_ALL_ABIS\u003darmeabi-v7a NDK_DEBUG\u003d0 APP_PLATFORM\u003dandroid-16 NDK_OUT\u003d/home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/obj NDK_LIBS_OUT\u003d/home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/lib {LIST_OF_TARGETS_TO_BUILD}",
+  "libraries": {
+    "bbcmicro-release-armeabi-v7a": {
+      "artifactName": "bbcmicro",
+      "buildCommand": "/home/tim/lib/android-sdk-linux/ndk/20.0.5594570/ndk-build NDK_PROJECT_PATH\u003dnull APP_BUILD_SCRIPT\u003d/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Android.mk NDK_APPLICATION_MK\u003d/home/tim/git/fluffytoys/Beebdroid/app/src/main/jni/Application.mk APP_ABI\u003darmeabi-v7a NDK_ALL_ABIS\u003darmeabi-v7a NDK_DEBUG\u003d0 APP_PLATFORM\u003dandroid-16 NDK_OUT\u003d/home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/obj NDK_LIBS_OUT\u003d/home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/lib /home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/obj/local/armeabi-v7a/libbbcmicro.so",
+      "abi": "armeabi-v7a",
+      "output": "/home/tim/git/fluffytoys/Beebdroid/app/build/intermediates/ndkBuild/release/obj/local/armeabi-v7a/libbbcmicro.so"
+    }
+  }
+}
