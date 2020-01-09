@@ -483,8 +483,7 @@ void latchpen()
         crtc[0x11]=ma&0xFF;
 }
 
-
-inline void resetPixelQuad(int y, int x) {
+static inline void resetPixelQuad(int y, int x) {
 	uint32_t* p = (uint32_t*)(b->pixels + y * b->stride + x*2);
 	uint32_t col0 = current_palette16[0];
 	col0 = (col0<<16) | col0;
