@@ -641,10 +641,12 @@ public class Beebdroid extends Activity {
 
     int lookup(int keycode) {
         switch (keycode) {
-            //case KeyEvent.KEYCODE_SHIFT_LEFT: return 0x00;
-            //case KeyEvent.KEYCODE_SHIFT_RIGHT: return 0x00;
+            case KeyEvent.KEYCODE_CTRL_LEFT:
+            case KeyEvent.KEYCODE_CTRL_RIGHT: return BBCKEY_CTRL;
+            case KeyEvent.KEYCODE_SHIFT_LEFT:
+                case KeyEvent.KEYCODE_SHIFT_RIGHT: return BBCKEY_SHIFT;
             case KeyEvent.KEYCODE_0:
-                return shiftDown ? (BBCKEY_SHIFT | BBCKEY_9) : BBCKEY_0; // 0x126 ) :0x27 0;
+                return BBCKEY_0; // 0x126 ) :0x27 0;
             case KeyEvent.KEYCODE_1:
                 return BBCKEY_1; // 0x30;
             case KeyEvent.KEYCODE_2:
@@ -658,11 +660,11 @@ public class Beebdroid extends Activity {
             case KeyEvent.KEYCODE_6:
                 return BBCKEY_6; // 0x34;
             case KeyEvent.KEYCODE_7:
-                return shiftDown ? (BBCKEY_SHIFT | BBCKEY_6) : BBCKEY_7; // 0x134 & :0x24 7;
+                return BBCKEY_7; // 0x134 & :0x24 7;
             case KeyEvent.KEYCODE_8:
                 return BBCKEY_8; // 0x15;
             case KeyEvent.KEYCODE_9:
-                return shiftDown ? (BBCKEY_SHIFT | BBCKEY_8) : BBCKEY_9; // 0x115 ( :0x26 8;
+                return BBCKEY_9; // 0x115 ( :0x26 8;
             case KeyEvent.KEYCODE_A:
                 return BBCKEY_A; // 0x41;
             case KeyEvent.KEYCODE_B:
@@ -722,25 +724,25 @@ public class Beebdroid extends Activity {
             case KeyEvent.KEYCODE_DEL:
                 return BBCKEY_DELETE; //  0x59;
             case KeyEvent.KEYCODE_APOSTROPHE:
-                return shiftDown ? BBCKEY_2 : (BBCKEY_SHIFT | BBCKEY_7); // 0x31 2 :0x124 ' ;
+                return BBCKEY_COLON; // 0x31 2 :0x124 ' ;
             case KeyEvent.KEYCODE_POUND:
-                return (BBCKEY_SHIFT | BBCKEY_3); // 0x111; // '#' is Shift+3
+                return BBCKEY_3; // 0x111; // '#' is Shift+3
             case KeyEvent.KEYCODE_MINUS:
-                return shiftDown ? (BBCKEY_ANTISHIFT | BBCKEY_BRACKET_LEFT_SQ) : BBCKEY_MINUS; // 0x238: 0x17;
+                return BBCKEY_MINUS; // 0x238: 0x17;
             case KeyEvent.KEYCODE_EQUALS:
-                return shiftDown ? BBCKEY_SEMICOLON : (BBCKEY_SHIFT | BBCKEY_MINUS); // BBCKEY_EQUALS; // 0x117 = shift+[
+                return BBCKEY_MINUS; // BBCKEY_EQUALS; // 0x117 = shift+[
             case KeyEvent.KEYCODE_AT:
                 return BBCKEY_AT; // 0x47;
             case KeyEvent.KEYCODE_STAR:
-                return (BBCKEY_SHIFT | BBCKEY_COLON); // 0x148;
+                return BBCKEY_COLON; // 0x148;
             case KeyEvent.KEYCODE_PERIOD:
                 return BBCKEY_PERIOD; // 0x248:0x67;
             case KeyEvent.KEYCODE_SEMICOLON:
-                return shiftDown ? (BBCKEY_ANTISHIFT | BBCKEY_COLON) : BBCKEY_SEMICOLON; // 0x57;
+                return BBCKEY_SEMICOLON; // 0x57;
             case KeyEvent.KEYCODE_SLASH:
                 return BBCKEY_SLASH; // 0x68;
             case KeyEvent.KEYCODE_PLUS:
-                return (BBCKEY_SHIFT | BBCKEY_SEMICOLON); // 0x157;
+                return BBCKEY_SEMICOLON; // 0x157;
             case KeyEvent.KEYCODE_COMMA:
                 return BBCKEY_COMMA; // 0x66;
             case KeyEvent.KEYCODE_GRAVE:
@@ -748,9 +750,26 @@ public class Beebdroid extends Activity {
             case KeyEvent.KEYCODE_BACKSLASH:
                 return BBCKEY_BACKSLASH;
             case KeyEvent.KEYCODE_LEFT_BRACKET:
-                return shiftDown ? (BBCKEY_ANTISHIFT | BBCKEY_BRACKET_LEFT_SQ) : BBCKEY_BRACKET_LEFT_SQ; // 0x??;
+                return BBCKEY_BRACKET_LEFT_SQ; // 0x??;
             case KeyEvent.KEYCODE_RIGHT_BRACKET:
-                return shiftDown ? (BBCKEY_ANTISHIFT | BBCKEY_BRACKET_RIGHT_SQ) : BBCKEY_BRACKET_RIGHT_SQ; // 0x??;
+                return BBCKEY_BRACKET_RIGHT_SQ; // 0x??;
+            case KeyEvent.KEYCODE_CAPS_LOCK:
+                return BBCKEY_CAPS;
+            case KeyEvent.KEYCODE_F11:
+                return BBCKEY_SHIFTLOCK;
+            case KeyEvent.KEYCODE_F12:
+                return BBCKEY_UNDERSCORE;
+            case KeyEvent.KEYCODE_DPAD_UP:
+                return BBCKEY_ARROW_UP;
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                return BBCKEY_ARROW_DOWN;
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                return BBCKEY_ARROW_RIGHT;
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                return BBCKEY_ARROW_LEFT;
+
+            case KeyEvent.KEYCODE_ALT_RIGHT:
+                return BBCKEY_COPY;
         }
         return 0xaa;
     }
