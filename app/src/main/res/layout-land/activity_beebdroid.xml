@@ -15,7 +15,11 @@
 	android:layout_height="fill_parent"
 	android:layout_marginLeft="60dp"
 	android:layout_marginRight="60dp"
-	/>
+	android:focusableInTouchMode="true"
+	android:focusable="true"
+	>
+	<requestFocus/>
+</view>
 
 
 <FrameLayout 	

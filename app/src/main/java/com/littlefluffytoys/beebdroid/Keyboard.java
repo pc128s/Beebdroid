@@ -80,6 +80,7 @@ public class Keyboard extends TouchpadsView {
             case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_SPACE;
             case KeyEvent.KEYCODE_ENTER: return BeebKeys.BBCKEY_ENTER;
             case KeyEvent.KEYCODE_TAB: return BeebKeys.BBCKEY_TAB;
+            case KeyEvent.KEYCODE_ESCAPE: return BeebKeys.BBCKEY_ESCAPE;
             case KeyEvent.KEYCODE_BACK: return BeebKeys.BBCKEY_ESCAPE;
             case KeyEvent.KEYCODE_DPAD_UP: return BeebKeys.BBCKEY_ARROW_UP;
             case KeyEvent.KEYCODE_DPAD_DOWN: return BeebKeys.BBCKEY_ARROW_DOWN;

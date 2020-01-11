@@ -19,6 +19,7 @@ public class BeebKeys {
 
 	public static final int BBCKEY_BREAK = 0xaa;
 	//  0x00    
+	public static final int BBCKEY_ANTISHIFT = 0x200;
 	public static final int BBCKEY_SHIFT = 0x100;
 	public static final int BBCKEY_CTRL = 0x01;
 	// 	0x10     Q    3    4    5    F4   8    F7   -=   ^~

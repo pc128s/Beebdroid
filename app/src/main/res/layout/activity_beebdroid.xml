@@ -73,6 +73,8 @@
 	android:layout_width="fill_parent"
 	android:layout_height="0dp"
 	android:layout_weight="272"
+	android:focusableInTouchMode="true"
+	android:focusable="true"
 >
 	<requestFocus/>
 	</view>

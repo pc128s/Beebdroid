@@ -155,7 +155,7 @@ void pollvideo(int clocks);
 uint8_t readcrtc(uint16_t addr);
 void writecrtc(uint16_t addr, uint8_t val);
 extern uint8_t crtc[32];
-extern int crtci;
+extern unsigned int crtci;
 extern int hc,vc,sc;
 extern uint16_t ma;
 
