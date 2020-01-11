@@ -61,7 +61,10 @@ import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToBeebKey;
 public class Beebdroid extends Activity {
     private static final String TAG = "Beebdroid";
     public static boolean use25fps = false;
-    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD};
+
+    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
+
+    ;
 
     static int locks = 0;
 
@@ -90,17 +93,29 @@ public class Beebdroid extends Activity {
 
     // JNI interface
     public native void bbcInit(ByteBuffer mem, ByteBuffer roms, ByteBuffer audiob, int flags);
+
     public native void bbcBreak(int flags);
+
     public native void bbcExit();
+
     public native int bbcRun();
+
     public native int bbcInitGl(int width, int height);
+
     public native void bbcLoadDisc(ByteBuffer disc, int autoboot);
+
     public native void bbcSetTriggers(short[] pc_triggers);
+
     public static native void bbcKeyEvent(int scancode, int flags, int down);
+
     public native int bbcSerialize(byte[] buffer);
+
     public native void bbcDeserialize(byte[] buffer);
+
     public native int bbcGetThumbnail(Bitmap bmp);
+
     public native int bbcGetLocks();
+
     public native void bbcPushAdc(int x1, int y1, int x2, int y2);
 
     long time_fps;
@@ -285,6 +300,8 @@ public class Beebdroid extends Activity {
         keyboardTextEvents.addAll(Arrays.asList(evs));
     }
 
+    int adctick = 0;
+    long last_ms;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -310,25 +327,6 @@ public class Beebdroid extends Activity {
         keyboard.beebdroid = this;
         controller = (ControllerView) findViewById(R.id.controller);
         controller.beebdroid = this;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            View.OnHoverListener hoverListener = new View.OnHoverListener() {
-                long last_ms = 0;
-
-                @Override
-                public boolean onHover(View v, MotionEvent event) {
-                    long ms = event.getEventTime();
-                    if (last_ms + 20 < ms) {
-                        last_ms = ms;
-//						Log.e(TAG, "Hover " + (event.getX() + v.getX()) + ", " + (event.getY() + v.getY()));
-                        bbcPushAdc((int) (event.getX() + v.getX()), (int) (event.getY() + v.getY()), 0, 0);
-                    }
-                    return false;
-                }
-            };
-            findViewById(R.id.root).setOnHoverListener(hoverListener);
-            beebView.setOnHoverListener(hoverListener);
-        }
 
         // See if we're a previous instance of the same activity, or a totally fresh one
         Beebdroid prev = (Beebdroid) getLastNonConfigurationInstance();
@@ -375,40 +373,55 @@ public class Beebdroid extends Activity {
         }
         tvFps = (TextView) findViewById(R.id.fps);
 
-        // Can't have this onClickListener: it stops enter and space working.
+        beebView.setOnHoverListener(new View.OnHoverListener() {
+            @Override
+            public boolean onHover(View v, MotionEvent event) {
+                if (onMouseSomething(v, event)) return true;
+                return false;
+            }
+        });
 
         beebView.setOnTouchListener(new View.OnTouchListener() {
+            // Can't use onClickListener: it stops enter and space working.
             @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                myOnClick();
+            public boolean onTouch(View v, MotionEvent event) {
+                if (onMouseSomething(v, event)) return true;
+
+                bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 1);
+                bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 1);
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 0);
+                        bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 0);
+                    }
+                }, 50);
+                hintActioned("hint_space_to_start");
                 return true;
             }
         });
 
-//        beebView.setOnClickListener(new OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                myOnClick();
-//            }
-//        });
-
         UserPrefs.setGrandfatheredIn(this, true);
     }
 
-    private void myOnClick() {
+    private boolean onMouseSomething(View v, MotionEvent event) {
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
-            return;
-        }
-        bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 1);
-        bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 1);
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 0);
-                bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 0);
+
+            long ms = event.getEventTime();
+            if (last_ms + 20 < ms) {
+                last_ms = ms;
+                adctick ^= 1;
+//						Log.e(TAG, "Hover " + (event.getX() + v.getX()) + ", " + (event.getY() + v.getY()));
+                float xx = 1280 * event.getX() / v.getWidth();
+                float yy = 1024 - 1024 * event.getY() / v.getHeight(); if (yy < 0) yy = 0;
+                bbcPushAdc(
+                        (int) xx * 2 + adctick,
+                        (int) yy * 2 + adctick,
+                        event.getButtonState() * 2 + adctick, 0);
             }
-        }, 50);
-        hintActioned("hint_space_to_start");
+            return true;
+        }
+        return false;
     }
 
     private void toggleKeyboard() {
@@ -642,10 +655,13 @@ public class Beebdroid extends Activity {
     int lookup(int keycode) {
         switch (keycode) {
             case KeyEvent.KEYCODE_CTRL_LEFT:
-            case KeyEvent.KEYCODE_CTRL_RIGHT: return BBCKEY_CTRL;
+            case KeyEvent.KEYCODE_CTRL_RIGHT:
+                return BBCKEY_CTRL;
             case KeyEvent.KEYCODE_SHIFT_LEFT:
-                case KeyEvent.KEYCODE_SHIFT_RIGHT: return BBCKEY_SHIFT;
-            case KeyEvent.KEYCODE_ESCAPE: return BBCKEY_ESCAPE;
+            case KeyEvent.KEYCODE_SHIFT_RIGHT:
+                return BBCKEY_SHIFT;
+            case KeyEvent.KEYCODE_ESCAPE:
+                return BBCKEY_ESCAPE;
             case KeyEvent.KEYCODE_0:
                 return BBCKEY_0; // 0x126 ) :0x27 0;
             case KeyEvent.KEYCODE_1:
@@ -819,6 +835,11 @@ public class Beebdroid extends Activity {
             //screen = Bitmap.createBitmap(W, H, Bitmap.Config.RGB_565);
             rcSrc = new Rect(0, 0, W, H / 2);
 
+        }
+
+        @Override
+        public boolean performClick() {
+            return true; // handled.
         }
 
         private void cleanupgl() {
