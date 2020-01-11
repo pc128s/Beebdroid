@@ -645,6 +645,7 @@ public class Beebdroid extends Activity {
             case KeyEvent.KEYCODE_CTRL_RIGHT: return BBCKEY_CTRL;
             case KeyEvent.KEYCODE_SHIFT_LEFT:
                 case KeyEvent.KEYCODE_SHIFT_RIGHT: return BBCKEY_SHIFT;
+            case KeyEvent.KEYCODE_ESCAPE: return BBCKEY_ESCAPE;
             case KeyEvent.KEYCODE_0:
                 return BBCKEY_0; // 0x126 ) :0x27 0;
             case KeyEvent.KEYCODE_1:
@@ -755,6 +756,8 @@ public class Beebdroid extends Activity {
                 return BBCKEY_BRACKET_RIGHT_SQ; // 0x??;
             case KeyEvent.KEYCODE_CAPS_LOCK:
                 return BBCKEY_CAPS;
+            case KeyEvent.KEYCODE_F10:
+                return BBCKEY_AT;
             case KeyEvent.KEYCODE_F11:
                 return BBCKEY_SHIFTLOCK;
             case KeyEvent.KEYCODE_F12:
