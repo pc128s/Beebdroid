@@ -197,6 +197,7 @@ public class Beebdroid extends Activity {
         }
 
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
+            if (keycode == KeyEvent.KEYCODE_MENU) return false; // Someone else's problem!
             int scancode = bbcKeyActionFromUnicode(event);
             if (isDown == 1) showInfo(event, scancode);
             // if (scancode != 0) return true;
@@ -788,6 +789,7 @@ public class Beebdroid extends Activity {
             case KeyEvent.KEYCODE_DPAD_LEFT:
                 return BBCKEY_ARROW_LEFT;
 
+            case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ALT_RIGHT:
                 return BBCKEY_COPY;
         }
