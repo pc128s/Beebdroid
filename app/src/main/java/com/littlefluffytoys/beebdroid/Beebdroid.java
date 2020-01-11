@@ -628,6 +628,7 @@ public class Beebdroid extends Activity {
 
     public void showKeyboard(KeyboardState keyboardState) {
         Utils.setVisible(this, R.id.keyboard, keyboardState == KeyboardState.SCREEN_KEYBOARD);
+        Utils.setVisible(this, R.id.keyboard_help, keyboardState != KeyboardState.BLUETOOTH_KBD);
         Utils.setVisible(this, R.id.controller, keyboardState == KeyboardState.CONTROLLER);
         Utils.setVisible(this, R.id.kb_bt_alt, keyboardState == KeyboardState.BLUETOOTH_KBD);
         final ImageView btnInput = (ImageView) findViewById(R.id.btnInput);
@@ -773,9 +774,9 @@ public class Beebdroid extends Activity {
             case KeyEvent.KEYCODE_CAPS_LOCK:
                 return BBCKEY_CAPS;
             case KeyEvent.KEYCODE_F10:
-                return BBCKEY_AT;
-            case KeyEvent.KEYCODE_F11:
                 return BBCKEY_SHIFTLOCK;
+            case KeyEvent.KEYCODE_F11:
+                return BBCKEY_AT;
             case KeyEvent.KEYCODE_F12:
                 return BBCKEY_UNDERSCORE;
             case KeyEvent.KEYCODE_DPAD_UP:

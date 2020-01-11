@@ -92,8 +92,13 @@
 		android:layout_alignParentLeft="true"
 		android:text="\nAlt+...\n\n`=Caps\n1=ShLk\n2=TKbd\n3=£\nSpc=Cpy"
 		/>
-	<!--  Alt-\u2190\u2191\u2192\u2193" -->
-<TextView 
+	<TextView
+		android:layout_width="26pt"
+		android:layout_height="wrap_content"
+		android:layout_below="@id/lock"
+		android:layout_alignParentLeft="true"
+		android:text="f10=ShLock f11=@ f12=£/_ AltRt=Copy"/>
+	<TextView
 	android:id="@+id/fps"
 	android:layout_width="fill_parent"
 	android:layout_height="48dp"
