@@ -226,6 +226,7 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent
 	if (vkey&0x200) {
 		flags = 0;
 	}
+	int raw = vkey&0x800;
 	vkey &= 0xff;
 	int col=vkey&15;
 	int row=(vkey>>4)&15;
@@ -234,10 +235,12 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent
 		dump_pages();
 	}
 
-	// Press / unpress SHIFT
-	keys[0][0] = flags ? down : 0x00;
-	// Press / unpress CTRL
-	keys[1][0] = ctrl ? down : 0x00;
+	if (raw == 0) {
+		// Press / unpress SHIFT
+		keys[0][0] = flags ? down : 0x00;
+		// Press / unpress CTRL
+		keys[1][0] = ctrl ? down : 0x00;
+	}
 	// Press / unpress the key
 	keys[col][row] = down ? 1 : 0;
 	//LOGI("Key event %d,%d = %d", col, row, down);

@@ -218,7 +218,7 @@ public class Beebdroid extends Activity {
             shiftDown = isDown == 1;
         }
         int scancode = lookup(keycode);
-        bbcKeyEvent(scancode, shiftDown ? 1 : 0, isDown);
+        bbcKeyEvent(scancode | BBCKEY_RAW, shiftDown ? 1 : 0, isDown);
         if (isDown == 1) showInfo(event, scancode);
         return false;
     }
@@ -659,7 +659,7 @@ public class Beebdroid extends Activity {
                 return BBCKEY_CTRL;
             case KeyEvent.KEYCODE_SHIFT_LEFT:
             case KeyEvent.KEYCODE_SHIFT_RIGHT:
-                return BBCKEY_SHIFT;
+                return BBCKEY_SHIFT_RAW;
             case KeyEvent.KEYCODE_ESCAPE:
                 return BBCKEY_ESCAPE;
             case KeyEvent.KEYCODE_0:
