@@ -19,12 +19,13 @@ public class BeebKeys {
 
 	public static final int BBCKEY_BREAK = 0xaa;
 	//  0x00    
-	public static final int BBCKEY_ANTISHIFT = 0x200;
-	public static final int BBCKEY_RAW = 0x800;
-	public static final int BBCKEY_SHIFT = 0x100;
 	public static final int BBCKEY_CTRL = 0x01;
+	public static final int BBCKEY_SHIFT_BUT_USE_RAW = 0x00; // Can't use this directly: 0 means 'nothing'
+	public static final int BBCKEY_SHIFT_MOD = 0x100;
+	public static final int BBCKEY_ANTISHIFT_MOD = 0x200;
 	public static final int BBCKEY_CTRL_MOD = 0x400;
-	public static final int BBCKEY_SHIFT_RAW = 0x800;
+	public static final int BBCKEY_RAW_MOD = 0x800;
+	public static final int BBCKEY_SHIFT_RAW = BBCKEY_RAW_MOD | BBCKEY_SHIFT_BUT_USE_RAW;
 	// 	0x10     Q    3    4    5    F4   8    F7   -=   ^~
 	public static final int BBCKEY_Q = 0x10;
 	public static final int BBCKEY_3 = 0x11;

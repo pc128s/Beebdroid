@@ -217,16 +217,16 @@ timersub(&tval_after, &tval_before, &tval_result);
 
 extern void dump_pages();
 
-JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent(JNIEnv * env, jobject  obj, jint vkey, jint flags, jint down) {
-	//if (vkey==0xaa) return;
-	int ctrl = vkey&0x400;
-	if (vkey&0x100) {
+JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent(JNIEnv * env, jclass _obj, jint vkey, jint flags, jint down) {
+	//if (vkey == 0xaa) return; // BBCKEY_BREAK ?
+	int raw = vkey&0x800; // BBCKEY_RAW_MOD
+	int ctrl = vkey&0x400; // BBCKEY_CTRL_MOD
+	if (vkey&0x100) { // BBCKEY_SHIFT_MOD
 		flags = 1;
 	}
-	if (vkey&0x200) {
+	if (vkey&0x200) { // BBCKEY_ANTISHIFT_MOD
 		flags = 0;
 	}
-	int raw = vkey&0x800;
 	vkey &= 0xff;
 	int col=vkey&15;
 	int row=(vkey>>4)&15;

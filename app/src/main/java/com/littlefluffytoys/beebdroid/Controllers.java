@@ -40,7 +40,7 @@ public class Controllers {
 		controller_ZX_5way.addKey("Fire", "Return",  -1,  0, 1f, 2f, BeebKeys.BBCKEY_ENTER, KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1);
 		controller_ZX_5way.useDPad = true;
 		controller_RocketRaid_Game.addKey("Left",  "SPACE",   0,  -1, 1f, 1f, BeebKeys.BBCKEY_SPACE, KeyEvent.KEYCODE_DPAD_LEFT);
-		controller_RocketRaid_Game.addKey("Right", "SHIFT",   1,  -1, 1f, 1f, BeebKeys.BBCKEY_SHIFT, KeyEvent.KEYCODE_DPAD_RIGHT);
+		controller_RocketRaid_Game.addKey("Right", "SHIFT",   1,  -1, 1f, 1f, BeebKeys.BBCKEY_SHIFT_MOD, KeyEvent.KEYCODE_DPAD_RIGHT);
 		controller_RocketRaid_Game.addKey("Up",    "A",  -2,  0, 1f, 1f, BeebKeys.BBCKEY_A, KeyEvent.KEYCODE_DPAD_UP);
 		controller_RocketRaid_Game.addKey("Down",  "Z",  -2,  1, 1f, 1f, BeebKeys.BBCKEY_Z, KeyEvent.KEYCODE_DPAD_DOWN);
 		controller_RocketRaid_Game.addKey("Fire", "Return",  -1,  0, 1f, 1f, BeebKeys.BBCKEY_ENTER, KeyEvent.KEYCODE_DPAD_CENTER);
@@ -84,7 +84,7 @@ public class Controllers {
 		controller_ChuckieEgg_Game_Alt.addKey("S",     "S", -1.75f,   1f, .5f, .5f, BeebKeys.BBCKEY_S);
 		controller_ChuckieEgg_Game_Alt.addKey("1",     "1", -1.75f, 1.5f, .5f, .5f, BeebKeys.BBCKEY_1);
 		controller_ChuckieEgg_Game_Alt.useDPad = true;
-		controller_DareDevilDennis_Game.addKey("Accel", "Shift",   0,  0, 1f, 2f, BeebKeys.BBCKEY_SHIFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BACK);
+		controller_DareDevilDennis_Game.addKey("Accel", "Shift",   0,  0, 1f, 2f, BeebKeys.BBCKEY_SHIFT_MOD, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BACK);
 		controller_DareDevilDennis_Game.addKey("Stop", "Return",   1,  0, 1f, 2f, BeebKeys.BBCKEY_ENTER, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BUTTON_X);
 		controller_DareDevilDennis_Game.addKey("Jump", "",  -2,  0, 2f, 2f, BeebKeys.BBCKEY_SPACE, KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1);
 		controller_Imogen_Game.addKey("Left",  "Z",   0,  -1, 1f, 1f, BeebKeys.BBCKEY_Z, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BUTTON_X);
@@ -98,12 +98,12 @@ public class Controllers {
 		controller_Imogen_Game.useDPad = true;
 		controller_Thrust_Game.addKey("Left","Caps",    0f,  -1, 1f, 1f,  BeebKeys.BBCKEY_CAPS, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_BUTTON_X);
 		controller_Thrust_Game.addKey("Right","Ctrl",   1f,  -1, 1f, 1f,  BeebKeys.BBCKEY_CTRL, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_BACK);
-		controller_Thrust_Game.addKey("Thrust","Shift", -1f,  0, 1f, 2f,  BeebKeys.BBCKEY_SHIFT, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_CENTER);
+		controller_Thrust_Game.addKey("Thrust","Shift", -1f,  0, 1f, 2f,  BeebKeys.BBCKEY_SHIFT_MOD, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_CENTER);
 		controller_Thrust_Game.addKey("Fire","Return", -2f,  0, 1f, 1f,  BeebKeys.BBCKEY_ENTER, KeyEvent.KEYCODE_BUTTON_R1);
 		controller_Thrust_Game.addKey("Shield","", -2f,  1, 1f, 1f,  BeebKeys.BBCKEY_SPACE, KeyEvent.KEYCODE_BUTTON_L1);
 		controller_Planetoid_Game.addKey("Up",    "A",  1,  0, 1f, 1f, BeebKeys.BBCKEY_A, KeyEvent.KEYCODE_DPAD_UP);
 		controller_Planetoid_Game.addKey("Down",  "Z",  1,  1, 1f, 1f, BeebKeys.BBCKEY_Z, KeyEvent.KEYCODE_DPAD_DOWN);
-		controller_Planetoid_Game.addKey("Forwards", "SHIFT",   2,  0.5f, 1f, 1f, BeebKeys.BBCKEY_SHIFT, KeyEvent.KEYCODE_DPAD_RIGHT);
+		controller_Planetoid_Game.addKey("Forwards", "SHIFT",   2,  0.5f, 1f, 1f, BeebKeys.BBCKEY_SHIFT_MOD, KeyEvent.KEYCODE_DPAD_RIGHT);
 		controller_Planetoid_Game.addKey("Reverse",  "SPACE",   0,  0.5f, 1f, 1f, BeebKeys.BBCKEY_SPACE, KeyEvent.KEYCODE_DPAD_LEFT);
 		controller_Planetoid_Game.addKey("Fire", "Return",  -2,  0, 2f, 1f, BeebKeys.BBCKEY_ENTER, KeyEvent.KEYCODE_DPAD_CENTER);
 		controller_Planetoid_Game.addKey("Bomb", "Tab",  -1.5f,  1.2f, 1f, 1f, BeebKeys.BBCKEY_TAB, KeyEvent.KEYCODE_BACK);

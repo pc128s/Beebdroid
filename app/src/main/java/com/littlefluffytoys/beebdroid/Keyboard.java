@@ -196,7 +196,7 @@ public class Keyboard extends TouchpadsView {
             }
         }
         addRow();
-        Key shiftkey = add("SHIFT", null, 2f, BeebKeys.BBCKEY_SHIFT);
+        Key shiftkey = add("SHIFT", null, 2f, BeebKeys.BBCKEY_SHIFT_MOD);
         shiftkey.listener = new KeyListener() {
             @Override
             public void onKeyPressed(boolean pressed) {

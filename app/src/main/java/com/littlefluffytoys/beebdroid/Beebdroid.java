@@ -66,7 +66,7 @@ public class Beebdroid extends Activity {
     public static final int MIN_KEY_DOWNUP_MS = 50; //10;
     public static boolean use25fps = false;
 
-    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD};
+    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
 
     static int locks = 0;
 
@@ -153,10 +153,10 @@ public class Beebdroid extends Activity {
 
             int ic32 = bbcGetLocks();
             if (locks != ic32) {
-                String s = "No";
-                if ((ic32 & 64) == 0) s = "Caps";
-                if ((ic32 & 128) == 0) s = "Sh";
-                ((TextView) findViewById(R.id.lock)).setText(s + "Lk");
+                String s = "NoLk";
+                if ((ic32 & 64) == 0) s = "CapsLk";
+                if ((ic32 & 128) == 0) s = "ShLk";
+                ((TextView) findViewById(R.id.lock)).setText(s);
                 locks = ic32;
             }
 
@@ -183,7 +183,13 @@ public class Beebdroid extends Activity {
         }
     };
 
-    boolean onKeyUpDown(int keycode, KeyEvent event, final int isDown) {
+    HashMap<Integer, Runnable>delayedUp = new HashMap<Integer, Runnable>();
+
+//    static long thing = 0;
+
+    boolean onKeyUpDown(final int keycode, KeyEvent event, final int isDown) {
+//        Log.e(TAG, "updown " + (thing - event.getEventTime()) + " " + event.toString());
+//        thing = event.getEventTime();
         if (keyboardShowing != KeyboardState.BLUETOOTH_KBD && isXperiaPlay && onXperiaKey(keycode, event, isDown)) {
             return true;
         }
@@ -220,16 +226,26 @@ public class Beebdroid extends Activity {
         if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
             shiftDown = isDown == 1;
         }
+
         final int scancode = lookup(keycode);
         if (isDown == 1 || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
-            bbcKeyEvent(scancode | BBCKEY_RAW, shiftDown ? 1 : 0, isDown);
-        } else
-            handler.postDelayed(new Runnable() {
+            unscheduleKeyup(keycode);
+            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
+        } else {
+            Runnable keyUp = new Runnable() {
                 @Override
                 public void run() {
-                    bbcKeyEvent(scancode | BBCKEY_RAW, shiftDown ? 1 : 0, isDown);
+                    synchronized (delayedUp) {
+                        if (delayedUp.remove(keycode) == this)
+                            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
+                    }
                 }
-            }, MIN_KEY_DOWNUP_MS);
+            };
+            synchronized (delayedUp) {
+                delayedUp.put(keycode, keyUp);
+                handler.postDelayed(keyUp, MIN_KEY_DOWNUP_MS);
+            }
+        }
         if (isDown == 1) showInfo(event, scancode);
         return false;
     }
@@ -269,8 +285,10 @@ public class Beebdroid extends Activity {
     HashMap<Integer, Integer> downKeycode = new HashMap<Integer, Integer>();
 
     private int bbcKeyActionFromUnicode(final KeyEvent event) {
-        int keycode = event.getKeyCode();
-        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+        final int keycode = event.getKeyCode();
+        final boolean isDown = event.getAction() == KeyEvent.ACTION_DOWN;
+        if (isDown) {
+            unscheduleKeyup(keycode);
             int scancode = unicodeToBeebKey(event);
             if (scancode != 0) {
                 downKeycode.put(keycode, scancode);
@@ -281,19 +299,35 @@ public class Beebdroid extends Activity {
             final Integer scancode = downKeycode.remove(keycode);
             if (scancode != null && scancode != 0) {
                 if (event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
-                    bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0);
+                    // Probably don't care about unscheduling a keyup, but...
+                    unscheduleKeyup(keycode);
+                    bbcKeyEvent(scancode, 0, 0);
                 }
                 else {
-                    handler.postDelayed(new Runnable() {
+                    Runnable keyUp = new Runnable() {
                         @Override
                         public void run() {
-                            bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0);
+                            synchronized (delayedUp) {
+                                if (delayedUp.remove(keycode) == this)
+                                    bbcKeyEvent(scancode, 0, 0);
+                            }
                         }
-                    }, MIN_KEY_DOWNUP_MS);
+                    };
+                    synchronized (delayedUp) {
+                        delayedUp.put(keycode, keyUp);
+                        handler.postDelayed(keyUp, MIN_KEY_DOWNUP_MS);
+                    }
                 }
                 return scancode;
             }
             return 0;
+        }
+    }
+
+    private void unscheduleKeyup(int keycode) {
+        synchronized (delayedUp) {
+            Runnable keyUp = delayedUp.remove(keycode);
+            if (keyUp != null) handler.removeCallbacks(keyUp);
         }
     }
 
@@ -816,7 +850,7 @@ public class Beebdroid extends Activity {
             case KeyEvent.KEYCODE_ALT_RIGHT:
                 return BBCKEY_COPY;
         }
-        return 0xaa;
+        return BBCKEY_BREAK; // !?!? 0xaa;
     }
 
     //0x218=up arrow  0x118=%
