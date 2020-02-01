@@ -183,7 +183,7 @@ public class Beebdroid extends Activity {
         }
     };
 
-    HashMap<Integer, Runnable>delayedUp = new HashMap<Integer, Runnable>();
+    final HashMap<Integer, Runnable> delayedUp = new HashMap<Integer, Runnable>();
 
 //    static long thing = 0;
 
@@ -232,7 +232,7 @@ public class Beebdroid extends Activity {
             unscheduleKeyup(keycode);
             bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
         } else {
-            Runnable keyUp = new Runnable() {
+            scheduleKeyup(keycode, new Runnable() {
                 @Override
                 public void run() {
                     synchronized (delayedUp) {
@@ -240,11 +240,7 @@ public class Beebdroid extends Activity {
                             bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
                     }
                 }
-            };
-            synchronized (delayedUp) {
-                delayedUp.put(keycode, keyUp);
-                handler.postDelayed(keyUp, MIN_KEY_DOWNUP_MS);
-            }
+            });
         }
         if (isDown == 1) showInfo(event, scancode);
         return false;
@@ -280,8 +276,7 @@ public class Beebdroid extends Activity {
         }
     }
 
-    // Keep track of what caused a keydown in case shift shifts ; to : and messes up
-    // the key.
+    // Keep track of what caused a keydown in case shift shifts ; to : and messes up the key.
     HashMap<Integer, Integer> downKeycode = new HashMap<Integer, Integer>();
 
     private int bbcKeyActionFromUnicode(final KeyEvent event) {
@@ -304,7 +299,7 @@ public class Beebdroid extends Activity {
                     bbcKeyEvent(scancode, 0, 0);
                 }
                 else {
-                    Runnable keyUp = new Runnable() {
+                    scheduleKeyup(keycode, new Runnable() {
                         @Override
                         public void run() {
                             synchronized (delayedUp) {
@@ -312,15 +307,18 @@ public class Beebdroid extends Activity {
                                     bbcKeyEvent(scancode, 0, 0);
                             }
                         }
-                    };
-                    synchronized (delayedUp) {
-                        delayedUp.put(keycode, keyUp);
-                        handler.postDelayed(keyUp, MIN_KEY_DOWNUP_MS);
-                    }
+                    });
                 }
                 return scancode;
             }
             return 0;
+        }
+    }
+
+    private void scheduleKeyup(int keycode, Runnable keyUp) {
+        synchronized (delayedUp) {
+            delayedUp.put(keycode, keyUp);
+            handler.postDelayed(keyUp, MIN_KEY_DOWNUP_MS);
         }
     }
 
