@@ -60,11 +60,13 @@ import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToBeebKey;
 
 public class Beebdroid extends Activity {
     private static final String TAG = "Beebdroid";
+    // The emulator keypresses from the physical keyboard are only 1-2ms and
+    // don't register, so observe this and delay the key up.
+    // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
+    public static final int MIN_KEY_DOWNUP_MS = 50; //10;
     public static boolean use25fps = false;
 
-    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
-
-    ;
+    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD};
 
     static int locks = 0;
 
@@ -174,15 +176,15 @@ public class Beebdroid extends Activity {
                                 onKeyUp(event.getKeyCode(), event);
                                 keyboardTextWait = 1;
                             }
-                        }, 10);
+                        }, MIN_KEY_DOWNUP_MS);
                     }
                 }
             }
         }
     };
 
-    boolean onKeyUpDown(int keycode, KeyEvent event, int isDown) {
-        if (isXperiaPlay && onXperiaKey(keycode, event, isDown)) {
+    boolean onKeyUpDown(int keycode, KeyEvent event, final int isDown) {
+        if (keyboardShowing != KeyboardState.BLUETOOTH_KBD && isXperiaPlay && onXperiaKey(keycode, event, isDown)) {
             return true;
         }
 
@@ -200,8 +202,8 @@ public class Beebdroid extends Activity {
             if (keycode == KeyEvent.KEYCODE_MENU) return false; // Someone else's problem!
             int scancode = bbcKeyActionFromUnicode(event);
             if (isDown == 1) showInfo(event, scancode);
-            // if (scancode != 0) return true;
-            return true;
+            if (scancode != 0) return true;
+            return false;
         }
 
         // If pressed 'back' while game loaded, reset the emulator rather than exit the app
@@ -218,8 +220,16 @@ public class Beebdroid extends Activity {
         if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
             shiftDown = isDown == 1;
         }
-        int scancode = lookup(keycode);
-        bbcKeyEvent(scancode | BBCKEY_RAW, shiftDown ? 1 : 0, isDown);
+        final int scancode = lookup(keycode);
+        if (isDown == 1 || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
+            bbcKeyEvent(scancode | BBCKEY_RAW, shiftDown ? 1 : 0, isDown);
+        } else
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    bbcKeyEvent(scancode | BBCKEY_RAW, shiftDown ? 1 : 0, isDown);
+                }
+            }, MIN_KEY_DOWNUP_MS);
         if (isDown == 1) showInfo(event, scancode);
         return false;
     }
@@ -254,21 +264,33 @@ public class Beebdroid extends Activity {
         }
     }
 
-    HashMap<Integer, Integer> downs = new HashMap<Integer, Integer>();
+    // Keep track of what caused a keydown in case shift shifts ; to : and messes up
+    // the key.
+    HashMap<Integer, Integer> downKeycode = new HashMap<Integer, Integer>();
 
-    private int bbcKeyActionFromUnicode(KeyEvent event) {
+    private int bbcKeyActionFromUnicode(final KeyEvent event) {
         int keycode = event.getKeyCode();
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int scancode = unicodeToBeebKey(event);
             if (scancode != 0) {
-                downs.put(keycode, scancode);
+                downKeycode.put(keycode, scancode);
                 bbcKeyEvent(scancode, 0, 1);
             }
             return scancode;
         } else {
-            Integer scancode = downs.remove(keycode);
+            final Integer scancode = downKeycode.remove(keycode);
             if (scancode != null && scancode != 0) {
-                bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0);
+                if (event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
+                    bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0);
+                }
+                else {
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            bbcKeyEvent(scancode, 0, event.getAction() == KeyEvent.ACTION_DOWN ? 1 : 0);
+                        }
+                    }, MIN_KEY_DOWNUP_MS);
+                }
                 return scancode;
             }
             return 0;
@@ -282,6 +304,7 @@ public class Beebdroid extends Activity {
         if (keycode == KeyEvent.KEYCODE_BACK && !event.isAltPressed()) return false;
         ControllerInfo.KeyInfo info = controller.controllerInfo.keyinfosMappedByAndroidKeycode.get(keycode);
         if (info != null) {
+            showInfo(event, info.scancode);
             bbcKeyEvent(info.scancode, shiftDown ? 1 : 0, isDown);
             return true;
         }
@@ -318,9 +341,11 @@ public class Beebdroid extends Activity {
         DP_SCREEN_WIDTH = getResources().getDisplayMetrics().widthPixels;
 
         // Detect the Xperia Play, for which we do special magic
-        if (Build.DEVICE.equalsIgnoreCase("R800i") || Build.DEVICE.equalsIgnoreCase("zeus")) {
-            isXperiaPlay = true;
-        }
+        isXperiaPlay =
+                Build.DEVICE.equalsIgnoreCase("R800i")
+                || Build.DEVICE.equalsIgnoreCase("zeus")
+        //        || Build.DEVICE.equalsIgnoreCase("tank") // Amazon Fire TV
+        ;
 
         // Find UI bits and wire things up
         beebView = (BeebView) findViewById(R.id.beeb);
@@ -414,7 +439,8 @@ public class Beebdroid extends Activity {
                 adctick ^= 1;
 //						Log.e(TAG, "Hover " + (event.getX() + v.getX()) + ", " + (event.getY() + v.getY()));
                 float xx = 1280 * event.getX() / v.getWidth();
-                float yy = 1024 - 1024 * event.getY() / v.getHeight(); if (yy < 0) yy = 0;
+                float yy = 1024 - 1024 * event.getY() / v.getHeight();
+                if (yy < 0) yy = 0;
                 bbcPushAdc(
                         (int) xx * 2 + adctick,
                         (int) yy * 2 + adctick,
