@@ -23,6 +23,7 @@ public class BeebKeys {
 	public static final int BBCKEY_RAW = 0x800;
 	public static final int BBCKEY_SHIFT = 0x100;
 	public static final int BBCKEY_CTRL = 0x01;
+	public static final int BBCKEY_CTRL_MOD = 0x400;
 	public static final int BBCKEY_SHIFT_RAW = 0x800;
 	// 	0x10     Q    3    4    5    F4   8    F7   -=   ^~
 	public static final int BBCKEY_Q = 0x10;

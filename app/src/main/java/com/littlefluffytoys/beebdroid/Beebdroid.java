@@ -413,16 +413,13 @@ public class Beebdroid extends Activity {
             public boolean onTouch(View v, MotionEvent event) {
                 if (onMouseSomething(v, event)) return true;
 
-                bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 1);
-                bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 1);
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        bbcKeyEvent(BeebKeys.BBCKEY_CTRL, 0, 0);
-                        bbcKeyEvent(BeebKeys.BBCKEY_SPACE, 0, 0);
-                    }
-                }, 50);
-                hintActioned("hint_space_to_start");
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    bbcKeyEvent(BBCKEY_SPACE + BBCKEY_CTRL_MOD, 0, 1);
+                }
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    bbcKeyEvent(BBCKEY_SPACE + BBCKEY_CTRL_MOD, 0, 0);
+                    hintActioned("hint_space_to_start");
+                }
                 return true;
             }
         });
