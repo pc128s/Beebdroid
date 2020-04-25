@@ -64,7 +64,7 @@ int mode7dbl,mode7nextdbl,mode7wasdbl;
 int mode7gfx;
 int mode7flash,m7flashon=0,m7flashtime=0;
 uint8_t heldchar,holdchar;
-char *heldp[2];
+uint8_t *heldp[2];
 int interlline=0,oldr8;
 int firstx,firsty,lastx,lasty;
 uint8_t cursorlook[7]={0,0,0,0x80,0x40,0x20,0x20};
@@ -323,7 +323,7 @@ static inline void rendermode7(uint8_t dat)
         int off;
         int mcolx=mode7col;
         int holdoff=0,holdclear=0;
-        char *mode7px[2];
+        uint8_t *mode7px[2];
         int mode7flashx=mode7flash,mode7dblx=mode7dbl;
         uint8_t *on;
         
@@ -745,7 +745,6 @@ void pollvideo(int clocks)
 				if ((scry+1)>lasty) lasty=scry;
 			}
 			lasthc0=1;
-                        
 
 			if (adcconvert) {
 				adcconvert--;

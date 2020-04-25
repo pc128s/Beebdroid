@@ -169,7 +169,7 @@ void updatebuffer(int16_t *buffer, int numSamples)
 	int c,d,diff[1024],e;
 	uint8_t oldlast[4];
 	float tempf,tempf2;
-	uint16_t *sbuf=buffer;
+	uint16_t *sbuf=(uint16_t*)buffer;
 	int lcount=0;
 	memset(buffer,0,numSamples*2);
 

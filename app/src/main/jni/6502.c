@@ -128,21 +128,22 @@ void log_asm(int v) {
 }
 
 void log_undef_opcode_C_arm(uint8_t op, void* tab, int off, M6502* cpu) {
-	LOGI("Undefined opcode! cpu=%08x the_cpu=%04x op=%02x off=%08x tab=%08x", cpu, the_cpu, op, off, tab);
-	LOGI("Undefined opcode! mem=%04x [ pc=%04x ]", cpu->mem, cpu->pc );
-	LOGI("Undefined opcode! mem=%04x [ pc=%04x ] = %02x", cpu->mem, cpu->pc, cpu->mem[cpu->pc]);
+	LOGI("Undefined opcode! cpu=%p the_cpu=%p op=%02x off=%08x tab=%p", cpu, the_cpu, op, off, tab);
+	LOGI("Undefined opcode! mem=%p [ pc=%04x ]", cpu->mem, cpu->pc );
+	LOGI("Undefined opcode! mem=%p [ pc=%04x ] = %02x", cpu->mem, cpu->pc, cpu->mem[cpu->pc]);
 	exit(1);
 }
 
 void log_undef_opcode_C_x86(M6502* cpu) {
-	LOGI("Undefined opcode! cpu=%08x the_cpu=%04x", cpu, the_cpu);
-	LOGI("Undefined opcode! mem=%04x [ pc=%04x ]", cpu->mem, cpu->pc );
-	LOGI("Undefined opcode! mem=%04x [ pc=%04x ] = %02x", cpu->mem, cpu->pc, cpu->mem[cpu->pc]);
+	LOGI("Undefined opcode! cpu=%p the_cpu=%p", cpu, the_cpu);
+	LOGI("Undefined opcode! mem=%p [ pc=%04x ]", cpu->mem, cpu->pc );
+	LOGI("Undefined opcode! mem=%p [ pc=%04x ] = %02x", cpu->mem, cpu->pc, cpu->mem[cpu->pc]);
 	exit(1);
 }
 
 
 #define readmem(x)  (((x)<0xfe00) ? cpu->mem[x] : readmem_ex(x))
+static inline uint16_t readwordZp(uint8_t x, M6502* cpu) { return (*((uint16_t*)&(cpu->mem[x]))); }
 #define readword(x) (((x)<0xfe00) ? (*((uint16_t*)&(cpu->mem[x]))) : (readmem_ex(x) | (readmem_ex(x+1)<<8)))
 #define readwordpc() readword(cpu->pc); cpu->pc+=2
 #define writemem(x, val) if (((uint16_t)x)<0x8000u) cpu->mem[x]=val; else writemem_ex(x, val)
@@ -378,8 +379,6 @@ void sbc_bcd_C(M6502* cpu, uint8_t temp) {
 		cpu->a=(al&0xF)|((ah&0xF)<<4);                 \
 	}
 
-
-
 FN fns[];
 /*
 int callcounts[256];
@@ -503,13 +502,13 @@ int fn_anc_imm(M6502* cpu) {
 
 
 int fn_sre_x(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc)+cpu->x; cpu->pc++;
-	register uint16_t addr=readword(temp);
-	temp=readmem(addr);
-	SET_FLAG(FLAG_C, temp&1);
-	temp>>=1;
-	writemem(addr,temp);
-	cpu->a ^= temp;
+	register uint8_t tint8=readmem(cpu->pc)+cpu->x; cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
+	tint8=readmem(addr);
+	SET_FLAG(FLAG_C, tint8&1);
+	tint8>>=1;
+	writemem(addr,tint8);
+	cpu->a ^= tint8;
 	setzn(cpu->a);
 	return 7;
 }
@@ -517,37 +516,37 @@ int fn_sre_x(M6502* cpu) {
 
 int fn_sre_zp(M6502* cpu) {
 	register uint16_t addr=readmem(cpu->pc); cpu->pc++;
-	register uint8_t temp=readmem(addr);
-	SET_FLAG(FLAG_C, temp&1);
-	temp>>=1;
-	writemem(addr,temp);
-	cpu->a ^= temp;
+	register uint8_t tint8=readmem(addr);
+	SET_FLAG(FLAG_C, tint8&1);
+	tint8>>=1;
+	writemem(addr,tint8);
+	cpu->a ^= tint8;
 	setzn(cpu->a);
 	return 5;
 }
 
 int fn_sre_abs(M6502* cpu) {
 	register uint16_t addr=readwordpc();
-	register uint8_t temp=readmem(addr);
-	SET_FLAG(FLAG_C, temp&1);
-	temp>>=1;
-	writemem(addr,temp);
-	cpu->a^=temp;
+	register uint8_t tint8=readmem(addr);
+	SET_FLAG(FLAG_C, tint8&1);
+	tint8>>=1;
+	writemem(addr,tint8);
+	cpu->a^=tint8;
 	setzn(cpu->a);
 	return 6;
 }
 
 int fn_sre_y(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	register uint16_t addr=readword(temp);
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
 	register int clocks = 7;
 	if ((addr&0xFF00)^((addr+cpu->y)&0xFF00))clocks++;
-	temp=readmem(addr+cpu->y);
-	//?writemem(addr+cpu->y,temp);
-	SET_FLAG(FLAG_C, temp&1);
-	temp>>=1;
-	writemem(addr+cpu->y,temp);
-	cpu->a^=temp;
+	tint8=readmem(addr+cpu->y);
+	//?writemem(addr+cpu->y,tint8);
+	SET_FLAG(FLAG_C, tint8&1);
+	tint8>>=1;
+	writemem(addr+cpu->y,tint8);
+	cpu->a^=tint8;
 	setzn(cpu->a);
 	return clocks;
 }
@@ -555,12 +554,12 @@ int fn_sre_y(M6502* cpu) {
 
 int fn_sre_zp_x(M6502* cpu) {
 	register uint16_t addr=(readmem(cpu->pc)+cpu->x)&0xFF; cpu->pc++;
-	register uint8_t temp=readmem(addr);
-	//writemem(addr,temp);
-    SET_FLAG(FLAG_C, temp&1);
-	temp>>=1;
-	writemem(addr,temp);
-	cpu->a^=temp;
+	register uint8_t tint8=readmem(addr);
+	//writemem(addr,tint8);
+    SET_FLAG(FLAG_C, tint8&1);
+	tint8>>=1;
+	writemem(addr,tint8);
+	cpu->a^=tint8;
 	setzn(cpu->a);
 	return 5;
 }
@@ -570,12 +569,12 @@ int fn_sre_abs_y(M6502* cpu) {
 	register uint16_t addr=readwordpc();
 	register int clocks = 6;
 	if ((addr&0xFF00)^((addr+cpu->y)&0xFF00)) clocks++;
-	register uint8_t temp=readmem(addr+cpu->y);
-	writemem(addr+cpu->y,temp);
-    SET_FLAG(FLAG_C, temp&1);
-	temp>>=1;
-	writemem(addr+cpu->y,temp);
-	cpu->a^=temp;
+	register uint8_t tint8=readmem(addr+cpu->y);
+	writemem(addr+cpu->y,tint8);
+    SET_FLAG(FLAG_C, tint8&1);
+	tint8>>=1;
+	writemem(addr+cpu->y,tint8);
+	cpu->a^=tint8;
 	setzn(cpu->a);
 	return clocks;
 }
@@ -585,20 +584,20 @@ int fn_sre_abs_x(M6502* cpu) {
 	register uint16_t addr=readwordpc();
 	register int clocks = 6;
 	if ((addr&0xFF00)^((addr+cpu->x)&0xFF00)) clocks++;
-	register uint8_t temp=readmem(addr+cpu->x);
-	writemem(addr+cpu->x,temp);
-    SET_FLAG(FLAG_C, temp&1);
-	temp>>=1;
-	writemem(addr+cpu->x,temp);
-	cpu->a^=temp;
+	register uint8_t tint8=readmem(addr+cpu->x);
+	writemem(addr+cpu->x,tint8);
+    SET_FLAG(FLAG_C, tint8&1);
+	tint8>>=1;
+	writemem(addr+cpu->x,tint8);
+	cpu->a^=tint8;
 	setzn(cpu->a);
 	return clocks;
 }
 
 
 int fn_sax_x(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc)+cpu->x; cpu->pc++;
-	register uint16_t addr=readword(temp);
+	register uint8_t tint8=readmem(cpu->pc)+cpu->x; cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
 	writemem(addr,cpu->a&cpu->x);
 	return 6;
 }
@@ -610,8 +609,8 @@ int fn_sax_zp(M6502* cpu) {
 }
 
 int fn_ane(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	cpu->a=(cpu->a|0xEE)&cpu->x&temp; //Internal parameter always 0xEE on BBC, always 0xFF on Electron
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	cpu->a=(cpu->a|0xEE)&cpu->x&tint8; //Internal parameter always 0xEE on BBC, always 0xFF on Electron
 	setzn(cpu->a);
 	return 2;
 }
@@ -624,8 +623,8 @@ int fn_sax_abs(M6502* cpu) {
 
 
 int fn_sha_y(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	register uint16_t addr=readword(temp);
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
 	writemem(addr+cpu->y,cpu->a&cpu->x&((addr>>8)+1));
 	return 6;
 }
@@ -667,8 +666,8 @@ int fn_sha_abs_y(M6502* cpu) {
 
 
 int fn_lax_y(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc)+cpu->x; cpu->pc++;
-	register uint16_t addr=readword(temp);
+	register uint8_t tint8=readmem(cpu->pc)+cpu->x; cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
 	cpu->a=cpu->x=readmem(addr);
 	setzn(cpu->a);
 	return 6;
@@ -681,8 +680,8 @@ int fn_lax_zp(M6502* cpu) {
 	return 3;
 }
 int fn_lax(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	cpu->a=cpu->x=((cpu->a|0xEE)&temp); //WAAAAY more complicated than this, but it varies from machine to machine anyway
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	cpu->a=cpu->x=((cpu->a|0xEE)&tint8); //WAAAAY more complicated than this, but it varies from machine to machine anyway
 	setzn(cpu->a);
 	return 2;
 }
@@ -694,8 +693,8 @@ int fn_lax_abs(M6502* cpu) {
 }
 
 int fn_lax_y2(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	register uint16_t addr=readword(temp);
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
 	register int clocks = 5;
 	if ((addr&0xFF00)^((addr+cpu->y)&0xFF00)) clocks++;
 	cpu->a=cpu->x=readmem(addr+cpu->y);
@@ -728,61 +727,61 @@ int fn_lax_abs_y(M6502* cpu) {
 	return cl;
 }
 int fn_dcp_indx(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc)+cpu->x; cpu->pc++;
-	register uint16_t addr=readword(temp);
-	temp=readmem(addr);
-	writemem(addr,temp);
-	temp--;
-	writemem(addr,temp);
-	setzn(cpu->a-temp);
-    SET_FLAG(FLAG_C, cpu->a>=temp);
+	register uint8_t tint8=readmem(cpu->pc)+cpu->x; cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
+	tint8=readmem(addr);
+	writemem(addr,tint8);
+	tint8--;
+	writemem(addr,tint8);
+	setzn(cpu->a-tint8);
+    SET_FLAG(FLAG_C, cpu->a>=tint8);
 	return 7;
 }
 
 int fn_dcp_zp(M6502* cpu) {
 	register uint16_t addr=readmem(cpu->pc); cpu->pc++;
-	register uint8_t temp=readmem(addr)-1;
-	writemem(addr,temp);
-	setzn(cpu->a-temp);
-    SET_FLAG(FLAG_C, cpu->a>=temp);
+	register uint8_t tint8=readmem(addr)-1;
+	writemem(addr,tint8);
+	setzn(cpu->a-tint8);
+    SET_FLAG(FLAG_C, cpu->a>=tint8);
 	return 5;
 }
 
 int fn_sbx_imm(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	setzn((cpu->a&cpu->x)-temp);
-    SET_FLAG(FLAG_C, (cpu->a&cpu->x)>=temp);
-    cpu->x=(cpu->a&cpu->x)-temp;
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	setzn((cpu->a&cpu->x)-tint8);
+    SET_FLAG(FLAG_C, (cpu->a&cpu->x)>=tint8);
+    cpu->x=(cpu->a&cpu->x)-tint8;
 	return 2;
 }
 int fn_dcp_abs(M6502* cpu) {
 	register uint16_t addr=readwordpc();
-	register uint8_t temp=readmem(addr)-1;
-	writemem(addr,temp);
-	setzn(cpu->a-temp);
-    SET_FLAG(FLAG_C, cpu->a>=temp);
+	register uint8_t tint8=readmem(addr)-1;
+	writemem(addr,tint8);
+	setzn(cpu->a-tint8);
+    SET_FLAG(FLAG_C, cpu->a>=tint8);
 	return 6;
 }
 
 int fn_dcp_indy(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	register uint16_t addr=readword(temp);
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
 	int clocks = 7;
 	if ((addr&0xFF00)^((addr+cpu->y)&0xFF00)) clocks++;
-	temp=readmem(addr)-1;
-	writemem(addr,temp+1);
-	writemem(addr,temp);
-	setzn(cpu->a-temp);
-    SET_FLAG(FLAG_C, cpu->a>=temp);
+	tint8=readmem(addr)-1;
+	writemem(addr,tint8+1);
+	writemem(addr,tint8);
+	setzn(cpu->a-tint8);
+    SET_FLAG(FLAG_C, cpu->a>=tint8);
 	return clocks;
 }
 
 int fn_dcp_zp_x(M6502* cpu) {
 	register uint16_t addr=(readmem(cpu->pc)+cpu->x)&0xFF; cpu->pc++;
-	register uint8_t temp=readmem(addr)-1;
-	writemem(addr,temp);
-	setzn(cpu->a-temp);
-    SET_FLAG(FLAG_C, cpu->a>=temp);
+	register uint8_t tint8=readmem(addr)-1;
+	writemem(addr,tint8);
+	setzn(cpu->a-tint8);
+    SET_FLAG(FLAG_C, cpu->a>=tint8);
 	return 5;
 }
 
@@ -790,11 +789,11 @@ int fn_dcp_abs_y(M6502* cpu) {
 	register uint16_t addr=readwordpc();
 	int clocks = 6;
 	if ((addr&0xFF00)^((addr+cpu->y)&0xFF00)) clocks++;
-	register uint8_t temp=readmem(addr+cpu->y)-1;
-	//writemem(addr+cpu->y,temp+1);
-	writemem(addr+cpu->y,temp);
-	setzn(cpu->a-temp);
-    SET_FLAG(FLAG_C, cpu->a>=temp);
+	register uint8_t tint8=readmem(addr+cpu->y)-1;
+	//writemem(addr+cpu->y,tint8+1);
+	writemem(addr+cpu->y,tint8);
+	setzn(cpu->a-tint8);
+    SET_FLAG(FLAG_C, cpu->a>=tint8);
 	return clocks;
 }
 
@@ -802,53 +801,53 @@ int fn_dcp_abs_x(M6502* cpu) {
 	register uint16_t addr=readwordpc();
 	int clocks = 6;
 	if ((addr&0xFF00)^((addr+cpu->x)&0xFF00)) clocks++;
-	register uint8_t temp=readmem(addr+cpu->x)-1;
-	//writemem(addr+cpu->x,temp+1);
-	writemem(addr+cpu->x,temp);
-	setzn(cpu->a-temp);
-    SET_FLAG(FLAG_C, cpu->a>=temp);
+	register uint8_t tint8=readmem(addr+cpu->x)-1;
+	//writemem(addr+cpu->x,tint8+1);
+	writemem(addr+cpu->x,tint8);
+	setzn(cpu->a-tint8);
+    SET_FLAG(FLAG_C, cpu->a>=tint8);
 	return clocks;
 }
 
 int fn_isb_indx(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc)+cpu->x; cpu->pc++;
-	register uint16_t addr=readword(temp);
-	temp=readmem(addr);
-	temp++;
-	writemem(addr,temp);
-	SBC(temp);
+	register uint8_t tint8=readmem(cpu->pc)+cpu->x; cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
+	tint8=readmem(addr);
+	tint8++;
+	writemem(addr,tint8);
+	SBC(tint8);
 	return 7;
 }
 
 int fn_isb_zp(M6502* cpu) {
 	register uint16_t addr=readmem(cpu->pc); cpu->pc++;
-	register uint8_t temp=readmem(addr);
-	//?writemem(addr,temp);
-	temp++;
-	writemem(addr,temp);
-	SBC(temp);
+	register uint8_t tint8=readmem(addr);
+	//?writemem(addr,tint8);
+	tint8++;
+	writemem(addr,tint8);
+	SBC(tint8);
 	return 5;
 }
 
 int fn_isb_abs(M6502* cpu) {
 	register uint16_t addr=readwordpc();
-	register uint8_t temp=readmem(addr);
-	temp++;
-	writemem(addr,temp);
-	SBC(temp);
+	register uint8_t tint8=readmem(addr);
+	tint8++;
+	writemem(addr,tint8);
+	SBC(tint8);
 	return 6;
 }
 
 
 int fn_isb_indy(M6502* cpu) {
-	register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-	register uint16_t addr=readword(temp);
+	register uint8_t tint8=readmem(cpu->pc); cpu->pc++;
+	register uint16_t addr=readwordZp(tint8, cpu);
 	int clocks = 7;
 	if ((addr&0xFF00)^((addr+cpu->y)&0xFF00)) clocks++;
-	temp=readmem(addr+cpu->y);
-	temp++;
-	writemem(addr+cpu->y,temp);
-	SBC(temp);
+	tint8=readmem(addr+cpu->y);
+	tint8++;
+	writemem(addr+cpu->y,tint8);
+	SBC(tint8);
 	return clocks;
 }
 
@@ -883,7 +882,6 @@ int fn_isb_abs_x(M6502* cpu) {
 	SBC(temp);
 	return 7;
 }
-
 FN fns[] = {
 	fn_brk, 	// 0x00
 	0, 	// 0x01  	ORA (,x)

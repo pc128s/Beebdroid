@@ -9,7 +9,8 @@ buildscript {
     }
 }
 
-// Jni is broken unless you try rerunning all tasks using --rerun-tasks
+// Jni is broken unless you try rerunning all tasks using --rerun-tasks:
+// ./gradlew --rerun-tasks build
 
 allprojects {
     repositories {

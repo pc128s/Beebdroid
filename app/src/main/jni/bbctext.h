@@ -1,6 +1,6 @@
 /* Normal Character Set */
 
-static char teletext_characters[96*60]={
+static unsigned char teletext_characters[96*60]={
   // 0x20 ' '
   0,0,0,0,0,0,
   0,0,0,0,0,0,
@@ -1723,7 +1723,7 @@ static char teletext_graphics[96*60]={
   0,0,0,0,0,0,
   0,0,0,0,0,0,
   0,0,0,0,0,0
-, // 0x5c '½'
+, // 0x5c 'ï¿½'
   0,0,0,0,0,0,
   0,15,0,0,0,0,
   0,15,0,0,0,0,

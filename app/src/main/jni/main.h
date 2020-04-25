@@ -72,18 +72,18 @@ struct M6502_struct {
 	uint16_t pc_trigger_hit; //+28
 	uint16_t pc_triggers[4]; //+30 +32 +34 +36
 	uint16_t padding;	// +38
-	void (**c_fns)(M6502*); // +40 for c_fns table
+	int (**c_fns)(M6502*); // +40 for c_fns table
 	// All the following are bodges for x86 because I don't understand the loader
-	void **fns_asm ; // +44 for fns_asm table
-	void **do_poll_C ; // +48 for do_poll_C
-	void **readmem_ex ; // +52 for readmem_ex
-	void **readword_ex ; // +56 for readword_ex
-	void **writemem_ex ; // +60 for writemem_ex
-	void **adc_bcd_C ; // +64 for adc_bcd_C
-	void **sbc_bcd_C ; // +68 for sbc_bcd_C
-	void **log_undef_opcode_C ; // +72 for log_undef_opcode_C
-    void **log_cpu_C ; // +76 for log_cpu_C
-    void **log_asm_C ; // +80 for log_cpu_C
+	void *fns_asm ; // +44 for fns_asm table
+	void *do_poll_C ; // +48 for do_poll_C
+	void *readmem_ex ; // +52 for readmem_ex
+	void *readword_ex ; // +56 for readword_ex
+	void *writemem_ex ; // +60 for writemem_ex
+	void *adc_bcd_C ; // +64 for adc_bcd_C
+	void *sbc_bcd_C ; // +68 for sbc_bcd_C
+	void *log_undef_opcode_C ; // +72 for log_undef_opcode_C
+    void *log_cpu_C ; // +76 for log_cpu_C
+    void *log_asm_C ; // +80 for log_cpu_C
 };
 
 extern M6502* the_cpu;
@@ -159,7 +159,27 @@ extern unsigned int crtci;
 extern int hc,vc,sc;
 extern uint16_t ma;
 
-void* exec6502(M6502* cpu);
+extern void syscb1();
+
+extern void disc_reset();
+extern void ssd_reset();
+extern void reset6502();
+extern void resetsysvia();
+extern void resetuservia();
+extern void reset8271();
+
+extern void givealbuffer(int16_t *buf, int pos, int cb);
+extern void writesound(uint8_t data);
+
+extern void latchpen();
+extern void generate_332_palette(int* pal);
+extern void set_palette(int* p);
+extern void clear_to_color(BITMAP *bitmap, int color);
+extern void vblankintlow();
+extern void vblankint();
+extern void polladc();
+
+extern void* exec6502(M6502* cpu);
 extern void *fns_asm;
 
 void writesysvia(uint16_t addr, uint8_t val);

@@ -94,7 +94,7 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcSetTrigg
 	LOGI("bbcSetTriggers");
 
 	unsigned int c = (*env)->GetArrayLength(env, pc_triggers);
-	unsigned short* tmp = (*env)->GetShortArrayElements(env, pc_triggers, 0);
+	unsigned short* tmp = (unsigned short*)(*env)->GetShortArrayElements(env, pc_triggers, 0);
 	the_cpu->pc_triggers[0]=0;
 	the_cpu->pc_triggers[1]=0;
 	the_cpu->pc_triggers[2]=0;
@@ -161,7 +161,7 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
 
     if (framecount++ == 0) {
     // Position independent code, hopefully!
-    the_cpu->c_fns = &fns; // +40
+    the_cpu->c_fns = fns; // +40
     
     	// All the following are bodges for x86 because I don't understand the loader.
     the_cpu->fns_asm = &fns_asm; // +44 for fns_asm table
@@ -175,15 +175,15 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIE
     the_cpu->log_cpu_C = &log_cpu_C; // +76 for log_cpu_C
     the_cpu->log_asm_C = &log_asm; // +80 for log_cpu_C
 
-    LOGI("the_cpu->fns_asm     = %X", &fns_asm); // +44 for fns_asm table
-    LOGI("the_cpu->do_poll_C   = %X", &do_poll_C ); // +48 for do_poll_C
-    LOGI("the_cpu->readmem_ex  = %X", &readmem_ex); // +52 for readmem_ex
-    LOGI("the_cpu->readword_ex = %X", &readword_ex); // +56 for readword_ex
-    LOGI("the_cpu->writemem_ex = %X", &writemem_ex); // +60 for writemem_ex
-    LOGI("the_cpu->adc_bcd_C   = %X", &adc_bcd_C); // +64 for adc_bcd_C
-    LOGI("the_cpu->sbc_bcd_C   = %X", &sbc_bcd_C); // +68 for sbc_bcd_C
-    LOGI("the_cpu->log_un_op_C = %X", &log_undef_opcode_C_x86); // +72 for log_undef_opcode_C
-    LOGI("the_cpu->log_cpu_C   = %X", &log_cpu_C); // +76 for log_cpu_C
+    LOGI("the_cpu->fns_asm     = %p", &fns_asm); // +44 for fns_asm table
+    LOGI("the_cpu->do_poll_C   = %p", &do_poll_C ); // +48 for do_poll_C
+    LOGI("the_cpu->readmem_ex  = %p", &readmem_ex); // +52 for readmem_ex
+    LOGI("the_cpu->readword_ex = %p", &readword_ex); // +56 for readword_ex
+    LOGI("the_cpu->writemem_ex = %p", &writemem_ex); // +60 for writemem_ex
+    LOGI("the_cpu->adc_bcd_C   = %p", &adc_bcd_C); // +64 for adc_bcd_C
+    LOGI("the_cpu->sbc_bcd_C   = %p", &sbc_bcd_C); // +68 for sbc_bcd_C
+    LOGI("the_cpu->log_un_op_C = %p", &log_undef_opcode_C_x86); // +72 for log_undef_opcode_C
+    LOGI("the_cpu->log_cpu_C   = %p", &log_cpu_C); // +76 for log_cpu_C
     }
 
 //    LOGI("%i exec6502=%X &acpu=%X the_cpu=%X  c_fns=%X", framecount, exec6502, &(*the_cpu), the_cpu, the_cpu->c_fns, the_cpu->cycles);
@@ -598,7 +598,7 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInitGl(J
     glGenBuffers(1, &indexBufferId);
 
  	// Get a texture ID
-	int textures[] = {1};
+	GLuint textures[] = {1};
 	glGenTextures(1, textures);
 	tex = textures[0];
 
@@ -620,6 +620,7 @@ JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInitGl(J
 		GL_UNSIGNED_SHORT_5_6_5,
 		b->pixels);
 
+	return 1;
 }
 
 static char b4096[4096];

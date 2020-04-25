@@ -6,7 +6,7 @@
 int joy1x,joy1y,joy2x,joy2y;
 
 uint8_t adcstatus,adchigh,adclow,adclatch;
-int adcconvert;
+int adcconvert = 0;
 
 uint8_t readadc(uint16_t addr)
 {
