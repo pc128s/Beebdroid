@@ -57,7 +57,7 @@ extern FN fns[];
 extern char* ops[];
 
 struct M6502_struct {
-	uint8_t* mem; // +0
+    uint32_t padding; // formerly mem, moved to group pointers together for 64 bit alignment.
 	uint16_t pc;  // +4
 	uint8_t a;    // +6
 	uint8_t x;    // +7
@@ -65,14 +65,15 @@ struct M6502_struct {
 	uint8_t s;    // +9
 	uint8_t p;    // +10
 	uint8_t unused; //
-	int interrupt; // +12
-	int nmi;	  // +16
-	int takeint;  // +20
-	int cycles;   // +24
+    uint32_t interrupt; // +12
+    uint32_t nmi;	  // +16
+    uint32_t takeint;  // +20
+    uint32_t cycles;   // +24
 	uint16_t pc_trigger_hit; //+28
 	uint16_t pc_triggers[4]; //+30 +32 +34 +36
-	uint16_t padding;	// +38
+	uint16_t padding2;	// +38
 	int (**c_fns)(M6502*); // +40 for c_fns table
+    uint8_t* mem; // +40+ptr_len, formerly 0
 	// All the following are bodges for x86 because I don't understand the loader
 	void *fns_asm ; // +44 for fns_asm table
 	void *do_poll_C ; // +48 for do_poll_C

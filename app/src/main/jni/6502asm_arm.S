@@ -42,7 +42,7 @@ Rcyc .req r12  @ r12 = cpu->cycles
 #define flagV   0x40
 #define flagN   0x80
 
-#define Smem  0  //	uint8_t* mem; // +0
+// #define Smem  0  //	uint8_t* mem; // +0
 #define Spc   4  //	uint16_t pc;  // +4
 #define Sra   6  //	uint8_t a;    // +6
 #define Srx   7  //	uint8_t x;    // +7
@@ -56,6 +56,11 @@ Rcyc .req r12  @ r12 = cpu->cycles
 #define Scycles  24 //	int cycles;   // +24
 #define SpcTrHit 28 //	uint16_t pc_trigger_hit; //+28
 #define SpcTrig4 30 //	uint16_t pc_triggers[4]; //+30
+
+#define Scfns    40 //	int (**c_fns)(M6502*); // +40 for c_fns table
+#define Smem     44 //  uint8_t* mem; // +40+ptr_len, formerly at 0
+
+// Do not need other fn pointers for ARM
 
 // branch without labels: count number of lines to skip over, add 1, multiply by 4. So to skip 2 lines, "b .+12"
 .macro PUSHWORD reg16, scrapreg
@@ -90,7 +95,7 @@ Rcyc .req r12  @ r12 = cpu->cycles
 	push {lr}
     strh  Rpc, [ Rcpu, #Spc] 	@  r6 = PC
     strb  Ra, [ Rcpu, #Sra] 	@  r7 = A
-    strb  Rx, [ Rcpu, #7] 	@  r8 = X
+    strb  Rx, [ Rcpu, #Srx] 	@  r8 = X
     strb  Ry, [ Rcpu, #Sry] 	@  r9 = Y
     strb  Rs,[ Rcpu, #Srs] 	@ Rs = S
     strb  Rp,[ Rcpu, #Srp] 	@ r11 = P
@@ -98,7 +103,7 @@ Rcyc .req r12  @ r12 = cpu->cycles
 	bl log_cpu_C
     ldrh  Rpc, [ Rcpu, #Spc] 	@  r6 = PC
     ldrb  Ra, [ Rcpu, #Sra] 	@  r7 = A
-    ldrb  Rx, [ Rcpu, #7] 	@  r8 = X
+    ldrb  Rx, [ Rcpu, #Srx] 	@  r8 = X
     ldrb  Ry, [ Rcpu, #Sry] 	@  r9 = Y
     ldrb  Rs,[ Rcpu, #Srs] 	@ r10 = S
     ldrb  Rp,[ Rcpu, #Srp] 	@ r11 = P
@@ -1688,7 +1693,7 @@ exec6502: // Was exec6502(), but now exec6502(M6502*)
     str   r0,[ Rcpu, #Scycles]
 
     @ load 6502 CPU state into ARM registers
-    ldr   Rmem, [ Rcpu] 		@ r5  = mem
+    ldr   Rmem, [ Rcpu, #Smem] 	@ r5  = mem
     ldrh  Rpc, [ Rcpu, #Spc] 	@ r6  = PC
     ldrb  Ra, [ Rcpu, #Sra] 	@ r7  = A
     ldrb  Rx, [ Rcpu, #Srx] 	@ r8  = X
@@ -1747,7 +1752,7 @@ loop:
 	@ Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
 	// eg 0x4B - 75 - asr
 use_c_fn:
-	ldr   r1, [ Rcpu, #40 ]   @ 40 -> []
+	ldr   r1, [ Rcpu, #Scfns ]   @ 40 -> []
 	ldr   r2, [ r1,  r0, lsl #2] // c_fns[ opcode * 4 ]
 //    push {r0-Rcyc,lr}
 //    mov   r3, Rcpu

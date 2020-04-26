@@ -26,6 +26,63 @@
 # r10 = S       ch
 # r11 = P
 
+#define Rcpu  ebp   //  r4 = cpu*
+#define Rmem  esi   //  r5 = mem
+#define Rpc   di   //  r6 = PC
+#define Ra    cl   //  r7 = A
+#define Rx    dl   //  r8 = X
+#define Ry    dh   //  r9 = Y
+#define Rs    ch   // r10 = S
+//Rp   .req r11  @ r11 = P
+//Rcyc .req r12  @ r12 = cpu->cycles
+
+#define ticks2 2
+#define ticks3 3
+#define ticks4 4
+#define ticks5 5
+#define ticks6 6
+#define ticks7 7
+
+#define flagC   1
+#define flagZ   2
+#define flagI   4
+#define flagD   8
+#define flagxxx 0x10
+#define flagInt 0x20
+#define flagV   0x40
+#define flagN   0x80
+
+// #define Smem  0  //	uint8_t* mem; // +0
+#define Spc   4  //	uint16_t pc;  // +4
+#define Sra   6  //	uint8_t a;    // +6
+#define Srx   7  //	uint8_t x;    // +7
+#define Sry   8  //	uint8_t y;    // +8
+#define Srs   9  //	uint8_t s;    // +9
+#define Srp  10  //	uint8_t p;    // +10
+//	uint8_t unused; //
+#define Sint     12 //	int interrupt; // +12
+#define Snmi     16 //	int nmi;	  // +16
+#define Stakeint 20 //	int takeint;  // +20
+#define Scycles  24 //	int cycles;   // +24
+#define SpcTrHit 28 //	uint16_t pc_trigger_hit; //+28
+#define SpcTrig4 30 //	uint16_t pc_triggers[4]; //+30
+
+#define Scfns    40 //	int (**c_fns)(M6502*); // +40 for c_fns table
+#define Smem     44 //  uint8_t* mem; // +40+ptr_len, formerly at 0
+
+	// All the following are bodges for x86 because I don't understand the loader
+#define Sfns_asm      48 // void * fns_asm ; // +44 for fns_asm table
+#define Sdo_poll_C    52 // void * do_poll_C ; // +48 for do_poll_C
+#define Sreadmem_ex   56 // void * readmem_ex ; // +52 for readmem_ex
+#define Sreadword_ex  60 // void * readword_ex ; // +56 for readword_ex
+#define Swritemem_ex  64 // void * writemem_ex ; // +60 for writemem_ex
+#define Sadc_bcd_C    68 // void * adc_bcd_C ; // +64 for adc_bcd_C
+#define Ssbc_bcd_C    72 // void * sbc_bcd_C ; // +68 for sbc_bcd_C
+#define Slog_undef_opcode_C  76 // void * log_undef_opcode_C ; // +72 for log_undef_opcode_C
+#define Slog_cpu_C    80 // void * log_cpu_C ; // +76 for log_cpu_C
+#define Slog_asm_C    84 // void * log_asm_C ; // +80 for log_cpu_C
+
+
 .macro C_CALL_PRE
 	push  ecx
 	push  edx
@@ -39,38 +96,36 @@
 .endm
 
 .macro LOG_CPU
-    mov [ ebp+4],  di 	#  di = PC
-    mov [ ebp+6],  cl 	#  cl = A
-    mov [ ebp+7],  dl 	#  dl = X
-    mov [ ebp+8],  dh 	#  r9 = Y
-    mov [ ebp+9],  ch 	#  r10 = S
+    mov [ ebp+Spc],  di 	#  di = PC
+    mov [ ebp+Sra],  cl 	#  cl = A
+    mov [ ebp+Srx],  dl 	#  dl = X
+    mov [ ebp+Sry],  dh 	#  r9 = Y
+    mov [ ebp+Srs],  ch 	#  r10 = S
     pusha
 	push  ebp
 	// NOT-PIC call log_cpu_C
-	mov eax, [ ebp + 76 ]
+	mov eax, [ ebp + Slog_cpu_C ]
 	call eax
 	add  esp,4
 	popa
-    mov  di,  [ ebp+4] 	#  di = r6  = PC
-    mov  cl,  [ ebp+6] 	#  cl = r7  = A
-    mov  dl,  [ ebp+7] 	#  dl = r8  = X
-    mov  dh,  [ ebp+8] 	#  dh = r9  = Y
-    mov  ch,  [ ebp+9] 	#  ch = r10 = S
+    mov  di,  [ ebp+Spc] 	#  di = r6  = PC
+    mov  cl,  [ ebp+Sra] 	#  cl = r7  = A
+    mov  dl,  [ ebp+Srx] 	#  dl = r8  = X
+    mov  dh,  [ ebp+Sry] 	#  dh = r9  = Y
+    mov  ch,  [ ebp+Srs] 	#  ch = r10 = S
 .endm
 
 .macro LOG arg
     pusha
     mov  eax, \arg
 	push  eax
-	mov eax, [ebp + 80] // log_asm
+	mov eax, [ebp + Slog_asm_C] // log_asm
 	call eax
 	add  esp,4
 	popa
 .endm
 
 
-
-// branch without labels: count number of lines to skip over, add 1, multiply by 4. So to skip 2 lines, "b .+12"
 
 .macro PUSH_BYTE reg8
     movzx  ebx,  ch
@@ -97,14 +152,14 @@
 .endm
 
 .macro UPDATE_TAKEINT 	# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
-	cmp dword ptr [ ebp+12], 0	# r12 = cpu->interrupt
+	cmp dword ptr [ ebp+Sint], 0	# r12 = cpu->interrupt
 	jz  1f
-	test byte ptr [ ebp+10], 4  		# test the FLAG_I
+	test byte ptr [ ebp+Srp], 4  		# test the FLAG_I
 	jnz 1f
-	mov dword ptr [ ebp+20], 1
+	mov dword ptr [ ebp+Stakeint], 1
 	jmp 2f
 1:
-	mov dword ptr [ ebp+20], 0   				#cpu->take_int = r1
+	mov dword ptr [ ebp+Stakeint], 0   				#cpu->take_int = r1
 2:
 .endm
 
@@ -124,24 +179,24 @@ exec6502:
 
     mov ebp, [esp + 4 + 32] // hopefully first param = acpu
 
-//    mov eax, [ebp + 76] // log-cpu-c again, hopefully
+//    mov eax, [ebp + Slog_cpu_C] // log-cpu-c again, hopefully
 //    mov [esp + 28], eax // return in eax from pop
 //	popa
 //	ret
 
     # update cpu->cycles. Note the constant value 40000 cannot be encoded and has to be ldr'd indirectly.
-    mov   eax,[ ebp+24]
+    mov   eax,[ ebp + Scycles ]
     add   eax, 40000 // perhaps related to 50Hz PAL vsync?
-    mov  [ ebp+24],  eax
+    mov  [ ebp + Scycles ],  eax
 
     # load some of 6502 CPU state into registers
-    mov   esi, [ ebp] 		# ESI = r5  = mem
+    mov   esi, [ ebp + Smem ] 		# ESI = r5  = mem
     mov   edi, 0
-    mov  di,  [ ebp+4] 	#  di = r6  = PC
-    mov  cl,  [ ebp+6] 	#  cl = r7  = A
-    mov  dl,  [ ebp+7] 	#  dl = r8  = X
-    mov  dh,  [ ebp+8] 	#  dh = r9  = Y
-    mov  ch,  [ ebp+9] 	#  ch = r10 = S
+    mov  di,  [ ebp + Spc ] 	#  di = r6  = PC
+    mov  cl,  [ ebp + Sra ] 	#  cl = r7  = A
+    mov  dl,  [ ebp + Srx ] 	#  dl = r8  = X
+    mov  dh,  [ ebp + Sry ] 	#  dh = r9  = Y
+    mov  ch,  [ ebp + Srs ] 	#  ch = r10 = S
 
     // eax,ebx are free for general use
 loop:
@@ -161,7 +216,7 @@ loop:
 	# Get the ASM function. If this doesnt exist, fall back to C version.
 	// NOT-PIC lea   ebx, fns_asm
     //LOG 2
-	mov ebx, [ebp + 44 ] // 44 = fns_asm
+	mov ebx, [ebp + Sfns_asm ] // 44 = fns_asm
 	mov   ebx, [ ebx +  eax*4]
 	cmp   ebx, 0
 	jz  use_c_fn
@@ -169,10 +224,10 @@ loop:
 	# Call assembly function: ebx is (cop
     //LOG 3
 //    push eax // preserve?
-//    mov eax, [ebp + 44] // 44 = fns_asm
+//    mov eax, [ebp + Sfns_asm] // 44 = fns_asm
 //    add ebx, eax
 //    pop eax // preserve?
-    add ebx, [ebp + 44] // 44 = fns_asm
+    add ebx, [ebp + Sfns_asm] // 44 = fns_asm
 // hohoho?
 	call  ebx
 	jmp done_call
@@ -181,22 +236,22 @@ loop:
 use_c_fn:
 	// NOT-PIC lea   ebx, fns
    // LOG 4
-	mov ebx, [ebp + 40] // 40=c_fns
+	mov ebx, [ebp + Scfns] // 40=c_fns
 	mov   ebx, [ ebx +  eax*4]
-    mov [ ebp+4],  di 	#  di = PC
-    mov [ ebp+6],  cl 	#  cl = A
-    mov [ ebp+7],  dl 	#  dl = X
-    mov [ ebp+8],  dh 	#  r9 = Y
-    mov [ ebp+9],  ch 	#  r10 = S
+    mov [ ebp+Spc],  di 	#  di = PC
+    mov [ ebp+Sra],  cl 	#  cl = A
+    mov [ ebp+Srx],  dl 	#  dl = X
+    mov [ ebp+Sry],  dh 	#  r9 = Y
+    mov [ ebp+Srs],  ch 	#  r10 = S
 	push  ebp  	# Sole parameter for C opcode functions is r0 = CPU*
 	call  ebx
 	add  esp, 4
     mov   edi, 0
-    mov  di,  [ ebp+4] 	#  di = r6  = PC
-    mov  cl,  [ ebp+6] 	#  cl = r7  = A
-    mov  dl,  [ ebp+7] 	#  dl = r8  = X
-    mov  dh,  [ ebp+8] 	#  dh = r9  = Y
-    mov  ch,  [ ebp+9] 	#  ch = r10 = S
+    mov  di,  [ ebp+Spc] 	#  di = r6  = PC
+    mov  cl,  [ ebp+Sra] 	#  cl = r7  = A
+    mov  dl,  [ ebp+Srx] 	#  dl = r8  = X
+    mov  dh,  [ ebp+Sry] 	#  dh = r9  = Y
+    mov  ch,  [ ebp+Srs] 	#  ch = r10 = S
 
 done_call:
  //   LOG 5   // It's quick to here!
@@ -214,15 +269,15 @@ done_interrupts:
     push  eax   // cycles for that instruction
 
 	# Update interrupts
-	cmp dword ptr [ ebp+16], 0   # ebp+16 = cpu->nmi
+	cmp dword ptr [ ebp+Snmi], 0   # ebp+Snmi = cpu->nmi
 	jz no_nmi
-	mov dword ptr [ ebp+16], 0
+	mov dword ptr [ ebp+Snmi], 0
 	push 0xfffa
 	jmp do_interrupt
 no_nmi:
-	cmp dword ptr [ ebp+20], 0   # ebp+20 = cpu->take_int
+	cmp dword ptr [ ebp+Stakeint], 0   # ebp+20 = cpu->take_int
 	jz no_interrupt
-	mov dword ptr [ ebp+20], 0
+	mov dword ptr [ ebp+Stakeint], 0
 //LOG esp //..18
 //LOG 0xfffe
 	push 0xfffe
@@ -230,7 +285,7 @@ do_interrupt:
 //LOG esp //..14
 //LOG edi // f12e
 	PUSHWORD  di			# push(cpu->pc)
-	movzx  eax, byte ptr [ ebp+10]
+	movzx  eax, byte ptr [ ebp+Srp]
 	or   eax, 0x20   	# uint8_t temp = cpu->p | 0x20;
 //LOG esp // ..14
 //LOG eax // 25
@@ -240,9 +295,9 @@ do_interrupt:
 //LOG eax // fffe
 //LOG esp //..16
 	mov  di, [ esi+ eax] 		# cpu->pc=*(uint16_t*)&(cpu->mem[0xfffe]);
-	or byte ptr [ ebp+10], 4 	# cpu->p |= FLAG_I;
-	mov [ ebp+4], di            # Remove when C-only
-	mov [ ebp+9], ch    	    # Remove when C-only
+	or byte ptr [ ebp+Srp], 4 	# cpu->p |= FLAG_I;
+	mov [ ebp+Spc], di            # Remove when C-only
+	mov [ ebp+Srs], ch    	    # Remove when C-only
 	pop  eax
 //LOG eax
 //LOG esp
@@ -251,34 +306,34 @@ do_interrupt:
 //LOG esp
 //LOG eax
 no_interrupt:
-    and dword ptr [ ebp+12], 0xFFFFFF7f   # cpu->interrupt &= ~128
+    and dword ptr [ ebp+Sint], 0xFFFFFF7f   # cpu->interrupt &= ~128
 
 	# Update CPU->cycles
 	pop  eax
-	sub [ ebp+24],  eax
+	sub [ ebp+Scycles],  eax
 //LOG 0x71
 	# Update intermediate cycle counter
 	C_CALL_PRE
 	push  eax
 	push  ebp
  	//NOT-PIC call do_poll_C
- 	mov eax, [ebp + 48]
+ 	mov eax, [ebp + Sdo_poll_C]
  	call eax
  	add  esp,8
  	C_CALL_POST
 //LOG 0x93
-	mov  eax, [ ebp+24]
+	mov  eax, [ ebp+Scycles]
 
 	# Loop back until cpu->cycles <=0
-	cmp dword ptr [ ebp+24], 0
+	cmp dword ptr [ ebp+Scycles], 0
 	jg loop
 
 	# Update cpu fields, restore regs and exit
-    mov [ ebp+4],  di 	#  PC
-    mov [ ebp+6],  cl	#  r7 = A
-    mov [ ebp+7],  dl	#  r8 = X
-    mov [ ebp+8],  dh	#  r9 = Y
-    mov [ ebp+9],  ch	# r10 = S
+    mov [ ebp+Spc],  di 	#  PC
+    mov [ ebp+Sra],  cl	#  r7 = A
+    mov [ ebp+Srx],  dl	#  r8 = X
+    mov [ ebp+Sry],  dh	#  r9 = Y
+    mov [ ebp+Srs],  ch	# r10 = S
 	popa
     ret
 
@@ -301,7 +356,7 @@ no_interrupt:
 	C_CALL_PRE
 	push \addr16  # push s/w/
 	//NOT-PIC call readmem_ex
-	mov eax, [ebp + 52] // readmem_ex
+	mov eax, [ebp + Sreadmem_ex] // readmem_ex
 	call eax
 	add  esp,2
 	C_CALL_POST
@@ -324,7 +379,7 @@ no_interrupt:
 	C_CALL_PRE
 	push \src  # s/w/
 	//NOT-PIC call readword_ex
-	mov eax, [ebp + 56] // readword_ex
+	mov eax, [ebp + Sreadword_ex] // readword_ex
 	call eax // readword_ex
 	add  esp,2
 	C_CALL_POST
@@ -359,7 +414,7 @@ no_interrupt:
 	push  ebx // bx
 	//NOT-PIC call writemem_ex
 //LOG esp // ...0c
-	mov eax, [ebp + 60]
+	mov eax, [ebp + Swritemem_ex]
 	call eax
 //LOG esp // ...0c
 	add  esp,  8 // 4
@@ -378,15 +433,15 @@ no_interrupt:
 
 // #define setzn(v) if(v) cpu->p &=~FLAG_Z; else cpu->p|=FLAG_Z;  if ((v)&0x80) cpu->p|=FLAG_N; else cpu->p&=~FLAG_N;
 .macro SETZN v
-	and byte ptr [ ebp+10], 0x7D  # i.e. clear flags reg bits 0x80 (N) and 0x02 (Z).
+	and byte ptr [ ebp+Srp], 0x7D  # i.e. clear flags reg bits 0x80 (N) and 0x02 (Z).
 	cmp \v, 0
 	jne 1f
-	or byte ptr [ ebp+10], 0x02   # set Z flag
+	or byte ptr [ ebp+Srp], 0x02   # set Z flag
 1:
 	movzx  ax, \v
     bt  ax, 7
     jnc 2f
-	or byte ptr [ ebp+10], 0x80   # set N flag
+	or byte ptr [ ebp+Srp], 0x80   # set N flag
 2:
 .endm
 
@@ -468,7 +523,7 @@ no_interrupt:
 
 .macro BODY_ADC
     push  ebx
-    movzx  ebx, byte ptr [ ebp+10]
+    movzx  ebx, byte ptr [ ebp+Srp]
 	bt  bx,3
 	jc 3f
 	bt  bx,0
@@ -484,20 +539,20 @@ no_interrupt:
     jnc 2f
 	or  bx, 0x40    # set V
 2:
-    mov byte ptr [ ebp+10],  bl
+    mov byte ptr [ ebp+Srp],  bl
 	SETZN  cl				# setzn(cpu->a);
 	jmp 4f
 3:
-	mov [ ebp+6],  cl	    # update A
+	mov [ ebp+Sra],  cl	    # update A
 	C_CALL_PRE
 	push  eax
 	push  ebp   			# r0=cpu*, r1=imm
 	//NOT-PIC call adc_bcd_C
-	mov eax, [ebp+64] // adc_bcd_C
+	mov eax, [ebp+Sadc_bcd_C] // adc_bcd_C
 	call eax  // adc_bcd_C
 	add  esp, 8
 	C_CALL_POST
-	mov  cl, [ ebp+6]	    # update A
+	mov  cl, [ ebp+Sra]	    # update A
 4:
     pop  ebx
 .endm
@@ -506,50 +561,50 @@ no_interrupt:
 opasm_adc_imm:
 	READBYTE_PC		        # register uint8_t temp=readmem(cpu->pc); cpu->pc++;
 	BODY_ADC
-	RETURN 2
+	RETURN ticks2
 
 // 0x65: ADC zp
 opasm_adc_zp:
 	START_ZP				# r0=zp address, r1=byte from zp address
 	BODY_ADC
-	RETURN 3				# return 3;
+	RETURN ticks3				# return 3;
 
 // 0x75: ADC zp,x
 opasm_adc_zp_x:
 	START_ZP_X				# r0=zp address, r1=byte from zp address
 	BODY_ADC
-	RETURN 3				# return 3;
+	RETURN ticks3				# return 3;
 
 // 0x6D: ADC abs
 opasm_adc_abs:
 	START_ABS				# r0=address, r1=byte from address
 	BODY_ADC
-	RETURN 4				# return 4
+	RETURN ticks4				# return 4
 
 // 0x79: ADC abs,y
 opasm_adc_abs_y:
 	START_ABS_Y				# r0=address, r1=byte from address
 	BODY_ADC
-	RETURN 4				# return 4
+	RETURN ticks4				# return 4
 
 // 0x7D: ADC abs,x
 opasm_adc_abs_x:
 	START_ABS_X				# r0=address, r1=byte from address
 	BODY_ADC
-	RETURN 4				# return 4
+	RETURN ticks4				# return 4
 
 // 0x61: ADC (,x)
 opasm_adc_indzx:
 	START_INDZX
 	READBYTE  ax       		# temp = readmem(addr);
 	BODY_ADC
-	RETURN 6				# return 6
+	RETURN ticks6				# return 6
 
 // 0x71: ADC (),y
 opasm_adc_indzy:
 	START_INDZY
 	BODY_ADC
-	RETURN 5				# return 5
+	RETURN ticks5				# return 5
 
 
 /*******
@@ -565,49 +620,49 @@ opasm_and_indzx:
 	START_INDZX
 	READBYTE  ax		    # temp = readmem(addr);
 	BODY_AND
-	RETURN 6
+	RETURN ticks6
 
 // 0x31: AND (),y
 opasm_and_indzy:
 	START_INDZY
 	BODY_AND
-	RETURN 5
+	RETURN ticks5
 
 // 0x29: AND imm
 opasm_and_imm:
 	READBYTE_PC			    # al = imm
 	BODY_AND
-	RETURN 3
+	RETURN ticks3
 
 // 0x25: AND zp
 opasm_and_zp:
 	START_ZP
 	BODY_AND
-	RETURN 3
+	RETURN ticks3
 
 // 0x35: AND zp,x
 opasm_and_zp_x:
 	START_ZP_X
 	BODY_AND
-	RETURN 3
+	RETURN ticks3
 
 // 0x2D: AND abs
 opasm_and_abs:
 	START_ABS
 	BODY_AND
-	RETURN 4
+	RETURN ticks4
 
 // 0x39: AND abs,y
 opasm_and_abs_y:
 	START_ABS_Y
 	BODY_AND
-	RETURN 4
+	RETURN ticks4
 
 // 0x3D: AND abs,x
 opasm_and_abs_x:
 	START_ABS_X
 	BODY_AND
-	RETURN 4
+	RETURN ticks4
 
 
 /*******
@@ -615,45 +670,45 @@ opasm_and_abs_x:
  *******/
 
 .macro BODY_ASL reg8
-	and byte ptr [ ebp+10], 0xfe	# clear FLAG_C
+	and byte ptr [ ebp+Srp], 0xfe	# clear FLAG_C
 	shl \reg8, 1			# temp<<=1;
 	jnc 1f
-	or byte ptr [ ebp+10], 1
+	or byte ptr [ ebp+Srp], 1
 1:
 	SETZN \reg8				# setzn(temp);
 .endm
 
 opasm_asl_a:
 	BODY_ASL  cl
-	RETURN 2
+	RETURN ticks2
 
 // 0x06: ASL zp
 opasm_asl_zp:
 	START_ZP				# ebx=zp address, eax=byte from zp address
 	BODY_ASL  al
 	WRITEBYTED  al, bx
-	RETURN 5
+	RETURN ticks5
 
 // 0x16: ASL zp,x
 opasm_asl_zp_x:
 	START_ZP_X				# r1=byte from zp, r0=zp address
 	BODY_ASL  al
 	WRITEBYTED  al, bx
-	RETURN 5
+	RETURN ticks5
 
 // 0x0E: ASL abs
 opasm_asl_abs:
 	START_ABS
 	BODY_ASL  al
 	WRITEBYTE  al, bx
-	RETURN 6
+	RETURN ticks6
 
 // 0x1E: ASL abs,x
 opasm_asl_abs_x:
 	START_ABS_X
 	BODY_ASL  al
 	WRITEBYTE  al, bx
-	RETURN 7
+	RETURN ticks7
 
 
 /*************************************************
@@ -664,12 +719,12 @@ opasm_asl_abs_x:
 	READBYTE  di		    # register int8_t offset=(int8_t)readmem(cpu->pc);
 	movsx  eax,  al         # to get the byte offset into a signed word
 	inc  di 				# pc++;
-	test byte ptr [ ebp+10], \flag # if (!(cpu->p & FLAG_Z)) {
+	test byte ptr [ ebp+Srp], \flag # if (!(cpu->p & FLAG_Z)) {
 	\testop 1f
 	add  di,  ax			#     cpu->pc+=offset;
-	RETURN 3				# }
+	RETURN ticks3				# }
 1:
-    RETURN 2
+    RETURN ticks2
 .endm
 
 opasm_bne:
@@ -696,7 +751,7 @@ opasm_bcs:
  *******/
 
 .macro BODY_BIT
-    mov  bl, [ ebp+10]
+    mov  bl, [ ebp+Srp]
 	and  bl, 0x3d		# clear Z,V,N
 	bt  ax, 6			    # SET_FLAG(FLAG_V, temp&0x40);
 	jnc 1f
@@ -710,49 +765,49 @@ opasm_bcs:
 	jnz 3f                  # SET_FLAG(FLAG_Z, !temp)
 	or  bl, 2
 3:
-    mov [ ebp+10],  bl      # save P
+    mov [ ebp+Srp],  bl      # save P
 .endm
 
 // 0x24: BIT zp
 opasm_bit_zp:
 	START_ZP
 	BODY_BIT
-	RETURN 3
+	RETURN ticks3
 
 // 0x2C: BIT abs
 opasm_bit_abs:
 	START_ABS
 	BODY_BIT
-	RETURN 4
+	RETURN ticks4
 
 
 /*************************
  * CLC / CLD / CLV / CLI *
  *************************/
 opasm_clc:
-	and byte ptr [ ebp+10], 0xFE 	# cpu->p &= ~FLAG_C;
-	RETURN 2
+	and byte ptr [ ebp+Srp], 0xFE 	# cpu->p &= ~FLAG_C;
+	RETURN ticks2
 opasm_cld:
-	and byte ptr [ ebp+10], 0xF7 	# cpu->p &= ~FLAG_D;
-	RETURN 2
+	and byte ptr [ ebp+Srp], 0xF7 	# cpu->p &= ~FLAG_D;
+	RETURN ticks2
 opasm_clv:
-	and byte ptr [ ebp+10], 0xBF 	# cpu->p &= ~FLAG_V;
-	RETURN 2
+	and byte ptr [ ebp+Srp], 0xBF 	# cpu->p &= ~FLAG_V;
+	RETURN ticks2
 opasm_cli:
 	UPDATE_TAKEINT			        # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
-	and byte ptr [ ebp+10], 0xFB	# cpu->p &= ~FLAG_I;
-	RETURN -2    # -ve means interrupt taken.
+	and byte ptr [ ebp+Srp], 0xFB	# cpu->p &= ~FLAG_I;
+	RETURN -ticks2    # -ve means interrupt taken.
 
 
 /*******
  * CMP *
  *******/
 .macro BODY_CMP reg8
-	and byte ptr [ ebp+10], 0xFE    # clear FLAG_C
+	and byte ptr [ ebp+Srp], 0xFE    # clear FLAG_C
 	mov  ah, \reg8
 	sub  ah,  al                    #ah = cpureg - temp
     jc 1f
-	or byte ptr [ ebp+10], 1	    # set FLAG_C if carried
+	or byte ptr [ ebp+Srp], 1	    # set FLAG_C if carried
 1:
 	SETZN  ah				        # setzn(temp);
 .endm
@@ -761,7 +816,7 @@ opasm_cli:
 opasm_cmp_imm:
 	READBYTE_PC     		        # register uint8_t temp=readmem(cpu->pc); cpu->pc++;
     BODY_CMP  cl
-	RETURN 2
+	RETURN ticks2
 
 // 0xC5: CMP zp
 // 0xE4: CPX zp
@@ -769,52 +824,52 @@ opasm_cmp_imm:
 opasm_cmp_zp:
 	START_ZP
 	BODY_CMP  cl
-    RETURN 3
+    RETURN ticks3
 opasm_cpx_zp:
 	START_ZP
 	BODY_CMP  dl
-    RETURN 3
+    RETURN ticks3
 opasm_cpy_zp:
 	START_ZP
 	BODY_CMP  dh
-    RETURN 3
+    RETURN ticks3
 
 // 0xD5: CMP zp,x
 opasm_cmp_zp_x:
 	START_ZP_X
 	BODY_CMP  cl
-    RETURN 3
+    RETURN ticks3
 
 // 0xCD: CMP abs
 opasm_cmp_abs:
 	START_ABS
 	BODY_CMP  cl
-    RETURN 4
+    RETURN ticks4
 
 // 0xD9: CMP abs,y
 opasm_cmp_abs_y:
 	START_ABS_Y
 	BODY_CMP  cl
-    RETURN 4
+    RETURN ticks4
 
 // 0xDD: CMP abs,x
 opasm_cmp_abs_x:
 	START_ABS_X
 	BODY_CMP  cl
-    RETURN 4
+    RETURN ticks4
 
 // 0xC1: CMP (,x)
 opasm_cmp_indzx:
 	START_INDZX
 	READBYTE  ax		# temp = readmem(addr);
 	BODY_CMP  cl
-    RETURN 6
+    RETURN ticks6
 
 // 0xD1: CMP (),y
 opasm_cmp_indzy:
 	START_INDZY
 	BODY_CMP  cl
-    RETURN 6
+    RETURN ticks6
 
 
 /*******
@@ -825,13 +880,13 @@ opasm_cmp_indzy:
 opasm_cpx_imm:
 	READBYTE_PC
 	BODY_CMP  dl
-	RETURN 2
+	RETURN ticks2
 
 // 0xEC: CPX abs
 opasm_cpx_abs:
 	START_ABS
 	BODY_CMP  dl
-	RETURN 4
+	RETURN ticks4
 
 
 /*******
@@ -842,13 +897,13 @@ opasm_cpx_abs:
 opasm_cpy_imm:
 	READBYTE_PC
 	BODY_CMP  dh
-	RETURN 2
+	RETURN ticks2
 
 // 0xCC: CPY abs
 opasm_cpy_abs:
 	START_ABS
 	BODY_CMP  dh
-	RETURN 4
+	RETURN ticks4
 
 
 /*******
@@ -865,28 +920,28 @@ opasm_dec_zp:
 	START_ZP
 	BODY_DEC
 	WRITEBYTED  al, bx
-	RETURN 5
+	RETURN ticks5
 
 // 0xD6: DEC zp,x
 opasm_dec_zp_x:
 	START_ZP_X
 	BODY_DEC
 	WRITEBYTED  al, bx
-	RETURN 5
+	RETURN ticks5
 
 // 0xCE: DEC abs
 opasm_dec_abs:
 	START_ABS
 	BODY_DEC
 	WRITEBYTE  al, bx
-	RETURN 6
+	RETURN ticks6
 
 // 0xDE: DEC abs,x
 opasm_dec_abs_x:
 	START_ABS_X
 	BODY_DEC
 	WRITEBYTE  al, bx
-	RETURN 7
+	RETURN ticks7
 
 
 /*************
@@ -897,13 +952,13 @@ opasm_dec_abs_x:
 opasm_dex:
     dec  dl
 	SETZN  dl
-	RETURN 2
+	RETURN ticks2
 
 // 0x88: DEY
 opasm_dey:
     dec  dh
 	SETZN  dh
-	RETURN 2
+	RETURN ticks2
 
 
 /*******
@@ -919,50 +974,50 @@ opasm_dey:
 opasm_eor_imm:
 	READBYTE_PC
 	BODY_EOR
-	RETURN 2
+	RETURN ticks2
 
 // 0x45: EOR zp
 opasm_eor_zp:
 	START_ZP
 	BODY_EOR
-	RETURN 3
+	RETURN ticks3
 
 // 0x55: EOR zp,x
 opasm_eor_zp_x:
 	START_ZP_X
 	BODY_EOR
-	RETURN 3
+	RETURN ticks3
 
 // 0x4D: EOR abs
 opasm_eor_abs:
 	START_ABS
 	BODY_EOR
-	RETURN 4
+	RETURN ticks4
 
 // 0x59: EOR abs,y
 opasm_eor_abs_y:
 	START_ABS_Y
 	BODY_EOR
-	RETURN 4
+	RETURN ticks4
 
 // 0x5D: EOR abs,x
 opasm_eor_abs_x:
 	START_ABS_X
 	BODY_EOR
-	RETURN 4
+	RETURN ticks4
 
 // 0x41: EOR (,x)
 opasm_eor_indzx:
 	START_INDZX
 	READBYTE  ax
 	BODY_EOR
-	RETURN 6
+	RETURN ticks6
 
 // 0x51: EOR (),y
 opasm_eor_indzy:
 	START_INDZY
 	BODY_EOR
-	RETURN 5
+	RETURN ticks5
 
 
 /*******
@@ -979,14 +1034,14 @@ opasm_inc_zp:
 	START_ZP
 	BODY_INC
 	WRITEBYTED  al, bx
-	RETURN 5
+	RETURN ticks5
 
 // 0xF6: INC zp,x
 opasm_inc_zp_x:
 	START_ZP_X
 	BODY_INC
 	WRITEBYTED  al, bx
-	RETURN 5
+	RETURN ticks5
 
 
 // 0xEE: INC abs
@@ -994,7 +1049,7 @@ opasm_inc_abs:
 	START_ABS
 	BODY_INC
     WRITEBYTE  al, bx
-	RETURN 6
+	RETURN ticks6
 
 
 // 0xFE: INC abs,x
@@ -1002,7 +1057,7 @@ opasm_inc_abs_x:
 	START_ABS_X
 	BODY_INC
     WRITEBYTE  al, bx
-	RETURN 7
+	RETURN ticks7
 
 
 /*************
@@ -1013,13 +1068,13 @@ opasm_inc_abs_x:
 opasm_inx:
     inc  dl
 	SETZN  dl
-	RETURN 2
+	RETURN ticks2
 
 // 0xC8: INY
 opasm_iny:
     inc  dh
 	SETZN  dh
-	RETURN 2
+	RETURN ticks2
 
 
 /*******
@@ -1030,7 +1085,7 @@ opasm_iny:
 opasm_jmp:
 	READWORD  di
     mov  di,  ax
-	RETURN 3
+	RETURN ticks3
 
 // 0x6C: JMP ()
 opasm_jmp_ind:
@@ -1039,7 +1094,7 @@ opasm_jmp_ind:
 	je 1f
 	READWORD  ax    		# cpu->pc=readword(addr);
 	mov  di,  ax
-	RETURN 5
+	RETURN ticks5
 1:
 	// JMP address lives in word spanning page boundary... have to do a silly thing.
 	push  ecx
@@ -1051,7 +1106,7 @@ opasm_jmp_ind:
 	mov  ch,  al
 	mov  di,  cx
 	pop  ecx
-	RETURN 5
+	RETURN ticks5
 
 
 /*******
@@ -1064,7 +1119,7 @@ opasm_jsr:
 	inc  di
 	PUSHWORD  di
 	mov  di,  bx		    # cpu->pc=addr;
-	RETURN 6
+	RETURN ticks6
 
 
 /*******
@@ -1079,7 +1134,7 @@ opasm_lax_zp_y:
 	mov  cl,  al
 	mov  dl,  al
 	SETZN  cl				# setzn(cpu->a);
-	RETURN 3
+	RETURN ticks3
 
 
 /*******************
@@ -1093,7 +1148,7 @@ opasm_lax_zp_y:
 	READBYTE_PC 	    # cpu->a = readmem(cpu->pc); pc++;
 	mov \dest,  al
 	SETZN \dest			# setzn(cpu->a);
-	RETURN 2
+	RETURN ticks2
 .endm
 opasm_lda_imm:
 	LOAD_IMM  cl
@@ -1110,7 +1165,7 @@ opasm_ldy_imm:
 	READBYTE  ax	    # cpu->a=readmem(addr);
 	mov \dest,  al
 	SETZN \dest			# setzn(cpu->a);
-	RETURN 3
+	RETURN ticks3
 .endm
 opasm_lda_zp:
 	LOAD_ZP  cl
@@ -1128,7 +1183,7 @@ opasm_ldy_zp:
 	READBYTE  ax   	        # cpu->a=readmem(addr);
 	mov \dest,  al
 	SETZN \dest				# setzn(cpu->a);
-	RETURN 3
+	RETURN ticks3
 .endm
 opasm_lda_zp_x:
 	LOAD_ZPO  cl,  dl
@@ -1145,7 +1200,7 @@ opasm_ldy_zp_x:
 	READBYTE  ax   	        # cpu->a=readmem(addr);
 	mov \dest,  al
 	SETZN \dest				# setzn(cpu->a);
-    RETURN 4
+    RETURN ticks4
 .endm
 opasm_lda_abs:
 	LOAD_ABS  cl
@@ -1165,7 +1220,7 @@ opasm_ldy_abs:
 	READBYTE  ax   	        # cpu->a=readmem(addr);
 	mov \dest,  al
 	SETZN \dest				# setzn(cpu->a);
-	RETURN 4
+	RETURN ticks4
 .endm
 opasm_lda_abs_x:
 	LOAD_ABS_OFF  cl,  dl
@@ -1182,7 +1237,7 @@ opasm_lda_indzx:
 	READBYTE  ax		    # cpu->a = readmem(addr);
 	mov  cl,  al
 	SETZN  cl
-	RETURN 6
+	RETURN ticks6
 
 // 0xB1: LDA (),y
 opasm_lda_y:
@@ -1193,7 +1248,7 @@ opasm_lda_y:
 	READBYTE  ax		    # cpu->a=readmem(addr);
 	mov  cl,  al
 	SETZN  cl				# setzn(cpu->a);
-	RETURN 5
+	RETURN ticks5
 
 
 /*******
@@ -1201,10 +1256,10 @@ opasm_lda_y:
  *******/
 
 .macro BODY_LSR reg8
-	and byte ptr [ ebp+10], 0xfe	# clear FLAG_C
+	and byte ptr [ ebp+Srp], 0xfe	# clear FLAG_C
 	shr \reg8
 	jnc 1f
-	or byte ptr [ ebp+10], 1
+	or byte ptr [ ebp+Srp], 1
 1:
 	SETZN \reg8				# setzn(temp);
 .endm
@@ -1212,21 +1267,21 @@ opasm_lda_y:
 // 0x4A: LSR A
 opasm_lsr_a:
 	BODY_LSR  cl
-	RETURN 2
+	RETURN ticks2
 
 // 0x46: LSR zp
 opasm_lsr_zp:
 	START_ZP
 	BODY_LSR  al
 	WRITEBYTED  al,  bx
-	RETURN 5
+	RETURN ticks5
 
 // 0x56: LSR zp,x
 opasm_lsr_zp_x:
 	START_ZP_X
 	BODY_LSR  al
 	WRITEBYTED  al,  bx
-	RETURN 5
+	RETURN ticks5
 
 
 // 0x4E: LSR abs
@@ -1234,14 +1289,14 @@ opasm_lsr_abs:
 	START_ABS
 	BODY_LSR  al
 	WRITEBYTE  al,  bx
-	RETURN 6
+	RETURN ticks6
 
 // 0x5E: LSR abs,x
 opasm_lsr_abs_x:
 	START_ABS_X
 	BODY_LSR  al
 	WRITEBYTE  al,  bx
-	RETURN 7
+	RETURN ticks7
 
 
 /*******
@@ -1250,34 +1305,34 @@ opasm_lsr_abs_x:
 
 // 0xEA: NOP
 opasm_nop:
-	RETURN 2
+	RETURN ticks2
 
 // 0x80: NOP imm		undocumented
 // 0x89: NOP imm		undocumented
 // 0xC2: NOP imm		undocumented
 // 0xE2: NOP imm		undocumented
 opasm_nop_imm:
-	RETURN 2
+	RETURN ticks2
 
 // 0x04: NOP zp			undocumented
 opasm_nop_zp:
 	START_ZP
-	RETURN 3
+	RETURN ticks3
 
 // 0x14: NOP zp,x		undocumented
 opasm_nop_zp_x:
 	START_ZP_X
-	RETURN 3
+	RETURN ticks3
 
 // 0x0C: NOP abs		undocumented
 opasm_nop_abs:
 	START_ABS
-	RETURN 4
+	RETURN ticks4
 
 // 0xFC: NOP abs,x			undocumented
 opasm_nop_abs_x:
 	START_ABS_X
-	RETURN 4
+	RETURN ticks4
 
 
 /*******
@@ -1293,50 +1348,50 @@ opasm_nop_abs_x:
 opasm_ora_imm:
 	READBYTE_PC
 	BODY_ORA
-	RETURN 2
+	RETURN ticks2
 
 // 0x05: ORA zp
 opasm_ora_zp:
 	START_ZP
 	BODY_ORA
-	RETURN 3
+	RETURN ticks3
 
 // 0x15: ORA zp,x
 opasm_ora_zp_x:
 	START_ZP_X
 	BODY_ORA
-	RETURN 3
+	RETURN ticks3
 
 // 0x0D: ORA abs
 opasm_ora_abs:
 	START_ABS
 	BODY_ORA
-	RETURN 4
+	RETURN ticks4
 
 // 0x19: ORA abs,y
 opasm_ora_abs_y:
 	START_ABS_Y
 	BODY_ORA
-	RETURN 4
+	RETURN ticks4
 
 // 0x1D: ORA abs,x
 opasm_ora_abs_x:
 	START_ABS_X
 	BODY_ORA
-	RETURN 4
+	RETURN ticks4
 
 // 0x01: ORA (,x)
 opasm_ora_indzx:
 	START_INDZX
 	READBYTE  ax
 	BODY_ORA
-	RETURN 6
+	RETURN ticks6
 
 // 0x11: ORA (),y
 opasm_ora_indzy:
 	START_INDZY
 	BODY_ORA
-	RETURN 5
+	RETURN ticks5
 
 
 /*******
@@ -1346,7 +1401,7 @@ opasm_ora_indzy:
 // 0x48: PHA
 opasm_pha:
 	PUSH_BYTE  cl			# push(cpu->a);
-	RETURN 3
+	RETURN ticks3
 
 
 /*******
@@ -1355,10 +1410,10 @@ opasm_pha:
 
 // 0x08: PHP
 opasm_php:
-    mov  al, [ ebp+10]
+    mov  al, [ ebp+Srp]
 	or  al, 0x30 	        # register uint8_t  temp=0x30 | cpu->p;
 	PUSH_BYTE  al	 		# push(temp);
-	RETURN 3
+	RETURN ticks3
 
 
 /*******
@@ -1370,7 +1425,7 @@ opasm_pla:
 	PULLBYTE 			    # cpu->a = pull();
 	mov  cl,  al
 	SETZN  cl				# setzn(cpu->a);
-	RETURN 4
+	RETURN ticks4
 
 
 /*******
@@ -1382,8 +1437,8 @@ opasm_plp:
 	PULLBYTE    			# uint8_t temp=pull();
 	//TODO! cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	and  al, 0xCF	        # cpu->p = temp & ~0x30;
-	mov [ ebp+10],  al
-	RETURN -4
+	mov [ ebp+Srp],  al
+	RETURN -ticks4
 
 
 /********************************
@@ -1391,7 +1446,7 @@ opasm_plp:
  ********************************/
  .macro BODY_RLA
     push  ebx
-    mov  bl, byte ptr [ ebp+10]
+    mov  bl, byte ptr [ ebp+Srp]
     bt  bx, 0                        # get FLAG_C into x86 carry flag
     rcl  al
     jc 1f
@@ -1400,7 +1455,7 @@ opasm_plp:
 1:
 	or  bl, 1        # set FLAG_C
 2:
-    mov [ ebp+10],  bl
+    mov [ ebp+Srp],  bl
     pop  ebx
 	WRITEBYTED  al,  bx
 	and  cl,  al                    # AND with A
@@ -1409,32 +1464,32 @@ opasm_plp:
 opasm_rla_zp:
 	START_ZP
 	BODY_RLA
-	RETURN 5
+	RETURN ticks5
 opasm_rla_zp_x:
 	START_ZP_X
 	BODY_RLA
-	RETURN 5
+	RETURN ticks5
 opasm_rla_abs:
 	START_ABS
 	BODY_RLA
-	RETURN 6
+	RETURN ticks6
 opasm_rla_abs_x:
 	START_ABS_X
 	BODY_RLA
-	RETURN 6
+	RETURN ticks6
 opasm_rla_abs_y:
 	START_ABS_Y
 	BODY_RLA
-	RETURN 6
+	RETURN ticks6
 opasm_rla_indzx:
 	START_INDZX
 	READBYTE  ax
 	BODY_RLA
-	RETURN 7
+	RETURN ticks7
 opasm_rla_indzy:
 	START_INDZY
 	BODY_RLA
-	RETURN 7
+	RETURN ticks7
 
 
 /*******
@@ -1442,7 +1497,7 @@ opasm_rla_indzy:
  *******/
  .macro BODY_ROL reg
     push  ebx
-    mov  bl, byte ptr [ ebp+10]
+    mov  bl, byte ptr [ ebp+Srp]
     bt  bx, 0                        # get FLAG_C into x86 carry flag
     rcl \reg
     jc 1f
@@ -1451,7 +1506,7 @@ opasm_rla_indzy:
 1:
 	or  bl, 1        # set FLAG_C
 2:
-    mov [ ebp+10],  bl
+    mov [ ebp+Srp],  bl
     pop  ebx
 	SETZN \reg
 .endm
@@ -1459,35 +1514,35 @@ opasm_rla_indzy:
 // 0x2A: ROL A
 opasm_rol_a:
 	BODY_ROL  cl
-	RETURN 2
+	RETURN ticks2
 
 // 0x26: ROL zp
 opasm_rol_zp:
 	START_ZP
 	BODY_ROL  al
 	WRITEBYTED  al,  bx
-	RETURN 3
+	RETURN ticks3
 
 // 0x36: ROL zp,x
 opasm_rol_zp_x:
 	START_ZP_X
 	BODY_ROL  al
 	WRITEBYTED  al,  bx
-	RETURN 5
+	RETURN ticks5
 
 // 0x2E: ROL abs
 opasm_rol_abs:
 	START_ABS
 	BODY_ROL  al
 	WRITEBYTE  al,  bx
-	RETURN 6
+	RETURN ticks6
 
 // 0x3E: ROL abs,x
 opasm_rol_abs_x:
 	START_ABS_X
 	BODY_ROL  al
 	WRITEBYTE  al,  bx
-	RETURN 6
+	RETURN ticks6
 
 
 /*******
@@ -1495,7 +1550,7 @@ opasm_rol_abs_x:
  *******/
  .macro BODY_ROR reg
     push  ebx
-    mov  bl, byte ptr [ ebp+10]
+    mov  bl, byte ptr [ ebp+Srp]
     bt  bx, 0                        # get FLAG_C into x86 carry flag
     rcr \reg
     jc 1f
@@ -1504,7 +1559,7 @@ opasm_rol_abs_x:
 1:
 	or  bl, 1        # set FLAG_C
 2:
-    mov [ ebp+10],  bl
+    mov [ ebp+Srp],  bl
     pop  ebx
 	SETZN \reg
 .endm
@@ -1512,35 +1567,35 @@ opasm_rol_abs_x:
 // 0x6A: ROR A
 opasm_ror_a:
 	BODY_ROR  cl
-	RETURN 2
+	RETURN ticks2
 
 // 0x66: ROR zp
 opasm_ror_zp:
 	START_ZP
 	BODY_ROR  al
 	WRITEBYTED  al,  bx
-	RETURN 5
+	RETURN ticks5
 
 // 0x76: ROR zp,x
 opasm_ror_zp_x:
 	START_ZP_X
 	BODY_ROR  al
 	WRITEBYTED  al,  bx
-	RETURN 5
+	RETURN ticks5
 
 // 0x6E: ROR abs
 opasm_ror_abs:
 	START_ABS
 	BODY_ROR  al
 	WRITEBYTE  al,  bx
-	RETURN 6
+	RETURN ticks6
 
 // 0x7E: ROR abs,x
 opasm_ror_abs_x:
 	START_ABS_X
 	BODY_ROR  al
 	WRITEBYTE  al,  bx
-	RETURN 7
+	RETURN ticks7
 
 
 /*******
@@ -1549,7 +1604,7 @@ opasm_ror_abs_x:
 
 .macro BODY_RRA
     push  ebx
-    mov  bl, byte ptr [ ebp+10]
+    mov  bl, byte ptr [ ebp+Srp]
     bt  bx, 0                        # get FLAG_C into x86 carry flag
     rcr  al
     jc 1f
@@ -1558,7 +1613,7 @@ opasm_ror_abs_x:
 1:
 	or  bl, 1        # set FLAG_C
 2:
-    mov [ ebp+10],  bl
+    mov [ ebp+Srp],  bl
     pop  ebx
 	WRITEBYTED  al,  bx
 	BODY_ADC
@@ -1569,44 +1624,44 @@ opasm_ror_abs_x:
 opasm_rra_zp:
 	START_ZP
 	BODY_RRA
-	RETURN 5
+	RETURN ticks5
 
 // 0x77: RRA zp,x		undocumented
 opasm_rra_zp_x:
 	START_ZP_X
 	BODY_RRA
-	RETURN 5
+	RETURN ticks5
 
 // 0x6F: RRA abs		undocumented
 opasm_rra_abs:
 	START_ABS
 	BODY_RRA
-	RETURN 6
+	RETURN ticks6
 
 // 0x7B: RRA abs,y		undocumented
 opasm_rra_abs_y:
 	START_ABS_Y
 	BODY_RRA
-	RETURN 6
+	RETURN ticks6
 
 // 0x7F: RRA abs,x		undocumented
 opasm_rra_abs_x:
 	START_ABS_X
 	BODY_RRA
-	RETURN 6
+	RETURN ticks6
 
 // 0x63: RRA (,x)		undocumented
 opasm_rra_indzx:
 	START_INDZX
 	READBYTE  ax
 	BODY_RRA
-	RETURN 7
+	RETURN ticks7
 
 // 0x73: RRA (),y		undocumented
 opasm_rra_indzy:
 	START_INDZY
 	BODY_RRA
-	RETURN 7
+	RETURN ticks7
 
 /*******
  * RTI *
@@ -1616,9 +1671,9 @@ opasm_rra_indzy:
 opasm_rti:
 	PULLBYTE			    # uint8_t temp=pull();
 	and  al, 0xcf 		    # cpu->p=temp & ~0x30;
-	mov [ ebp+10],  al
+	mov [ ebp+Srp],  al
 	PULLWORD  di			# cpu->pc=pull(); cpu->pc|=(pull()<<8);
-	RETURN 6
+	RETURN ticks6
 
 
 /*******
@@ -1629,7 +1684,7 @@ opasm_rti:
 opasm_rts:
 	PULLWORD  di			# cpu->pc=pull(); cpu->pc|=(pull()<<8);
 	inc  di				    # cpu->pc++;
-	RETURN 6
+	RETURN ticks6
 
 
 
@@ -1639,7 +1694,7 @@ opasm_rts:
 
 .macro BODY_SBC
     push  ebx               # if (cpu->p & FLAG_D) do BCD arithmetic in a C function
-    movzx  ebx, byte ptr [ ebp+10]
+    movzx  ebx, byte ptr [ ebp+Srp]
 	bt  bx,3
 	jc 3f
 	mov  ah,  cl
@@ -1663,21 +1718,21 @@ opasm_rts:
 	jnc 1f
 	or  bl,1                # set C
 1:
-    mov byte ptr [ ebp+10],  bl
+    mov byte ptr [ ebp+Srp],  bl
 	SETZN  cl				# setzn(cpu->a);
 	jmp 4f
 3:
-	mov [ ebp+6],  cl	    # update A
+	mov [ ebp+Sra],  cl	    # update A
 	C_CALL_PRE
 	push  eax
 	push  ebp
 	//NOT-PIC call sbc_bcd_C
-		mov eax, [ebp+68] // sbc_bcd_C
+		mov eax, [ebp+Ssbc_bcd_C] // sbc_bcd_C
     	call eax  // sbc_bcd_C
 
 	add  esp, 8
 	C_CALL_POST
-	mov  cl,  [ ebp+6]     # update A
+	mov  cl,  [ ebp+Sra]     # update A
 4:
     pop  ebx
 .endm
@@ -1690,50 +1745,50 @@ opasm_sbc_imm:
 //LOG esp
 	BODY_SBC
 //LOG esp
-	RETURN 2
+	RETURN ticks2
 
 // 0xE5: SBC zp
 opasm_sbc_zp:
 	START_ZP				# r0=zp address, r1=byte from zp address
 	BODY_SBC
-	RETURN 3
+	RETURN ticks3
 
 // 0xF5: SBC zp,x
 opasm_sbc_zp_x:
 	START_ZP_X
 	BODY_SBC
-	RETURN 3
+	RETURN ticks3
 
 // 0xED: SBC abs
 opasm_sbc_abs:
 	START_ABS
 	BODY_SBC
-	RETURN 4
+	RETURN ticks4
 
 // 0xF9: SBC abs,y
 opasm_sbc_abs_y:
 	START_ABS_Y
 	BODY_SBC
-	RETURN 4
+	RETURN ticks4
 
 // 0xFD: SBC abs,x
 opasm_sbc_abs_x:
 	START_ABS_X
 	BODY_SBC
-	RETURN 4
+	RETURN ticks4
 
 // 0xE1: SBC (,x)
 opasm_sbc_indzx:
 	START_INDZX
 	READBYTE  ax
 	BODY_SBC
-	RETURN 6
+	RETURN ticks6
 
 // 0xF1: SBC (),y
 opasm_sbc_indzy:
 	START_INDZY
 	BODY_SBC
-	RETURN 5
+	RETURN ticks5
 
 
 /*******************
@@ -1741,15 +1796,15 @@ opasm_sbc_indzy:
  *******************/
 
 opasm_sec:
-	or byte ptr [ ebp+10], 1	# cpu->p |= FLAG_C;
-	RETURN 2
+	or byte ptr [ ebp+Srp], 1	# cpu->p |= FLAG_C;
+	RETURN ticks2
 opasm_sed:
-	or byte ptr [ ebp+10], 8	# cpu->p |= FLAG_D;
-	RETURN 2
+	or byte ptr [ ebp+Srp], 8	# cpu->p |= FLAG_D;
+	RETURN ticks2
 opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
-	or byte ptr [ ebp+10], 4			# cpu->p |= FLAG_I;
-	RETURN -2  # ARM returns -2 to show interrupt taken
+	or byte ptr [ ebp+Srp], 4			# cpu->p |= FLAG_I;
+	RETURN -ticks2  # ARM returns -2 to show interrupt taken
 
 
 /**************************************
@@ -1765,32 +1820,32 @@ opasm_sei:
 opasm_slo_zp:
 	START_ZP
 	BODY_SLO
-	RETURN 5
+	RETURN ticks5
 opasm_slo_zp_x:
 	START_ZP_X
 	BODY_SLO
-	RETURN 5
+	RETURN ticks5
 opasm_slo_abs:
 	START_ABS
 	BODY_SLO
-	RETURN 4
+	RETURN ticks4
 opasm_slo_abs_y:
 	START_ABS_Y
 	BODY_SLO
-	RETURN 6
+	RETURN ticks6
 opasm_slo_abs_x:
 	START_ABS_X
 	BODY_SLO
-	RETURN 6
+	RETURN ticks6
 opasm_slo_indzx:
 	START_INDZX
 	READBYTE  ax
 	BODY_SLO
-	RETURN 7
+	RETURN ticks7
 opasm_slo_indzy:
 	START_INDZY
 	BODY_SLO
-	RETURN 7
+	RETURN ticks7
 
 
 /*******************
@@ -1801,7 +1856,7 @@ opasm_slo_indzy:
 opasm_sty_abs:
 	READWORD_PC			    # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
 	WRITEBYTE  dh,  ax		# writemem(addr, cpu->y);
-	RETURN 4
+	RETURN ticks4
 
 // 0x85: STA zp
 // 0x84: STY zp
@@ -1809,7 +1864,7 @@ opasm_sty_abs:
 .macro STORE_ZP reg8
 	READBYTE_PC			        # uint16_t addr=readmem(cpu->pc); cpu->pc++;
 	WRITEBYTE \reg8,  ax		# writemem(addr,cpu->a);
-	RETURN 3
+	RETURN ticks3
 .endm
 opasm_sta_zp:
 	STORE_ZP  cl
@@ -1826,7 +1881,7 @@ opasm_sty_zp:
 	READBYTE_PC 			# uint16_t addr=readmem(cpu->pc); cpu->pc++;
 	add  al, \offset        # addr += cpu->x
 	WRITEBYTE \val,  ax   	# writemem(addr, a);
-	RETURN 4
+	RETURN ticks4
 .endm
 opasm_sta_zp_x:
 	STORE_ZPO  cl,  dl
@@ -1839,7 +1894,7 @@ opasm_sty_zp_x:
 opasm_sta_abs:
 	READWORD_PC			    # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
 	WRITEBYTE  cl,  ax		# writemem(addr, cpu->a);
-	RETURN 4
+	RETURN ticks4
 
 // 0x8E: STX abs
 opasm_stx_abs:
@@ -1848,7 +1903,7 @@ opasm_stx_abs:
 //	LOG esp // stx
 	WRITEBYTE  dl,  ax
 //	LOG esp // stx
-	RETURN 4
+	RETURN ticks4
 
 // 0x99: STA abs,y
 opasm_sta_abs_y:
@@ -1856,7 +1911,7 @@ opasm_sta_abs_y:
 	add  al,  dh			# addr += cpu->y;
 	adc  ah, 0
 	WRITEBYTE  cl,  ax		# writemem(addr, cpu->a);
-	RETURN 5
+	RETURN ticks5
 
 // 0x9D: STA abs,x
 opasm_sta_abs_x:
@@ -1864,13 +1919,13 @@ opasm_sta_abs_x:
 	add  al,  dl			# addr += cpu->x;
 	adc  ah, 0
 	WRITEBYTE  cl,  ax		# writemem(addr, cpu->a);
-	RETURN 5
+	RETURN ticks5
 
 // 0x81: STA (,x)
 opasm_sta_indzx:
 	START_INDZX
 	WRITEBYTE  cl,  ax
-	RETURN 6
+	RETURN ticks6
 
 // 0x91: STA (),y
 opasm_sta_indzy:
@@ -1879,7 +1934,7 @@ opasm_sta_indzy:
 	add  al,  dh		    # addr += y
 	adc  ah, 0
 	WRITEBYTE  cl,  ax		# writemem(addr, cpu->a);
-	RETURN 5
+	RETURN ticks5
 
 
 /*************************************
@@ -1890,36 +1945,36 @@ opasm_sta_indzy:
 opasm_tax:
 	mov  dl,  cl			# cpu->x = cpu->a;
 	SETZN  dl				# setzn(cpu->x);
-	RETURN 2
+	RETURN ticks2
 
 // 0xA8: TAY
 opasm_tay:
 	mov  dh,  cl			# cpu->y=cpu->a;
 	SETZN  dh				# setzn(cpu->y);
-	RETURN 2
+	RETURN ticks2
 
 // 0xBA: TSX
 opasm_tsx:
 	mov  dl,  ch			# cpu->x=cpu->s;
 	SETZN  dl				# setzn(cpu->x);
-	RETURN 2
+	RETURN ticks2
 
 // 0x8A: TXA
 opasm_txa:
 	mov  cl,  dl			# cpu->a=cpu->x;
 	SETZN  cl				# setzn(cpu->a);
-	RETURN 2
+	RETURN ticks2
 
 // 0x9A: TXS
 opasm_txs:
 	mov  ch,  dl			# cpu->s=cpu->x;
-	RETURN 2
+	RETURN ticks2
 
 // 0x98: TYA
 opasm_tya:
 	mov  cl,  dh			# cpu->a=cpu->y;
 	SETZN  cl				# setzn(cpu->a);
-	RETURN 2
+	RETURN ticks2
 
 
 /********************
@@ -1929,13 +1984,13 @@ opasm_undef:
 	C_CALL_PRE
 	push  ebp
 	//NOT-PIC call log_undef_opcode_C
-	mov eax, [ebp+72] // log_undef_opcode_C
+	mov eax, [ebp+Slog_undef_opcode_C] // log_undef_opcode_C
 	call eax  // log_undef_opcode
 	add  esp, 4
 	C_CALL_POST
 	dec  di                  # cpu->pc--;      	// PC never moves on
-    mov dword ptr [ ebp+20], 0		# cpu->takeint=0; 	// Interrupts never occur
-    mov dword ptr [ ebp+16], 0		# cpu->nmi=0;  		// NMIs never occur
+    mov dword ptr [ ebp+Stakeint], 0		# cpu->takeint=0; 	// Interrupts never occur
+    mov dword ptr [ ebp+Snmi], 0		# cpu->nmi=0;  		// NMIs never occur
     RETURN 65536			# return 100000; 	// Actually lasts forever, but the above code keeps executing HLT forever
 
 
