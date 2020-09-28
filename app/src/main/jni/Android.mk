@@ -11,6 +11,10 @@ ifeq ($(TARGET_ARCH),arm)
     LOCAL_CFLAGS +=  -march=armv6t2 -O3 -D_ARM_ -fPIC
     LOCAL_SRC_FILES := 6502asm_arm.S
 endif
+ifeq ($(TARGET_ARCH),arm64)
+    LOCAL_CFLAGS +=  -march=arm64v8a -O3 -D_ARM_ -fPIC
+    LOCAL_SRC_FILES := 6502asm_arm64.S
+endif
 ifeq ($(TARGET_ARCH),x86)
     LOCAL_CFLAGS += -m32 -fPIC
     LOCAL_SRC_FILES := 6502asm_x86.S
