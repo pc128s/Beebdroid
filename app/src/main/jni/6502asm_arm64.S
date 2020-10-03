@@ -305,8 +305,8 @@ LDP \xa, \xb, [sp], #16 // pop first pair, lose space for second
 .endm
 //#define readword(x) ((x<0xfe00) ? (*((uint16_t*)&(cpu->mem[x]))) : (readmem_ex(x) | (readmem_ex(x+1)<<8)))
 .macro READWORD dst, src
-    mov \dst, #0xfe00
-	cmp \src, \dst
+    mov r3, #0xfe00
+	cmp \src, r3
 	bge 1f
 	ldrh \dst, [ RmemX, \src, uxtw]
 	b 2f
@@ -329,8 +329,8 @@ LDP \xa, \xb, [sp], #16 // pop first pair, lose space for second
 	BFC Rp, #flagZb, #1 // Bit Field Clear
 	BFC Rp, #flagNb, #1
 	// end bic
-	ands \a, \a, #255
-    beq  1f
+	cmp \a, #0
+    bne  1f
     orr    Rp, Rp,#flagZ
 1:
 //	tst \a, #0x80

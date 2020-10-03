@@ -28,7 +28,7 @@ static int s_logflag = 0;
 FILE* s_file = NULL;
 static int framecurrent = -1;
 
-#define LOGGING 1
+#define LOGGING 0
 
 void LOGF(char* format, ...) {
 #if LOGGING
@@ -43,6 +43,7 @@ void LOGF(char* format, ...) {
         char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_arm.%03i.log";
 #else
 		//s_file = fopen("/data/local/tmp/6502_x86.log","w+");
+//        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
         char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
 #endif
         sprintf(buff, fmt, framecurrent = framecount);

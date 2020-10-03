@@ -1,0 +1,66 @@
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=C0
+readmem_ex! addr=FE4E val=F3
+here! 0x000040 0x00ddd1 0xe6fa3010 0xcdde0ebc tv:0.000409 (cycle 39426  pc ~DDCE
+writemem_ex! addr=FE4D val=40
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE09 val=50
+readmem_ex! addr=FEC0 val=89
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=90
+readmem_ex! addr=FE4E val=F3
+readmem_ex! addr=FEC2 val=00
+readmem_ex! addr=FEC1 val=00
+here! 0x000008 0x00dea8 0xe6fa3010 0xcdde0ebc tv:0.000652 (cycle 36418  pc ~DEA5
+writemem_ex! addr=FEC0 val=08
+here! 0x000010 0x00de71 0xe6fa3010 0xcdde0ebc tv:0.000660 (cycle 36406  pc ~DE6E
+writemem_ex! addr=FE4D val=10
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=90
+readmem_ex! addr=FE4E val=F3
+readmem_ex! addr=FEC2 val=00
+readmem_ex! addr=FEC1 val=00
+here! 0x00000b 0x00dea8 0xe6fa3010 0xcdde0ebc tv:0.001194 (cycle 28610  pc ~DEA5
+writemem_ex! addr=FEC0 val=0B
+here! 0x000010 0x00de71 0xe6fa3010 0xcdde0ebc tv:0.001202 (cycle 28598  pc ~DE6E
+writemem_ex! addr=FE4D val=10
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=90
+readmem_ex! addr=FE4E val=F3
+readmem_ex! addr=FEC2 val=00
+readmem_ex! addr=FEC1 val=00
+here! 0x00000a 0x00dea8 0xe6fa3010 0xcdde0ebc tv:0.001729 (cycle 20803  pc ~DEA5
+writemem_ex! addr=FEC0 val=0A
+here! 0x000010 0x00de71 0xe6fa3010 0xcdde0ebc tv:0.001737 (cycle 20791  pc ~DE6E
+writemem_ex! addr=FE4D val=10
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=C0
+readmem_ex! addr=FE4E val=F3
+here! 0x000040 0x00ddd1 0xe6fa3010 0xcdde0ebc tv:0.001844 (cycle 19426  pc ~DDCE
+writemem_ex! addr=FE4D val=40
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE09 val=50
+readmem_ex! addr=FEC0 val=8A
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=90
+readmem_ex! addr=FE4E val=F3
+readmem_ex! addr=FEC2 val=00
+readmem_ex! addr=FEC1 val=00
+here! 0x000009 0x00dea8 0xe6fa3010 0xcdde0ebc tv:0.002464 (cycle 12996  pc ~DEA5
+writemem_ex! addr=FEC0 val=09
+here! 0x000010 0x00de71 0xe6fa3010 0xcdde0ebc tv:0.002472 (cycle 12984  pc ~DE6E
+writemem_ex! addr=FE4D val=10
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=90
+readmem_ex! addr=FE4E val=F3
+readmem_ex! addr=FEC2 val=00
+readmem_ex! addr=FEC1 val=00
+here! 0x000008 0x00dea8 0xe6fa3010 0xcdde0ebc tv:0.003021 (cycle 5186  pc ~DEA5
+writemem_ex! addr=FEC0 val=08
+here! 0x000010 0x00de71 0xe6fa3010 0xcdde0ebc tv:0.003029 (cycle 5174  pc ~DE6E
+writemem_ex! addr=FE4D val=10
+readmem_ex! addr=FE08 val=2C
+readmem_ex! addr=FE4D val=82
+readmem_ex! addr=FE4E val=F3
+here! 0x000002 0x00de71 0xe6fa3010 0xcdde0ebc tv:0.005107 (cycle 4664  pc ~DE6E
+writemem_ex! addr=FE4D val=02

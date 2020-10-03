@@ -367,6 +367,11 @@ public class Beebdroid extends Activity {
 
         //Log.d("Build", "Its a " + Build.DEVICE);
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            // Create this directory so LOGGING can use it.
+            Log.i("Storage", getExternalFilesDirs("xyz").toString());
+        }
+
         setContentView(R.layout.activity_beebdroid);
 
         DPI_MULT = getResources().getDisplayMetrics().density;
