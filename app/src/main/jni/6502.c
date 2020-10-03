@@ -9,6 +9,7 @@
 
 #include "main.h"
 #include <sys/time.h>
+#include <errno.h>
 
 
 M6502 acpu;
@@ -27,7 +28,7 @@ static int s_logflag = 0;
 FILE* s_file = NULL;
 static int framecurrent = -1;
 
-#define LOGGING 0
+#define LOGGING 1
 
 void LOGF(char* format, ...) {
 #if LOGGING
@@ -92,8 +93,9 @@ void log_cpu_C(M6502* cpu) {
 	for (i=0 ; i<65536 ; i++) {
 		sum += cpu->mem[i];
 	}
-    LOGF("PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X %i:%i %ld.%06ld %s\n",
-          cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, sum, framecount, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, ops[p[cpu->pc]]);
+    LOGF("lcpuC PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X %i:%i tv:%ld.%06ld %s\n",
+          cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s,
+                                                                             sum, framecount, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, ops[p[cpu->pc]]);
 
 //    LOGI("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
 //          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
@@ -112,18 +114,21 @@ void log_cpu_C(M6502* cpu) {
 void log_c_fn_(uint8_t op, void* table, void* fn, M6502* cpu) {
 #if LOGGING
 // 0x4B - 75 - asr  = !6666=&6060604b ; call 6666
-	LOGI("C here! op=%02x table=%08x (%08x, %08x) fn=%08x cpu=%08x the_cpu=%08x", op, table, &fns, the_cpu->c_fns, fn, cpu, the_cpu);
+	LOGI("C here! op=%02x table=%8p (%8p, %8p) fn=%8p cpu=%8p the_cpu=%8p",
+			      op,     table,     &fns, the_cpu->c_fns, fn, cpu, the_cpu);
 // Why is table != fns?
 // C here! op=1a table=00000000 (cbcf0028) fn=fe88fe2c cpu=cbd517c8 the_cpu=cbd517c8
 #endif
 }
 
-void log_asm(int v) {
+void log_asm(void* x0, void* x1, void* x2, void* x3) {
 #if LOGGING
     gettimeofday(&tval_1, NULL);
     timersub(&tval_1, &tval_0, &tval_diff);
 	//LOGI("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, cpu->cycles, cpu->pc);
-	LOGF("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, the_cpu->cycles, the_cpu->pc);
+	LOGF("here! %08p %08p %08p %08p tv:%ld.%06ld (cycle %i  pc ~%02X\n",
+			     x0, x1, x2, x3,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec,
+			                       the_cpu->cycles, the_cpu->pc);
 #endif
 }
 
@@ -493,6 +498,10 @@ int fn_asr_imm(M6502* cpu) { // 0x4B - asr
 
 
 int fn_anc_imm(M6502* cpu) {
+//	uint8_t *p = cpu->mem;
+//	LOGF("fn_anc PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X %i:%i %ld.%06ld %s\n",
+//		 cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2],
+//		                           cpu->a, cpu->x, cpu->y, cpu->p, cpu->s, p, framecount, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, ops[p[cpu->pc]]);
 	cpu->a &= readmem(cpu->pc);
 	cpu->pc++;
 	setzn(cpu->a);

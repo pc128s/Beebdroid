@@ -231,7 +231,7 @@ Rcyc .req r12  @ r12 = cpu->cycles
 
 .macro START_ABS_O reg
 	READWORD_PC  r0			@ uint16_t addr=readword(cpu->pc); cpu->pc+=2;
-	add  r0, r0, \reg
+	add  r0, \reg
 	READBYTE  r1,  r0		@ uint8_t temp=readmem(addr);
 .endm
 .macro START_ABS_X
@@ -963,7 +963,7 @@ opasm_ldy_abs:
 // 0xBC: LDY abs,x
 .macro LOAD_ABS_OFF dest, offs
 	READWORD_PC  r0			@ uint16_t addr=readwordpc();
-	add  r0, r0, \offs
+	add  r0, \offs
 	READBYTE \dest,  r0   	@ cpu->a=readmem(addr);
 	SETZN \dest				@ setzn(cpu->a);
 	RETURN #ticks4				@ return 4;
@@ -1815,7 +1815,7 @@ do_interrupt:
 	add  r0,  r0, #7		@	 c += 7;
 no_interrupt:
 	ldr  r1, [ Rcpu, #Sint]  @ r1 = cpu->interrupt
-	bic  r1, r1, #128
+	bic  r1, #128
 	str  r1, [ Rcpu, #Sint]
 
 	@ Update CPU->cycles
@@ -1827,7 +1827,7 @@ no_interrupt:
 
 	@ Update intermediate cycle counter
 /*	ldr   r0,[ Rcpu, #38]
-	add   r0,  r0,  r1
+	add   r0,  r1
 	str   r0,[ Rcpu, #38]
 	cmp  r0, #32
 	blt no_poll_yet

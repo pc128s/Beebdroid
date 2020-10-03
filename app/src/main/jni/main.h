@@ -90,7 +90,8 @@ struct M6502_struct {
 extern M6502* the_cpu;
 extern uint8_t IC32;
 extern void log_cpu_C(M6502*); // +76 for PIC!
-extern void log_asm(int); // +80 for PIC!
+//extern void log_asm(int); // +80 for PIC!
+extern void log_asm(void* x0, void* x1, void* x2, void* x3);
 extern uint8_t readmem_ex(uint16_t addr); // +46 for PIC!
 
 extern int joy1x,joy1y,joy2x,joy2y;

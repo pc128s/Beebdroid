@@ -96,6 +96,7 @@ lr   .req x30
 #define flagN   0x80
 #define flagNb  7
 
+// struct M6502
 // #define Smem  0  //	uint8_t* mem; // +0
 #define Spc   4  //	uint16_t pc;  // +4
 #define Sra   6  //	uint8_t a;    // +6
@@ -111,8 +112,8 @@ lr   .req x30
 #define SpcTrHit 28 //	uint16_t pc_trigger_hit; //+28
 #define SpcTrig4 30 //	uint16_t pc_triggers[4]; //+30
 
-#define Scfns    40 //	int (**c_fns)(M6502*); // +40 for c_fns table
-#define Smem     44 //  uint8_t* mem; // +40+ptr_len, formerly at 0
+#define Sc_fns    40 //	int (**c_fns)(M6502*); // +40 for c_fns table
+#define Smem     48 //  uint8_t* mem; // +40+ptr_len, formerly at 0
 
 // Do not need other fn pointers for ARM
 
@@ -149,13 +150,67 @@ lr   .req x30
 .endm
 
 .macro PUSH_4W wa, wb, wc, wd
-STP wd, wc, [sp, #-16]! // push first pair, create space for second
-STP wb, wa, [sp, #8]    // push second pair
+STP \wd, \wc, [sp, #-16]! // push first pair, create space for second
+STP \wb, \wa, [sp, #8]    // push second pair
 .endm
 
 .macro POP_4W wa, wb, wc, wd
-LDP wb, wa, [sp, #8]  // read second pair
-LDP wd, wc, [sp], #16 // pop first pair, lose space for second
+LDP \wb, \wa, [sp, #8]  // read second pair
+LDP \wd, \wc, [sp], #16 // pop first pair, lose space for second
+.endm
+
+.macro PUSH_2X xa, xb
+STP \xa, \xb, [sp, #-16]!
+.endm
+
+.macro POP_2X xa, xb
+LDP \xa, \xb, [sp], #16 // pop first pair, lose space for second
+.endm
+
+.macro PUSH_x17_to_x30
+    PUSH_2X x17,x18  // x18 is a 'platform register' on Android, so save it twice to keep it extra safe.
+	PUSH_2X x19,x20
+	PUSH_2X x21,x22
+	PUSH_2X x23,x24
+	PUSH_2X x25,x26
+	PUSH_2X x27,x28
+	PUSH_2X x29,x30 // x30 is lr, x29 is fp but doesn't seem to be used?
+.endm
+
+.macro POP_x17_to_x30
+    POP_2X x29, x30 // x30 is lr, x31 is sp.
+	POP_2X x27, x28
+	POP_2X x25, x26
+	POP_2X x23, x24
+	POP_2X x21, x22
+	POP_2X x19, x20
+    POP_2X x17, x18  // x18 is special on Anrdroid, apparently. So let's save it twice, just in case. ;)
+.endm
+
+.macro PUSH_XALL
+	PUSH_2X x0,x1
+	PUSH_2X x2,x3
+	PUSH_2X x4,x5
+	PUSH_2X x6,x7
+	PUSH_2X x8,x9
+	PUSH_2X x10,x11
+	PUSH_2X x12,x13
+	PUSH_2X x14,x15
+	PUSH_2X x16,x17
+	PUSH_x17_to_x30
+.endm
+
+.macro POP_XALL
+	POP_x17_to_x30
+	POP_2X x16,x17
+	POP_2X x14,x15
+	POP_2X x12,x13
+	POP_2X x10,x11
+	POP_2X x8,x9
+	POP_2X x6,x7
+	POP_2X x4,x5
+	POP_2X x2,x3
+	POP_2X x0,x1
 .endm
 
 .macro PUSH_LR
@@ -1832,18 +1887,10 @@ opasm_undef:
     str  r0, [ RcpuX, #Snmi]		// cpu->nmi=0;  		// NMIs never occur
     RETURN #65536			// return 100000; 	// Actually lasts forever, but the above code keeps executing HLT forever
 
-
 exec6502: // Was exec6502(), but now exec6502(M6502*)
 //	push { RcpuX- Rcyc,lr} // x19-x27
 // Push everything: x18-x30 x30=lr
-    stp   x18,x18, [sp, #-16]!  // x18 is a 'platform register' on Android, so save it twice to keep it extra safe.
-	stp   x19,x20, [sp, #-16]!
-	stp   x21,x22, [sp, #-16]!
-	stp   x23,x24, [sp, #-16]!
-	stp   x25,x26, [sp, #-16]!
-	stp   x27,x28, [sp, #-16]!
-	stp   x29,x30, [sp, #-16]! // x30 is lr, x29 is fp but doesn't seem to be used?
-
+    PUSH_x17_to_x30
 	// Keep CPU* in safe register
 	mov   RcpuX, x0 //ldr   r4, =acpu
 
@@ -1885,9 +1932,9 @@ loop:
 	strh  r1,[ RcpuX, #SpcTrHit] // ->trigger_hit = 2
 1:
 	// Get the opcode into r0 and update cpu->PC
-	ldrb  r0,[ RmemX, xRpc] // ro = ->mem[->pc]
+	ldrb  r0,[ RmemX, xRpc] // r0 = ->mem[->pc]
 	add   Rpc,  Rpc, #1
-
+    bfc   xRpc, #16, #48
 	/*
 	cmp  r0, #0x68
 	blt 1f
@@ -1901,27 +1948,29 @@ loop:
 //*/
 	// Get the ASM function. If this doesnt exist, fall back to C version.
 	adr   x1, fns_asm
-	ldr   r2, [ x1,  r0, uxtw #2] // = fns_asm[ op * 4 ]
+	lsl   r0, r0, #2   // table is .word = 4 bytes
+	ldr   r2, [ x1,  r0, uxtw] // = fns_asm[ op * 4 ]
 	cmp   r2, #0
 	beq  use_c_fn
 
 	// Call assembly function
-//    push {r0-Rcyc,lr}
-//    bl log_asm
-//    pop {r0-Rcyc,lr}
-	add  x2, x1, r2, uxtw  // 0 - fns_asm + asy_func + fns_asm
-	blr  x2 // Call assembly function
+	add  x3, x1, r2, sxtw  // 0 - fns_asm + asy_func + fns_asm
+//PUSH_XALL
+//bl log_asm
+//POP_XALL
+	blr  x3 // Call assembly function
 	b done_call
 
 	// Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
 	// eg 0x4B - 75 - asr
 use_c_fn:
-	ldr   x1, [ RcpuX, #Scfns ]   // 40 -> []
-	ldr   x2, [ x1,  r0, uxtw #3] // c_fns[ opcode * 8 ]
-//    push {r0-Rcyc,lr}
+	ldr   x1, [ RcpuX, #Sc_fns ]   // 40 -> []
+	lsl   r0,r0,#1  // *4 --> *8 since 64 bit pointers
+	ldr   x2, [ x1,  r0, uxtw ] // c_fns[ opcode * 8 ]
+//    PUSH_XALL
 //    mov   r3, RcpuX
 //    bl log_c_fn_
-//    pop {r0-Rcyc,lr}
+//    POP_XALL
     strh  Rpc, [ RcpuX, #Spc] 	//  r6 = PC
     strb  Ra, [ RcpuX, #Sra] 	//  r7 = A
     strb  Rx, [ RcpuX, #Srx] 	//  r8 = X
@@ -1981,6 +2030,7 @@ no_interrupt:
 	str  r1, [ RcpuX, #Sint]
 
 	// Update CPU->cycles
+//mov r0, #1 // BUGGER CPU CYCLES WHILE SORTING OUT OPCODES
 	mov  r1,  r0
 	ldr   r0,[ RcpuX, #Scycles]
 	subs   r0,  r0,  r1
@@ -2015,13 +2065,8 @@ no_poll_yet:
 //	pop { RcpuX - Rcyc,lr}
 //	push { RcpuX- Rcyc,lr} // x19-x27
 // Pop everything: x18-x30 x30=lr
-	stp   x29,x30, [sp, #-16]! // x30 is lr.
-	stp   x27,x28, [sp, #-16]!
-	stp   x25,x26, [sp, #-16]!
-	stp   x23,x24, [sp, #-16]!
-	stp   x21,x22, [sp, #-16]!
-	stp   x19,x20, [sp, #-16]!
-    stp   x18,x18, [sp, #-16]!  // x18 is special on Anrdroid, apparently. So let's save it twice, just in case. ;)
+    POP_x17_to_x30
+just_br_lr:
     br   lr
 
 
