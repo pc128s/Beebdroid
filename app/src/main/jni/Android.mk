@@ -19,6 +19,10 @@ ifeq ($(TARGET_ARCH),x86)
     LOCAL_CFLAGS += -m32 -fPIC
     LOCAL_SRC_FILES := 6502asm_x86.S
 endif
+ifeq ($(TARGET_ARCH),x86_64)
+    LOCAL_CFLAGS += -m64 -fPIC
+    LOCAL_SRC_FILES := 6502asm_x86_64.S
+endif
 
 LOCAL_SRC_FILES += \
     6502.c \
