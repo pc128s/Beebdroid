@@ -1,0 +1,2259 @@
+# 6502asm.S
+#
+# X86 assembly version of (some of) 6502.c.
+#
+# Written by Reuben Scratton for Little Fluffy Toys Ltd in early Sept 2015.
+#
+
+.intel_syntax noprefix
+
+.text
+.global exec6502
+.global fns_asm
+.global acpu
+
+# This implementation keeps 6502 state entirely in ARM registers during exec6502(), in order to reduce memory accesses.
+# We haven't yet exploited the performance gains because we are still calling do_poll() after every
+# instruction (i.e. pushing 6502 state on the stack with every emulated instruction). A goal for future development
+# is to call do_poll() far less frequently without interfering with the accuracy of the emulation.
+#
+#  r4 = cpu*    EBP
+#  r5 = mem     ESI
+#  r6 = PC      di
+#  r7 = A       cl
+#  r8 = X       dl
+#  r9 = Y       dh
+# r10 = S       ch
+# r11 = P
+
+#define Rcpu  ebp   //  r4 = cpu*
+#define Rmem  esi   //  r5 = mem
+#define Rpc   di   //  r6 = PC
+#define eRpc  edi   //  r6 = PC
+#define Ra    cl   //  r7 = A
+#define Rx    dl   //  r8 = X
+#define Ry    dh   //  r9 = Y
+#define Rs    ch   // r10 = S
+//Rp   .req r11  @ r11 = P
+//Rcyc .req r12  @ r12 = cpu->cycles
+
+#define ticks2 2
+#define ticks3 3
+#define ticks4 4
+#define ticks5 5
+#define ticks6 6
+#define ticks7 7
+
+#define flagC   1
+#define flagZ   2
+#define flagI   4
+#define flagD   8
+#define flagxxx 0x10
+#define flagInt 0x20
+#define flagV   0x40
+#define flagN   0x80
+
+// #define Smem  0  //	uint8_t* mem; // +0
+#define Spc   4  //	uint16_t pc;  // +4
+#define Sra   6  //	uint8_t a;    // +6
+#define Srx   7  //	uint8_t x;    // +7
+#define Sry   8  //	uint8_t y;    // +8
+#define Srs   9  //	uint8_t s;    // +9
+#define Srp  10  //	uint8_t p;    // +10
+//	uint8_t unused; //
+#define Sint     12 //	int interrupt; // +12
+#define Snmi     16 //	int nmi;	  // +16
+#define Stakeint 20 //	int takeint;  // +20
+#define Scycles  24 //	int cycles;   // +24
+#define SpcTrHit 28 //	uint16_t pc_trigger_hit; //+28
+#define SpcTrig4 30 //	uint16_t pc_triggers[4]; //+30
+
+#define Scfns    40 //	int (**c_fns)(M6502*); // +40 for c_fns table
+#define Smem     44 //  uint8_t* mem; // +40+ptr_len, formerly at 0
+
+	// All the following are bodges for x86 because I don't understand the loader
+#define Sfns_asm      48 // void * fns_asm ; // +44 for fns_asm table
+#define Sdo_poll_C    52 // void * do_poll_C ; // +48 for do_poll_C
+#define Sreadmem_ex   56 // void * readmem_ex ; // +52 for readmem_ex
+#define Sreadword_ex  60 // void * readword_ex ; // +56 for readword_ex
+#define Swritemem_ex  64 // void * writemem_ex ; // +60 for writemem_ex
+#define Sadc_bcd_C    68 // void * adc_bcd_C ; // +64 for adc_bcd_C
+#define Ssbc_bcd_C    72 // void * sbc_bcd_C ; // +68 for sbc_bcd_C
+#define Slog_undef_opcode_C  76 // void * log_undef_opcode_C ; // +72 for log_undef_opcode_C
+#define Slog_cpu_C    80 // void * log_cpu_C ; // +76 for log_cpu_C
+#define Slog_asm_C    84 // void * log_asm_C ; // +80 for log_cpu_C
+
+
+.macro C_CALL_PRE
+	push  ecx
+	push  edx
+	//pusha
+.endm
+
+.macro C_CALL_POST
+	pop  edx
+	pop  ecx
+	//popa
+.endm
+
+.macro LOG_CPU
+    mov [ Rcpu+Spc],  Rpc 	#  di = PC
+    mov [ Rcpu+Sra],  Ra 	#  cl = A
+    mov [ Rcpu+Srx],  Rx 	#  dl = X
+    mov [ Rcpu+Sry],  Ry 	#  r9 = Y
+    mov [ Rcpu+Srs],  Rs 	#  r10 = S
+    pusha
+	push  Rcpu
+	// NOT-PIC call log_cpu_C
+	mov eax, [ Rcpu + Slog_cpu_C ]
+	call eax
+	add  esp,4
+	popa
+    mov  Rpc,  [ Rcpu+Spc] 	#  di = r6  = PC
+    mov  Ra,  [ Rcpu+Sra] 	#  cl = r7  = A
+    mov  Rx,  [ Rcpu+Srx] 	#  dl = r8  = X
+    mov  Ry,  [ Rcpu+Sry] 	#  dh = r9  = Y
+    mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
+.endm
+
+.macro LOG arg
+    pusha
+    mov  eax, \arg
+	push  eax
+	mov eax, [Rcpu + Slog_asm_C] // log_asm
+	call eax
+	add  esp,4
+	popa
+.endm
+
+
+
+.macro PUSH_BYTE reg8
+    movzx  ebx,  Rs
+	mov byte ptr [ Rmem+ ebx+0x100], \reg8    # mem+0x100 = bottom of 6502 stack space
+	dec  Rs
+.endm
+.macro PULLBYTE
+	inc  Rs
+    movzx  eax,  Rs
+	mov  al, [ Rmem +  eax + 0x100]  	# scrapreg = mem+0x100, i.e. bottom of stack space
+.endm
+
+.macro PUSHWORD reg16
+	dec  Rs
+    movzx  eax,  Rs
+	mov word ptr [ Rmem+ eax+0x100], \reg16    # mem+0x100 = bottom of stack space
+	dec  Rs
+.endm
+.macro PULLWORD reg16
+	inc  Rs
+    movzx  eax,  Rs
+	mov \reg16, word ptr [ Rmem+ eax+0x100]
+	inc  Rs
+.endm
+
+.macro UPDATE_TAKEINT 	# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
+	cmp dword ptr [ Rcpu+Sint], 0	# r12 = cpu->interrupt
+	jz  1f
+	test byte ptr [ Rcpu+Srp], 4  		# test the FLAG_I
+	jnz 1f
+	mov dword ptr [ Rcpu+Stakeint], 1
+	jmp 2f
+1:
+	mov dword ptr [ Rcpu+Stakeint], 0   				#cpu->take_int = r1
+2:
+.endm
+
+exec6502:
+//	mov eax, [esp + 4] //&acpu is first parameter - let's hope this works.
+//	ret  // This returns &acpu
+
+//	mov eax, [esp + 4] //&acpu is first parameter - let's hope this works.
+//	mov eax, [eax + 76] // acpu.log_cpu_C should be offset 76
+//	ret // This returns log_cpu_C
+
+	pusha
+
+	# Keep CPU* in EBP
+	// NOT-PIC lea  Rcpu,acpu
+	//mov Rcpu, [esp] // acpu is first parameter - let's hope this works.
+
+    mov Rcpu, [esp + 4 + 32] // hopefully first param = acpu
+
+//    mov eax, [Rcpu + Slog_cpu_C] // log-cpu-c again, hopefully
+//    mov [esp + 28], eax // return in eax from pop
+//	popa
+//	ret
+
+    # update cpu->cycles. Note the constant value 40000 cannot be encoded and has to be ldr'd inRpcrectly.
+    mov   eax,[ Rcpu + Scycles ]
+    add   eax, 40000 // perhaps related to 50Hz PAL vsync?
+    mov  [ Rcpu + Scycles ],  eax
+
+    # load some of 6502 CPU state into registers
+    mov   Rmem, [ Rcpu + Smem ] 		# ESI = r5  = mem
+    mov   eRpc, 0
+    mov  Rpc,  [ Rcpu + Spc ] 	#  di = r6  = PC
+    mov  Ra,  [ Rcpu + Sra ] 	#  cl = r7  = A
+    mov  Rx,  [ Rcpu + Srx ] 	#  dl = r8  = X
+    mov  Ry,  [ Rcpu + Sry ] 	#  dh = r9  = Y
+    mov  Rs,  [ Rcpu + Srs ] 	#  ch = r10 = S
+
+    // eax,ebx are free for general use
+loop:
+//    LOG_CPU
+// rm -rf x86/
+//   adb pull /storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files ./x86
+//   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
+//   for i in  x86/6502_x86.*.log.x ; do echo $i; diff -wu $i arm/6502_arm.${i#*.} ; done|less
+
+    //LOG 1
+
+	# Get the opcode into eax and update cpu->PC
+	xor  eax, eax
+	mov  al,[ Rmem+ eRpc]
+	inc  Rpc
+
+	# Get the ASM function. If this doesnt exist, fall back to C version.
+	// NOT-PIC lea   ebx, fns_asm
+    //LOG 2
+	mov ebx, [Rcpu + Sfns_asm ] // 44 = fns_asm
+	mov   ebx, [ ebx +  eax*4]
+	cmp   ebx, 0
+	jz  use_c_fn
+
+	# Call assembly function: ebx is (cop
+    //LOG 3
+//    push eax // preserve?
+//    mov eax, [Rcpu + Sfns_asm] // 44 = fns_asm
+//    add ebx, eax
+//    pop eax // preserve?
+    add ebx, [Rcpu + Sfns_asm] // 44 = fns_asm
+// hohoho?
+	call  ebx
+	jmp done_call
+
+	# Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
+use_c_fn:
+	// NOT-PIC lea   ebx, fns
+   // LOG 4
+	mov ebx, [Rcpu + Scfns] // 40=c_fns
+	mov   ebx, [ ebx +  eax*4]
+    mov [ Rcpu+Spc],  Rpc 	#  di = PC
+    mov [ Rcpu+Sra],  Ra 	#  cl = A
+    mov [ Rcpu+Srx],  Rx 	#  dl = X
+    mov [ Rcpu+Sry],  Ry 	#  r9 = Y
+    mov [ Rcpu+Srs],  Rs 	#  r10 = S
+	push  Rcpu  	# Sole parameter for C opcode functions is r0 = CPU*
+	call  ebx
+	add  esp, 4
+    mov   eRpc, 0
+    mov  Rpc,  [ Rcpu+Spc] 	#  di = r6  = PC
+    mov  Ra,  [ Rcpu+Sra] 	#  cl = r7  = A
+    mov  Rx,  [ Rcpu+Srx] 	#  dl = r8  = X
+    mov  Ry,  [ Rcpu+Sry] 	#  dh = r9  = Y
+    mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
+
+done_call:
+ //   LOG 5   // It's quick to here!
+	bt   eax, 31   // sei cli return -2.
+	jc  already_updated_interrupts
+# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
+	UPDATE_TAKEINT
+	jmp done_interrupts
+already_updated_interrupts:
+	xor   eax, 0xFFFFFFFF
+	inc   eax
+//	LOG eax  // 02
+//	LOG esp  //..1c
+done_interrupts:
+    push  eax   // cycles for that instruction
+
+	# Update interrupts
+	cmp dword ptr [ Rcpu+Snmi], 0   # Rcpu+Snmi = cpu->nmi
+	jz no_nmi
+	mov dword ptr [ Rcpu+Snmi], 0
+	push 0xfffa
+	jmp do_interrupt
+no_nmi:
+	cmp dword ptr [ Rcpu+Stakeint], 0   # Rcpu+20 = cpu->take_int
+	jz no_interrupt
+	mov dword ptr [ Rcpu+Stakeint], 0
+//LOG esp //..18
+//LOG 0xfffe
+	push 0xfffe
+do_interrupt:
+//LOG esp //..14
+//LOG eRpc // f12e
+	PUSHWORD  Rpc			# push(cpu->pc)
+	movzx  eax, byte ptr [ Rcpu+Srp]
+	or   eax, 0x20   	# uint8_t temp = cpu->p | 0x20;
+//LOG esp // ..14
+//LOG eax // 25
+	PUSH_BYTE  al             # push(temp);
+//LOG esp //..14
+	pop  eax //  hmmm? ax
+//LOG eax // fffe
+//LOG esp //..16
+	mov  Rpc, [ Rmem+ eax] 		# cpu->pc=*(uint16_t*)&(cpu->mem[0xfffe]);
+	or byte ptr [ Rcpu+Srp], 4 	# cpu->p |= FLAG_I;
+	mov [ Rcpu+Spc], Rpc            # Remove when C-only
+	mov [ Rcpu+Srs], Rs    	    # Remove when C-only
+	pop  eax
+//LOG eax
+//LOG esp
+	add  eax,7		            # c += 7;
+	push  eax  // cycles
+//LOG esp
+//LOG eax
+no_interrupt:
+    and dword ptr [ Rcpu+Sint], 0xFFFFFF7f   # cpu->interrupt &= ~128
+
+	# Update CPU->cycles
+	pop  eax
+	sub [ Rcpu+Scycles],  eax
+//LOG 0x71
+	# Update intermediate cycle counter
+	C_CALL_PRE
+	push  eax
+	push  Rcpu
+ 	//NOT-PIC call do_poll_C
+ 	mov eax, [Rcpu + Sdo_poll_C]
+ 	call eax
+ 	add  esp,8
+ 	C_CALL_POST
+//LOG 0x93
+	mov  eax, [ Rcpu+Scycles]
+
+	# Loop back until cpu->cycles <=0
+	cmp dword ptr [ Rcpu+Scycles], 0
+	jg loop
+
+	# Update cpu fields, restore regs and exit
+    mov [ Rcpu+Spc],  Rpc 	#  PC
+    mov [ Rcpu+Sra],  Ra	#  r7 = A
+    mov [ Rcpu+Srx],  Rx	#  r8 = X
+    mov [ Rcpu+Sry],  Ry	#  r9 = Y
+    mov [ Rcpu+Srs],  Rs	# r10 = S
+	popa
+    ret
+
+
+// branch without labels: count number of lines to skip over, add 1, multiply by 4. So to skip 2 lines, "b .+12"
+
+/**********
+ * Macros *
+ **********/
+
+// NB: Macro return/destination values are always in eax. Macro params are always inputs.
+
+.macro READBYTE addr16       # #define readmem(x)  ((x<0xfe00) ? cpu->mem[x] : readmem_ex(x))
+	cmp \addr16, 0xfe00
+	jae 1f
+	movzx  eax, \addr16
+	movzx  eax, byte ptr [ Rmem +  eax]
+	jmp 2f
+1:
+	C_CALL_PRE
+	push \addr16  # push s/w/
+	//NOT-PIC call readmem_ex
+	mov eax, [Rcpu + Sreadmem_ex] // readmem_ex
+	call eax
+	add  esp,2
+	C_CALL_POST
+2:
+.endm
+
+.macro READBYTE_PC
+	READBYTE  Rpc
+	inc  Rpc
+.endm
+
+//#define readword(x) ((x<0xfe00) ? (*((uint16_t*)&(cpu->mem[x]))) : (readmem_ex(x) | (readmem_ex(x+1)<<8)))
+.macro READWORD src
+	cmp \src, 0xfe00
+	jae 1f
+	movzx  eax, \src
+	movzx  eax, word ptr [ Rmem +  eax]
+	jmp 2f
+1:
+	C_CALL_PRE
+	push \src  # s/w/
+	//NOT-PIC call readword_ex
+	mov eax, [Rcpu + Sreadword_ex] // readword_ex
+	call eax // readword_ex
+	add  esp,2
+	C_CALL_POST
+2:
+.endm
+
+.macro READWORD_PC
+	READWORD  Rpc
+	add  Rpc, 2
+.endm
+
+.macro WRITEBYTED val, addr
+    movzx  ebx,\addr
+	mov [ Rmem +  ebx], \val
+.endm
+.macro WRITEBYTE val, addr
+    movzx  ebx,\addr
+	cmp  ebx,0x8000
+	jae 1f
+	mov [ Rmem +  ebx], \val
+	jmp 2f
+1:
+//LOG esp  //...18
+	C_CALL_PRE
+//LOG esp  //...10
+	movzx  eax,\val
+//LOG eax  // 0f
+//	push 0
+	push  eax  //ax
+	LOG eax
+//	push 0
+	push  ebx // bx
+	//NOT-PIC call writemem_ex
+//LOG esp // ...0c
+	mov eax, [Rcpu + Swritemem_ex]
+	call eax
+//LOG esp // ...0c
+	add  esp,  8 // 4
+//LOG esp // ...14
+	C_CALL_POST
+//LOG esp // ...1c
+2:
+.endm
+
+.macro RETURN clocks
+	mov  eax, \clocks
+	ret
+.endm
+
+
+
+// #define setzn(v) if(v) cpu->p &=~FLAG_Z; else cpu->p|=FLAG_Z;  if ((v)&0x80) cpu->p|=FLAG_N; else cpu->p&=~FLAG_N;
+.macro SETZN v
+	and byte ptr [ Rcpu+Srp], 0x7D  # i.e. clear flags reg bits 0x80 (N) and 0x02 (Z).
+	cmp \v, 0
+	jne 1f
+	or byte ptr [ Rcpu+Srp], 0x02   # set Z flag
+1:
+	movzx  ax, \v
+    bt  ax, 7
+    jnc 2f
+	or byte ptr [ Rcpu+Srp], 0x80   # set N flag
+2:
+.endm
+
+
+
+/**********************************
+ * Immediate and Zero-page macros *
+ **********************************/
+
+// On exit, EAX holds the byte read and EBX holds the address it was read from
+
+.macro START_ZP
+	READBYTE_PC		        # uint16_t addr=readmem(cpu->pc); cpu->pc++;
+	mov  ebx,  eax
+	movzx  eax, byte ptr [ Rmem +  ebx] # uint8_t temp=readmem(addr);
+.endm
+
+.macro START_ZP_X
+	READBYTE_PC			    # uint16_t addr=readmem(cpu->pc); cpu->pc++;
+	add  al,  Rx
+	mov  ebx,  eax
+	movzx  eax, byte ptr [ Rmem +  ebx] # uint8_t temp=readmem(addr);
+.endm
+
+.macro START_ABS
+	READWORD_PC			    # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+	mov  bx, ax
+	READBYTE  bx		    # uint8_t temp=readmem(addr);
+.endm
+
+.macro START_ABS_X
+	READWORD_PC 			# uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+	movzx  bx, Rx
+	add  bx,  ax
+	READBYTE  bx		    # uint8_t temp=readmem(addr);
+.endm
+
+.macro START_ABS_Y
+	READWORD_PC 			# uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+	movzx  bx, Ry
+	add  bx,  ax
+	READBYTE  bx		    # uint8_t temp=readmem(addr);
+.endm
+
+
+// For instructions of the form OPCODE (,x)
+.macro START_INDZX
+	READBYTE_PC 			# register uint8_t temp=readmem(cpu->pc); pc++;
+    movzx  bx,  Rx
+	add  bx,  ax			# temp += cpu->x;
+	and  bx, 255
+	READWORD  bx		    # register uint16_t addr=readword(temp);
+.endm
+
+// For instructions of the form OPCODE (),y
+.macro START_INDZY
+	READBYTE_PC			    # register uint8_t temp=readmem(cpu->pc); pc++;
+	READWORD  ax    		# register uint16_t addr=readword(temp);
+    movzx  bx,  Ry
+	add  bx,  ax			# addr += cpu->y;
+	READBYTE  bx		    # temp = readmem(addr);
+.endm
+
+
+
+
+/*************************************/
+/**  OPCODES IN ALPHABETICAL ORDER  **/
+/*************************************/
+
+
+/*******
+ * ADC *
+ *******/
+
+// branch without labels: count number of lines to skip over, add 1, multiply by 4. So to skip 2 lines, "b .+12"
+
+// going backwards, divide by 4, sub 1, thats the number of lines to skip. so +80 = 19 lines
+
+.macro BODY_ADC
+    push  ebx
+    movzx  ebx, byte ptr [ Rcpu+Srp]
+	bt  bx,3
+	jc 3f
+	bt  bx,0
+	adc  Ra,  al
+	pushf
+	pop  ax // eax
+	and  bl, 0xBE # clear C and V
+	bt  ax,0
+	jnc 1f
+	or  bl,1    # set C
+1:
+    bt  ax,11
+    jnc 2f
+	or  bx, 0x40    # set V
+2:
+    mov byte ptr [ Rcpu+Srp],  bl
+	SETZN  Ra				# setzn(cpu->a);
+	jmp 4f
+3:
+	mov [ Rcpu+Sra],  Ra	    # update A
+	C_CALL_PRE
+	push  eax
+	push  Rcpu   			# r0=cpu*, r1=imm
+	//NOT-PIC call adc_bcd_C
+	mov eax, [Rcpu+Sadc_bcd_C] // adc_bcd_C
+	call eax  // adc_bcd_C
+	add  esp, 8
+	C_CALL_POST
+	mov  Ra, [ Rcpu+Sra]	    # update A
+4:
+    pop  ebx
+.endm
+
+// 0x69: ADC imm
+opasm_adc_imm:
+	READBYTE_PC		        # register uint8_t temp=readmem(cpu->pc); cpu->pc++;
+	BODY_ADC
+	RETURN ticks2
+
+// 0x65: ADC zp
+opasm_adc_zp:
+	START_ZP				# r0=zp address, r1=byte from zp address
+	BODY_ADC
+	RETURN ticks3				# return 3;
+
+// 0x75: ADC zp,x
+opasm_adc_zp_x:
+	START_ZP_X				# r0=zp address, r1=byte from zp address
+	BODY_ADC
+	RETURN ticks3				# return 3;
+
+// 0x6D: ADC abs
+opasm_adc_abs:
+	START_ABS				# r0=address, r1=byte from address
+	BODY_ADC
+	RETURN ticks4				# return 4
+
+// 0x79: ADC abs,y
+opasm_adc_abs_y:
+	START_ABS_Y				# r0=address, r1=byte from address
+	BODY_ADC
+	RETURN ticks4				# return 4
+
+// 0x7D: ADC abs,x
+opasm_adc_abs_x:
+	START_ABS_X				# r0=address, r1=byte from address
+	BODY_ADC
+	RETURN ticks4				# return 4
+
+// 0x61: ADC (,x)
+opasm_adc_indzx:
+	START_INDZX
+	READBYTE  ax       		# temp = readmem(addr);
+	BODY_ADC
+	RETURN ticks6				# return 6
+
+// 0x71: ADC (),y
+opasm_adc_indzy:
+	START_INDZY
+	BODY_ADC
+	RETURN ticks5				# return 5
+
+
+/*******
+ * AND *
+ *******/
+.macro BODY_AND
+	and  Ra,  al		    # cpu->a &= temp;
+	SETZN  Ra				# setzn(cpu->a);
+.endm
+
+// 0x21: AND (,x)
+opasm_and_indzx:
+	START_INDZX
+	READBYTE  ax		    # temp = readmem(addr);
+	BODY_AND
+	RETURN ticks6
+
+// 0x31: AND (),y
+opasm_and_indzy:
+	START_INDZY
+	BODY_AND
+	RETURN ticks5
+
+// 0x29: AND imm
+opasm_and_imm:
+	READBYTE_PC			    # al = imm
+	BODY_AND
+	RETURN ticks3
+
+// 0x25: AND zp
+opasm_and_zp:
+	START_ZP
+	BODY_AND
+	RETURN ticks3
+
+// 0x35: AND zp,x
+opasm_and_zp_x:
+	START_ZP_X
+	BODY_AND
+	RETURN ticks3
+
+// 0x2D: AND abs
+opasm_and_abs:
+	START_ABS
+	BODY_AND
+	RETURN ticks4
+
+// 0x39: AND abs,y
+opasm_and_abs_y:
+	START_ABS_Y
+	BODY_AND
+	RETURN ticks4
+
+// 0x3D: AND abs,x
+opasm_and_abs_x:
+	START_ABS_X
+	BODY_AND
+	RETURN ticks4
+
+
+/*******
+ * ASL *
+ *******/
+
+.macro BODY_ASL reg8
+	and byte ptr [ Rcpu+Srp], 0xfe	# clear FLAG_C
+	shl \reg8, 1			# temp<<=1;
+	jnc 1f
+	or byte ptr [ Rcpu+Srp], 1
+1:
+	SETZN \reg8				# setzn(temp);
+.endm
+
+opasm_asl_a:
+	BODY_ASL  Ra
+	RETURN ticks2
+
+// 0x06: ASL zp
+opasm_asl_zp:
+	START_ZP				# ebx=zp address, eax=byte from zp address
+	BODY_ASL  al
+	WRITEBYTED  al, bx
+	RETURN ticks5
+
+// 0x16: ASL zp,x
+opasm_asl_zp_x:
+	START_ZP_X				# r1=byte from zp, r0=zp address
+	BODY_ASL  al
+	WRITEBYTED  al, bx
+	RETURN ticks5
+
+// 0x0E: ASL abs
+opasm_asl_abs:
+	START_ABS
+	BODY_ASL  al
+	WRITEBYTE  al, bx
+	RETURN ticks6
+
+// 0x1E: ASL abs,x
+opasm_asl_abs_x:
+	START_ABS_X
+	BODY_ASL  al
+	WRITEBYTE  al, bx
+	RETURN ticks7
+
+
+/*************************************************
+ * BNE / BEQ / BPL / BMI / BVC / BVS / BCC / BCS *
+ *************************************************/
+
+.macro BRANCH flag, testop
+	READBYTE  Rpc		    # register int8_t offset=(int8_t)readmem(cpu->pc);
+	movsx  eax,  al         # to get the byte offset into a signed word
+	inc  Rpc 				# pc++;
+	test byte ptr [ Rcpu+Srp], \flag # if (!(cpu->p & FLAG_Z)) {
+	\testop 1f
+	add  Rpc,  ax			#     cpu->pc+=offset;
+	RETURN ticks3				# }
+1:
+    RETURN ticks2
+.endm
+
+opasm_bne:
+	BRANCH 2, jne
+opasm_beq:
+	BRANCH 2, je
+opasm_bpl:
+	BRANCH 0x80, jne
+opasm_bmi:
+	BRANCH 0x80, je
+opasm_bvc:
+	BRANCH 0x40, jne
+opasm_bvs:
+	BRANCH 0x40, je
+opasm_bcc:
+	BRANCH 1, jne
+opasm_bcs:
+	BRANCH 1, je
+
+
+
+/*******
+ * BIT *
+ *******/
+
+.macro BODY_BIT
+    mov  bl, [ Rcpu+Srp]
+	and  bl, 0x3d		# clear Z,V,N
+	bt  ax, 6			    # SET_FLAG(FLAG_V, temp&0x40);
+	jnc 1f
+	or  bl, 0x40
+1:
+	bt  ax, 7			    # SET_FLAG(FLAG_N, temp&0x80);
+	jnc 2f
+	or  bl, 0x80
+2:
+	and  al,  Ra		    # temp = cpu->a&temp
+	jnz 3f                  # SET_FLAG(FLAG_Z, !temp)
+	or  bl, 2
+3:
+    mov [ Rcpu+Srp],  bl      # save P
+.endm
+
+// 0x24: BIT zp
+opasm_bit_zp:
+	START_ZP
+	BODY_BIT
+	RETURN ticks3
+
+// 0x2C: BIT abs
+opasm_bit_abs:
+	START_ABS
+	BODY_BIT
+	RETURN ticks4
+
+
+/*************************
+ * CLC / CLD / CLV / CLI *
+ *************************/
+opasm_clc:
+	and byte ptr [ Rcpu+Srp], 0xFE 	# cpu->p &= ~FLAG_C;
+	RETURN ticks2
+opasm_cld:
+	and byte ptr [ Rcpu+Srp], 0xF7 	# cpu->p &= ~FLAG_D;
+	RETURN ticks2
+opasm_clv:
+	and byte ptr [ Rcpu+Srp], 0xBF 	# cpu->p &= ~FLAG_V;
+	RETURN ticks2
+opasm_cli:
+	UPDATE_TAKEINT			        # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
+	and byte ptr [ Rcpu+Srp], 0xFB	# cpu->p &= ~FLAG_I;
+	RETURN -ticks2    # -ve means interrupt taken.
+
+
+/*******
+ * CMP *
+ *******/
+.macro BODY_CMP reg8
+	and byte ptr [ Rcpu+Srp], 0xFE    # clear FLAG_C
+	mov  ah, \reg8
+	sub  ah,  al                    #ah = cpureg - temp
+    jc 1f
+	or byte ptr [ Rcpu+Srp], 1	    # set FLAG_C if carried
+1:
+	SETZN  ah				        # setzn(temp);
+.endm
+
+// 0xC9: CMP imm
+opasm_cmp_imm:
+	READBYTE_PC     		        # register uint8_t temp=readmem(cpu->pc); cpu->pc++;
+    BODY_CMP  Ra
+	RETURN ticks2
+
+// 0xC5: CMP zp
+// 0xE4: CPX zp
+// 0xC4: CPY zp
+opasm_cmp_zp:
+	START_ZP
+	BODY_CMP  Ra
+    RETURN ticks3
+opasm_cpx_zp:
+	START_ZP
+	BODY_CMP  Rx
+    RETURN ticks3
+opasm_cpy_zp:
+	START_ZP
+	BODY_CMP  Ry
+    RETURN ticks3
+
+// 0xD5: CMP zp,x
+opasm_cmp_zp_x:
+	START_ZP_X
+	BODY_CMP  Ra
+    RETURN ticks3
+
+// 0xCD: CMP abs
+opasm_cmp_abs:
+	START_ABS
+	BODY_CMP  Ra
+    RETURN ticks4
+
+// 0xD9: CMP abs,y
+opasm_cmp_abs_y:
+	START_ABS_Y
+	BODY_CMP  Ra
+    RETURN ticks4
+
+// 0xDD: CMP abs,x
+opasm_cmp_abs_x:
+	START_ABS_X
+	BODY_CMP  Ra
+    RETURN ticks4
+
+// 0xC1: CMP (,x)
+opasm_cmp_indzx:
+	START_INDZX
+	READBYTE  ax		# temp = readmem(addr);
+	BODY_CMP  Ra
+    RETURN ticks6
+
+// 0xD1: CMP (),y
+opasm_cmp_indzy:
+	START_INDZY
+	BODY_CMP  Ra
+    RETURN ticks6
+
+
+/*******
+ * CPX *
+ *******/
+
+// 0xE0: CPX imm
+opasm_cpx_imm:
+	READBYTE_PC
+	BODY_CMP  Rx
+	RETURN ticks2
+
+// 0xEC: CPX abs
+opasm_cpx_abs:
+	START_ABS
+	BODY_CMP  Rx
+	RETURN ticks4
+
+
+/*******
+ * CPY *
+ *******/
+
+// 0xC0: CPY imm
+opasm_cpy_imm:
+	READBYTE_PC
+	BODY_CMP  Ry
+	RETURN ticks2
+
+// 0xCC: CPY abs
+opasm_cpy_abs:
+	START_ABS
+	BODY_CMP  Ry
+	RETURN ticks4
+
+
+/*******
+ * DEC *
+ *******/
+
+.macro BODY_DEC
+	dec  al
+	SETZN  al
+.endm
+
+// 0xC6: DEC zp
+opasm_dec_zp:
+	START_ZP
+	BODY_DEC
+	WRITEBYTED  al, bx
+	RETURN ticks5
+
+// 0xD6: DEC zp,x
+opasm_dec_zp_x:
+	START_ZP_X
+	BODY_DEC
+	WRITEBYTED  al, bx
+	RETURN ticks5
+
+// 0xCE: DEC abs
+opasm_dec_abs:
+	START_ABS
+	BODY_DEC
+	WRITEBYTE  al, bx
+	RETURN ticks6
+
+// 0xDE: DEC abs,x
+opasm_dec_abs_x:
+	START_ABS_X
+	BODY_DEC
+	WRITEBYTE  al, bx
+	RETURN ticks7
+
+
+/*************
+ * DEX / DEY *
+ *************/
+
+// 0xCA: DEX
+opasm_dex:
+    dec  Rx
+	SETZN  Rx
+	RETURN ticks2
+
+// 0x88: DEY
+opasm_dey:
+    dec  Ry
+	SETZN  Ry
+	RETURN ticks2
+
+
+/*******
+ * EOR *
+ *******/
+
+.macro BODY_EOR
+	xor  Ra,  al		# cpu->a ^= temp;
+	SETZN  Ra
+.endm
+
+// 0x49: EOR imm
+opasm_eor_imm:
+	READBYTE_PC
+	BODY_EOR
+	RETURN ticks2
+
+// 0x45: EOR zp
+opasm_eor_zp:
+	START_ZP
+	BODY_EOR
+	RETURN ticks3
+
+// 0x55: EOR zp,x
+opasm_eor_zp_x:
+	START_ZP_X
+	BODY_EOR
+	RETURN ticks3
+
+// 0x4D: EOR abs
+opasm_eor_abs:
+	START_ABS
+	BODY_EOR
+	RETURN ticks4
+
+// 0x59: EOR abs,y
+opasm_eor_abs_y:
+	START_ABS_Y
+	BODY_EOR
+	RETURN ticks4
+
+// 0x5D: EOR abs,x
+opasm_eor_abs_x:
+	START_ABS_X
+	BODY_EOR
+	RETURN ticks4
+
+// 0x41: EOR (,x)
+opasm_eor_indzx:
+	START_INDZX
+	READBYTE  ax
+	BODY_EOR
+	RETURN ticks6
+
+// 0x51: EOR (),y
+opasm_eor_indzy:
+	START_INDZY
+	BODY_EOR
+	RETURN ticks5
+
+
+/*******
+ * INC *
+ *******/
+
+.macro BODY_INC
+	inc  al
+	SETZN  al
+.endm
+
+// 0xE6: INC zp
+opasm_inc_zp:
+	START_ZP
+	BODY_INC
+	WRITEBYTED  al, bx
+	RETURN ticks5
+
+// 0xF6: INC zp,x
+opasm_inc_zp_x:
+	START_ZP_X
+	BODY_INC
+	WRITEBYTED  al, bx
+	RETURN ticks5
+
+
+// 0xEE: INC abs
+opasm_inc_abs:
+	START_ABS
+	BODY_INC
+    WRITEBYTE  al, bx
+	RETURN ticks6
+
+
+// 0xFE: INC abs,x
+opasm_inc_abs_x:
+	START_ABS_X
+	BODY_INC
+    WRITEBYTE  al, bx
+	RETURN ticks7
+
+
+/*************
+ * INX / INY *
+ *************/
+
+// 0xE8: INX
+opasm_inx:
+    inc  Rx
+	SETZN  Rx
+	RETURN ticks2
+
+// 0xC8: INY
+opasm_iny:
+    inc  Ry
+	SETZN  Ry
+	RETURN ticks2
+
+
+/*******
+ * JMP *
+ *******/
+
+// 0x4C: JMP
+opasm_jmp:
+	READWORD  Rpc
+    mov  Rpc,  ax
+	RETURN ticks3
+
+// 0x6C: JMP ()
+opasm_jmp_ind:
+	READWORD_PC			    # register uint16_t addr=readwordpc();
+	cmp  al, 255
+	je 1f
+	READWORD  ax    		# cpu->pc=readword(addr);
+	mov  Rpc,  ax
+	RETURN ticks5
+1:
+	// JMP address lives in word spanning page boundary... have to do a silly thing.
+	push  ecx
+	mov  bx,  ax
+	READBYTE  bx		    # get lo byte from top of page...
+	mov  Ra,  al
+	and  bx, 0xff00		    # and hi byte from bottom of page!
+	READBYTE  bx
+	mov  Rs,  al
+	mov  Rpc,  cx
+	pop  ecx
+	RETURN ticks5
+
+
+/*******
+ * JSR *
+ *******/
+
+opasm_jsr:
+	READWORD  Rpc		    # uint16_t addr=readwordpc(); cpu->pc--;
+	mov  bx,  ax
+	inc  Rpc
+	PUSHWORD  Rpc
+	mov  Rpc,  bx		    # cpu->pc=addr;
+	RETURN ticks6
+
+
+/*******
+ * LAX *
+ *******/
+
+// 0xB7: LAX zp,y
+opasm_lax_zp_y:
+	READBYTE_PC			    # uint16_t addr=readmem(cpu->pc); cpu->pc++;
+	add  al,  Ry   	        # addr += cpu->y
+	READBYTE  ax   	        # cpu->a=cpu->x=readmem(addr);
+	mov  Ra,  al
+	mov  Rx,  al
+	SETZN  Ra				# setzn(cpu->a);
+	RETURN ticks3
+
+
+/*******************
+ * LDA / LDX / LDY *
+ *******************/
+
+// 0xA9: LDA imm
+// 0xA2: LDX imm
+// 0xA0: LDY imm
+.macro LOAD_IMM dest
+	READBYTE_PC 	    # cpu->a = readmem(cpu->pc); pc++;
+	mov \dest,  al
+	SETZN \dest			# setzn(cpu->a);
+	RETURN ticks2
+.endm
+opasm_lda_imm:
+	LOAD_IMM  Ra
+opasm_ldx_imm:
+	LOAD_IMM  Rx
+opasm_ldy_imm:
+	LOAD_IMM  Ry
+
+// 0xA5: LDA zp
+// 0xA6: LDX zp
+// 0xA4: LDY zp
+.macro LOAD_ZP dest
+	READBYTE_PC 		# uint16_t addr=readmem(cpu->pc); cpu->pc++;
+	READBYTE  ax	    # cpu->a=readmem(addr);
+	mov \dest,  al
+	SETZN \dest			# setzn(cpu->a);
+	RETURN ticks3
+.endm
+opasm_lda_zp:
+	LOAD_ZP  Ra
+opasm_ldx_zp:
+	LOAD_ZP  Rx
+opasm_ldy_zp:
+	LOAD_ZP  Ry
+
+// 0xB5: LDA zp,x
+// 0xB6: LDX zp,y
+// 0xB4: LDY zp,x
+.macro LOAD_ZPO dest, offset
+	READBYTE_PC			    # uint16_t addr=readmem(cpu->pc); cpu->pc++;
+	add  al, \offset         # addr += cpu->x
+	READBYTE  ax   	        # cpu->a=readmem(addr);
+	mov \dest,  al
+	SETZN \dest				# setzn(cpu->a);
+	RETURN ticks3
+.endm
+opasm_lda_zp_x:
+	LOAD_ZPO  Ra,  Rx
+opasm_ldx_zp_y:
+	LOAD_ZPO  Rx,  Ry
+opasm_ldy_zp_x:
+	LOAD_ZPO  Ry,  Rx
+
+// 0xAC: LDY abs
+// 0xAD: LDA abs
+// 0xAE: LDX abs
+.macro LOAD_ABS dest
+	READWORD_PC			    # uint16_t addr=readwordpc();
+	READBYTE  ax   	        # cpu->a=readmem(addr);
+	mov \dest,  al
+	SETZN \dest				# setzn(cpu->a);
+    RETURN ticks4
+.endm
+opasm_lda_abs:
+	LOAD_ABS  Ra
+opasm_ldx_abs:
+	LOAD_ABS  Rx
+opasm_ldy_abs:
+	LOAD_ABS  Ry
+
+// 0xBD: LDA abs,x
+// 0xB9: LDA abs,y
+// 0xBE: LDX abs,y
+// 0xBC: LDY abs,x
+.macro LOAD_ABS_OFF dest, offs
+	READWORD_PC			    # uint16_t addr=readwordpc();
+	add  al, \offs
+	adc  ah, 0
+	READBYTE  ax   	        # cpu->a=readmem(addr);
+	mov \dest,  al
+	SETZN \dest				# setzn(cpu->a);
+	RETURN ticks4
+.endm
+opasm_lda_abs_x:
+	LOAD_ABS_OFF  Ra,  Rx
+opasm_lda_abs_y:
+	LOAD_ABS_OFF  Ra,  Ry
+opasm_ldx_abs_y:
+	LOAD_ABS_OFF  Rx,  Ry
+opasm_ldy_abs_x:
+	LOAD_ABS_OFF  Ry,  Rx
+
+// 0xA1: LDA (,x)
+opasm_lda_indzx:
+	START_INDZX
+	READBYTE  ax		    # cpu->a = readmem(addr);
+	mov  Ra,  al
+	SETZN  Ra
+	RETURN ticks6
+
+// 0xB1: LDA (),y
+opasm_lda_y:
+	READBYTE_PC			    # register uint8_t temp=readmem(cpu->pc); cpu->pc++;
+	READWORD  ax 		    # register uint16_t addr=readword(temp);
+	add  al,  Ry		    # addr += y
+	adc  ah, 0
+	READBYTE  ax		    # cpu->a=readmem(addr);
+	mov  Ra,  al
+	SETZN  Ra				# setzn(cpu->a);
+	RETURN ticks5
+
+
+/*******
+ * LSR *
+ *******/
+
+.macro BODY_LSR reg8
+	and byte ptr [ Rcpu+Srp], 0xfe	# clear FLAG_C
+	shr \reg8
+	jnc 1f
+	or byte ptr [ Rcpu+Srp], 1
+1:
+	SETZN \reg8				# setzn(temp);
+.endm
+
+// 0x4A: LSR A
+opasm_lsr_a:
+	BODY_LSR  Ra
+	RETURN ticks2
+
+// 0x46: LSR zp
+opasm_lsr_zp:
+	START_ZP
+	BODY_LSR  al
+	WRITEBYTED  al,  bx
+	RETURN ticks5
+
+// 0x56: LSR zp,x
+opasm_lsr_zp_x:
+	START_ZP_X
+	BODY_LSR  al
+	WRITEBYTED  al,  bx
+	RETURN ticks5
+
+
+// 0x4E: LSR abs
+opasm_lsr_abs:
+	START_ABS
+	BODY_LSR  al
+	WRITEBYTE  al,  bx
+	RETURN ticks6
+
+// 0x5E: LSR abs,x
+opasm_lsr_abs_x:
+	START_ABS_X
+	BODY_LSR  al
+	WRITEBYTE  al,  bx
+	RETURN ticks7
+
+
+/*******
+ * NOP *
+ *******/
+
+// 0xEA: NOP
+opasm_nop:
+	RETURN ticks2
+
+// 0x80: NOP imm		undocumented
+// 0x89: NOP imm		undocumented
+// 0xC2: NOP imm		undocumented
+// 0xE2: NOP imm		undocumented
+opasm_nop_imm:
+	RETURN ticks2
+
+// 0x04: NOP zp			undocumented
+opasm_nop_zp:
+	START_ZP
+	RETURN ticks3
+
+// 0x14: NOP zp,x		undocumented
+opasm_nop_zp_x:
+	START_ZP_X
+	RETURN ticks3
+
+// 0x0C: NOP abs		undocumented
+opasm_nop_abs:
+	START_ABS
+	RETURN ticks4
+
+// 0xFC: NOP abs,x			undocumented
+opasm_nop_abs_x:
+	START_ABS_X
+	RETURN ticks4
+
+
+/*******
+ * ORA *
+ *******/
+
+.macro BODY_ORA
+	or  Ra,  al		        # cpu->a|=readmem(addr);
+	SETZN  Ra				# setzn(cpu->a);
+.endm
+
+// 0x09: ORA imm
+opasm_ora_imm:
+	READBYTE_PC
+	BODY_ORA
+	RETURN ticks2
+
+// 0x05: ORA zp
+opasm_ora_zp:
+	START_ZP
+	BODY_ORA
+	RETURN ticks3
+
+// 0x15: ORA zp,x
+opasm_ora_zp_x:
+	START_ZP_X
+	BODY_ORA
+	RETURN ticks3
+
+// 0x0D: ORA abs
+opasm_ora_abs:
+	START_ABS
+	BODY_ORA
+	RETURN ticks4
+
+// 0x19: ORA abs,y
+opasm_ora_abs_y:
+	START_ABS_Y
+	BODY_ORA
+	RETURN ticks4
+
+// 0x1D: ORA abs,x
+opasm_ora_abs_x:
+	START_ABS_X
+	BODY_ORA
+	RETURN ticks4
+
+// 0x01: ORA (,x)
+opasm_ora_indzx:
+	START_INDZX
+	READBYTE  ax
+	BODY_ORA
+	RETURN ticks6
+
+// 0x11: ORA (),y
+opasm_ora_indzy:
+	START_INDZY
+	BODY_ORA
+	RETURN ticks5
+
+
+/*******
+ * PHA *
+ *******/
+
+// 0x48: PHA
+opasm_pha:
+	PUSH_BYTE  Ra			# push(cpu->a);
+	RETURN ticks3
+
+
+/*******
+ * PHP *
+ *******/
+
+// 0x08: PHP
+opasm_php:
+    mov  al, [ Rcpu+Srp]
+	or  al, 0x30 	        # register uint8_t  temp=0x30 | cpu->p;
+	PUSH_BYTE  al	 		# push(temp);
+	RETURN ticks3
+
+
+/*******
+ * PLA *
+ *******/
+
+// 0x68: PLA
+opasm_pla:
+	PULLBYTE 			    # cpu->a = pull();
+	mov  Ra,  al
+	SETZN  Ra				# setzn(cpu->a);
+	RETURN ticks4
+
+
+/*******
+ * PLP *
+ *******/
+
+// 0x28: PLP
+opasm_plp:
+	PULLBYTE    			# uint8_t temp=pull();
+	//TODO! cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
+	and  al, 0xCF	        # cpu->p = temp & ~0x30;
+	mov [ Rcpu+Srp],  al
+	RETURN -ticks4
+
+
+/********************************
+ * RLA : Undocumented ROL + AND *
+ ********************************/
+ .macro BODY_RLA
+    push  ebx
+    mov  bl, byte ptr [ Rcpu+Srp]
+    bt  bx, 0                        # get FLAG_C into x86 carry flag
+    rcl  al
+    jc 1f
+	and  bl, 0xfe    # no carry from the rcl, so clear FLAG_C
+	jmp 2f
+1:
+	or  bl, 1        # set FLAG_C
+2:
+    mov [ Rcpu+Srp],  bl
+    pop  ebx
+	WRITEBYTED  al,  bx
+	and  Ra,  al                    # AND with A
+	SETZN  al
+.endm
+opasm_rla_zp:
+	START_ZP
+	BODY_RLA
+	RETURN ticks5
+opasm_rla_zp_x:
+	START_ZP_X
+	BODY_RLA
+	RETURN ticks5
+opasm_rla_abs:
+	START_ABS
+	BODY_RLA
+	RETURN ticks6
+opasm_rla_abs_x:
+	START_ABS_X
+	BODY_RLA
+	RETURN ticks6
+opasm_rla_abs_y:
+	START_ABS_Y
+	BODY_RLA
+	RETURN ticks6
+opasm_rla_indzx:
+	START_INDZX
+	READBYTE  ax
+	BODY_RLA
+	RETURN ticks7
+opasm_rla_indzy:
+	START_INDZY
+	BODY_RLA
+	RETURN ticks7
+
+
+/*******
+ * ROL *
+ *******/
+ .macro BODY_ROL reg
+    push  ebx
+    mov  bl, byte ptr [ Rcpu+Srp]
+    bt  bx, 0                        # get FLAG_C into x86 carry flag
+    rcl \reg
+    jc 1f
+	and  bl, 0xfe                   # no carry from the rcl, so clear FLAG_C
+	jmp 2f
+1:
+	or  bl, 1        # set FLAG_C
+2:
+    mov [ Rcpu+Srp],  bl
+    pop  ebx
+	SETZN \reg
+.endm
+
+// 0x2A: ROL A
+opasm_rol_a:
+	BODY_ROL  Ra
+	RETURN ticks2
+
+// 0x26: ROL zp
+opasm_rol_zp:
+	START_ZP
+	BODY_ROL  al
+	WRITEBYTED  al,  bx
+	RETURN ticks3
+
+// 0x36: ROL zp,x
+opasm_rol_zp_x:
+	START_ZP_X
+	BODY_ROL  al
+	WRITEBYTED  al,  bx
+	RETURN ticks5
+
+// 0x2E: ROL abs
+opasm_rol_abs:
+	START_ABS
+	BODY_ROL  al
+	WRITEBYTE  al,  bx
+	RETURN ticks6
+
+// 0x3E: ROL abs,x
+opasm_rol_abs_x:
+	START_ABS_X
+	BODY_ROL  al
+	WRITEBYTE  al,  bx
+	RETURN ticks6
+
+
+/*******
+ * ROR *
+ *******/
+ .macro BODY_ROR reg
+    push  ebx
+    mov  bl, byte ptr [ Rcpu+Srp]
+    bt  bx, 0                        # get FLAG_C into x86 carry flag
+    rcr \reg
+    jc 1f
+	and  bl, 0xfe                   # no carry, so clear FLAG_C
+	jmp 2f
+1:
+	or  bl, 1        # set FLAG_C
+2:
+    mov [ Rcpu+Srp],  bl
+    pop  ebx
+	SETZN \reg
+.endm
+
+// 0x6A: ROR A
+opasm_ror_a:
+	BODY_ROR  Ra
+	RETURN ticks2
+
+// 0x66: ROR zp
+opasm_ror_zp:
+	START_ZP
+	BODY_ROR  al
+	WRITEBYTED  al,  bx
+	RETURN ticks5
+
+// 0x76: ROR zp,x
+opasm_ror_zp_x:
+	START_ZP_X
+	BODY_ROR  al
+	WRITEBYTED  al,  bx
+	RETURN ticks5
+
+// 0x6E: ROR abs
+opasm_ror_abs:
+	START_ABS
+	BODY_ROR  al
+	WRITEBYTE  al,  bx
+	RETURN ticks6
+
+// 0x7E: ROR abs,x
+opasm_ror_abs_x:
+	START_ABS_X
+	BODY_ROR  al
+	WRITEBYTE  al,  bx
+	RETURN ticks7
+
+
+/*******
+ * RRA *
+ *******/
+
+.macro BODY_RRA
+    push  ebx
+    mov  bl, byte ptr [ Rcpu+Srp]
+    bt  bx, 0                        # get FLAG_C into x86 carry flag
+    rcr  al
+    jc 1f
+	and  bl, 0xfe    # no carry, so clear FLAG_C
+	jmp 2f
+1:
+	or  bl, 1        # set FLAG_C
+2:
+    mov [ Rcpu+Srp],  bl
+    pop  ebx
+	WRITEBYTED  al,  bx
+	BODY_ADC
+.endm
+
+
+// 0x67: RRA zp			undocumented
+opasm_rra_zp:
+	START_ZP
+	BODY_RRA
+	RETURN ticks5
+
+// 0x77: RRA zp,x		undocumented
+opasm_rra_zp_x:
+	START_ZP_X
+	BODY_RRA
+	RETURN ticks5
+
+// 0x6F: RRA abs		undocumented
+opasm_rra_abs:
+	START_ABS
+	BODY_RRA
+	RETURN ticks6
+
+// 0x7B: RRA abs,y		undocumented
+opasm_rra_abs_y:
+	START_ABS_Y
+	BODY_RRA
+	RETURN ticks6
+
+// 0x7F: RRA abs,x		undocumented
+opasm_rra_abs_x:
+	START_ABS_X
+	BODY_RRA
+	RETURN ticks6
+
+// 0x63: RRA (,x)		undocumented
+opasm_rra_indzx:
+	START_INDZX
+	READBYTE  ax
+	BODY_RRA
+	RETURN ticks7
+
+// 0x73: RRA (),y		undocumented
+opasm_rra_indzy:
+	START_INDZY
+	BODY_RRA
+	RETURN ticks7
+
+/*******
+ * RTI *
+ *******/
+
+// 0x40: RTI
+opasm_rti:
+	PULLBYTE			    # uint8_t temp=pull();
+	and  al, 0xcf 		    # cpu->p=temp & ~0x30;
+	mov [ Rcpu+Srp],  al
+	PULLWORD  Rpc			# cpu->pc=pull(); cpu->pc|=(pull()<<8);
+	RETURN ticks6
+
+
+/*******
+ * RTS *
+ *******/
+
+// 0x60: RTS
+opasm_rts:
+	PULLWORD  Rpc			# cpu->pc=pull(); cpu->pc|=(pull()<<8);
+	inc  Rpc				    # cpu->pc++;
+	RETURN ticks6
+
+
+
+/*******
+ * SBC *
+ *******/
+
+.macro BODY_SBC
+    push  ebx               # if (cpu->p & FLAG_D) do BCD arithmetic in a C function
+    movzx  ebx, byte ptr [ Rcpu+Srp]
+	bt  bx,3
+	jc 3f
+	mov  ah,  Ra
+    bt  bx, 0               # get FLAG_C into x86 carry flag
+    cmc
+    sbb  Ra,  al            # x86 SBB  works similarly to 6502 SBC
+    cmc
+//    LOG esp
+	pushf
+//    LOG esp
+	and  bl, 0xBE           # clear C and V
+	xor  ah,  Ra
+	bt  ax, 15
+    jnc 2f
+	or  bx, 0x40           # set V
+2:
+//    LOG esp
+	pop  ax # eax was too wide for pushf
+//    LOG esp
+	bt  ax,0
+	jnc 1f
+	or  bl,1                # set C
+1:
+    mov byte ptr [ Rcpu+Srp],  bl
+	SETZN  Ra				# setzn(cpu->a);
+	jmp 4f
+3:
+	mov [ Rcpu+Sra],  Ra	    # update A
+	C_CALL_PRE
+	push  eax
+	push  Rcpu
+	//NOT-PIC call sbc_bcd_C
+		mov eax, [Rcpu+Ssbc_bcd_C] // sbc_bcd_C
+    	call eax  // sbc_bcd_C
+
+	add  esp, 8
+	C_CALL_POST
+	mov  Ra,  [ Rcpu+Sra]     # update A
+4:
+    pop  ebx
+.endm
+
+// 0xE9: SBC imm
+// 0xEB: SBC imm
+opasm_sbc_imm:
+//LOG esp  // pushf was too narrow for pop eax
+	READBYTE_PC     		# register uint8_t temp=readmem(cpu->pc); cpu->pc++;
+//LOG esp
+	BODY_SBC
+//LOG esp
+	RETURN ticks2
+
+// 0xE5: SBC zp
+opasm_sbc_zp:
+	START_ZP				# r0=zp address, r1=byte from zp address
+	BODY_SBC
+	RETURN ticks3
+
+// 0xF5: SBC zp,x
+opasm_sbc_zp_x:
+	START_ZP_X
+	BODY_SBC
+	RETURN ticks3
+
+// 0xED: SBC abs
+opasm_sbc_abs:
+	START_ABS
+	BODY_SBC
+	RETURN ticks4
+
+// 0xF9: SBC abs,y
+opasm_sbc_abs_y:
+	START_ABS_Y
+	BODY_SBC
+	RETURN ticks4
+
+// 0xFD: SBC abs,x
+opasm_sbc_abs_x:
+	START_ABS_X
+	BODY_SBC
+	RETURN ticks4
+
+// 0xE1: SBC (,x)
+opasm_sbc_indzx:
+	START_INDZX
+	READBYTE  ax
+	BODY_SBC
+	RETURN ticks6
+
+// 0xF1: SBC (),y
+opasm_sbc_indzy:
+	START_INDZY
+	BODY_SBC
+	RETURN ticks5
+
+
+/*******************
+ * SEC / SED / SEI *
+ *******************/
+
+opasm_sec:
+	or byte ptr [ Rcpu+Srp], 1	# cpu->p |= FLAG_C;
+	RETURN ticks2
+opasm_sed:
+	or byte ptr [ Rcpu+Srp], 8	# cpu->p |= FLAG_D;
+	RETURN ticks2
+opasm_sei:
+	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
+	or byte ptr [ Rcpu+Srp], 4			# cpu->p |= FLAG_I;
+	RETURN -ticks2  # ARM returns -2 to show interrupt taken
+
+
+/**************************************
+ * SLO - Undocumented Shift Left & Or *
+ **************************************/
+
+.macro BODY_SLO
+	shl  al				    # temp<<=1;
+	WRITEBYTE  al,  bx		# writemem(addr,temp);
+	or  Ra,  al		        # cpu->a|=temp;
+	SETZN  Ra				# setzn(cpu->a);
+.endm
+opasm_slo_zp:
+	START_ZP
+	BODY_SLO
+	RETURN ticks5
+opasm_slo_zp_x:
+	START_ZP_X
+	BODY_SLO
+	RETURN ticks5
+opasm_slo_abs:
+	START_ABS
+	BODY_SLO
+	RETURN ticks4
+opasm_slo_abs_y:
+	START_ABS_Y
+	BODY_SLO
+	RETURN ticks6
+opasm_slo_abs_x:
+	START_ABS_X
+	BODY_SLO
+	RETURN ticks6
+opasm_slo_indzx:
+	START_INDZX
+	READBYTE  ax
+	BODY_SLO
+	RETURN ticks7
+opasm_slo_indzy:
+	START_INDZY
+	BODY_SLO
+	RETURN ticks7
+
+
+/*******************
+ * STA / STX / STY *
+ *******************/
+
+// 0x8C: STY abs
+opasm_sty_abs:
+	READWORD_PC			    # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+	WRITEBYTE  Ry,  ax		# writemem(addr, cpu->y);
+	RETURN ticks4
+
+// 0x85: STA zp
+// 0x84: STY zp
+// 0x86: STX zp
+.macro STORE_ZP reg8
+	READBYTE_PC			        # uint16_t addr=readmem(cpu->pc); cpu->pc++;
+	WRITEBYTE \reg8,  ax		# writemem(addr,cpu->a);
+	RETURN ticks3
+.endm
+opasm_sta_zp:
+	STORE_ZP  Ra
+opasm_stx_zp:
+	STORE_ZP  Rx
+opasm_sty_zp:
+	STORE_ZP  Ry
+
+
+// 0x95: STA zp,x
+// 0x96: STX zp,y
+// 0x94: STY zp,x
+.macro STORE_ZPO val, offset
+	READBYTE_PC 			# uint16_t addr=readmem(cpu->pc); cpu->pc++;
+	add  al, \offset        # addr += cpu->x
+	WRITEBYTE \val,  ax   	# writemem(addr, a);
+	RETURN ticks4
+.endm
+opasm_sta_zp_x:
+	STORE_ZPO  Ra,  Rx
+opasm_stx_zp_y:
+	STORE_ZPO  Rx,  Ry
+opasm_sty_zp_x:
+	STORE_ZPO  Ry,  Rx
+
+// 0x8D: STA abs
+opasm_sta_abs:
+	READWORD_PC			    # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+	WRITEBYTE  Ra,  ax		# writemem(addr, cpu->a);
+	RETURN ticks4
+
+// 0x8E: STX abs
+opasm_stx_abs:
+   // LOG esp // stx
+	READWORD_PC;
+//	LOG esp // stx
+	WRITEBYTE  Rx,  ax
+//	LOG esp // stx
+	RETURN ticks4
+
+// 0x99: STA abs,y
+opasm_sta_abs_y:
+	READWORD_PC             # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+	add  al,  Ry			# addr += cpu->y;
+	adc  ah, 0
+	WRITEBYTE  Ra,  ax		# writemem(addr, cpu->a);
+	RETURN ticks5
+
+// 0x9D: STA abs,x
+opasm_sta_abs_x:
+	READWORD_PC             # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+	add  al,  Rx			# addr += cpu->x;
+	adc  ah, 0
+	WRITEBYTE  Ra,  ax		# writemem(addr, cpu->a);
+	RETURN ticks5
+
+// 0x81: STA (,x)
+opasm_sta_indzx:
+	START_INDZX
+	WRITEBYTE  Ra,  ax
+	RETURN ticks6
+
+// 0x91: STA (),y
+opasm_sta_indzy:
+	READBYTE_PC             # register uint8_t temp=readmem(cpu->pc); cpu->pc++;
+	READWORD  ax 		    # register uint16_t addr=readword(temp);
+	add  al,  Ry		    # addr += y
+	adc  ah, 0
+	WRITEBYTE  Ra,  ax		# writemem(addr, cpu->a);
+	RETURN ticks5
+
+
+/*************************************
+ * TAX / TAY / TSX / TXA / TXS / TYA *
+ *************************************/
+
+// 0xAA: TAX
+opasm_tax:
+	mov  Rx,  Ra			# cpu->x = cpu->a;
+	SETZN  Rx				# setzn(cpu->x);
+	RETURN ticks2
+
+// 0xA8: TAY
+opasm_tay:
+	mov  Ry,  Ra			# cpu->y=cpu->a;
+	SETZN  Ry				# setzn(cpu->y);
+	RETURN ticks2
+
+// 0xBA: TSX
+opasm_tsx:
+	mov  Rx,  Rs			# cpu->x=cpu->s;
+	SETZN  Rx				# setzn(cpu->x);
+	RETURN ticks2
+
+// 0x8A: TXA
+opasm_txa:
+	mov  Ra,  Rx			# cpu->a=cpu->x;
+	SETZN  Ra				# setzn(cpu->a);
+	RETURN ticks2
+
+// 0x9A: TXS
+opasm_txs:
+	mov  Rs,  Rx			# cpu->s=cpu->x;
+	RETURN ticks2
+
+// 0x98: TYA
+opasm_tya:
+	mov  Ra,  Ry			# cpu->a=cpu->y;
+	SETZN  Ra				# setzn(cpu->a);
+	RETURN ticks2
+
+
+/********************
+ * Undefined Opcode *
+ ********************/
+opasm_undef:
+	C_CALL_PRE
+	push  Rcpu
+	//NOT-PIC call log_undef_opcode_C
+	mov eax, [Rcpu+Slog_undef_opcode_C] // log_undef_opcode_C
+	call eax  // log_undef_opcode
+	add  esp, 4
+	C_CALL_POST
+	dec  Rpc                  # cpu->pc--;      	// PC never moves on
+    mov dword ptr [ Rcpu+Stakeint], 0		# cpu->takeint=0; 	// Interrupts never occur
+    mov dword ptr [ Rcpu+Snmi], 0		# cpu->nmi=0;  		// NMIs never occur
+    RETURN 65536			# return 100000; 	// Actually lasts forever, but the above code keeps executing HLT forever
+
+
+
+// .section .rodata
+.balign 4
+
+fns_asm:
+	.long 0 				// 0x00 BRK
+	.long 0 - fns_asm + opasm_ora_indzx 	// 0x01 ORA (,x)
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_slo_indzx   // 0x03: SLO (,x)		undocumented
+	.long 0 - fns_asm + opasm_nop_zp  	// 0x04: NOP zp			undocumented
+	.long 0 - fns_asm + opasm_ora_zp		// 0x05: ORA zp
+	.long 0 - fns_asm + opasm_asl_zp		// 0x06: ASL zp
+	.long 0 - fns_asm + opasm_slo_zp  	// 0x07: SLO zp			undocumented
+	.long 0 - fns_asm + opasm_php     	// 0x08: PHP
+	.long 0 - fns_asm + opasm_ora_imm 	// 0x09: ORA imm
+	.long 0 - fns_asm + opasm_asl_a   	// 0x0A: ASL A
+	.long 0 				// 0x0B: ANC imm		undocumented
+	.long 0 - fns_asm + opasm_nop_abs 	// 0x0C: NOP abs		undocumented
+	.long 0 - fns_asm + opasm_ora_abs 	// 0x0D: ORA abs
+	.long 0 - fns_asm + opasm_asl_abs		// 0x0E: ASL abs
+	.long 0 - fns_asm + opasm_slo_abs 	// 0x0F: SLO abs		undocumented
+	.long 0 - fns_asm + opasm_bpl 		// 0x10: BPL
+	.long 0 - fns_asm + opasm_ora_indzy  	// 0x11: ORA (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_slo_indzy   // 0x13: SLO (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x14: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_ora_zp_x	// 0x15: ORA zp,x
+	.long 0 - fns_asm + opasm_asl_zp_x	// 0x16: ASL zp,x
+	.long 0 - fns_asm + opasm_slo_zp_x	// 0x17: SLO zp,x		undocumented
+	.long 0 - fns_asm + opasm_clc 		// 0x18: CLC
+	.long 0 - fns_asm + opasm_ora_abs_y	// 0x19: ORA abs,y
+	.long 0 - fns_asm + opasm_nop     	// 0x1A: NOP			undocumented
+	.long 0 - fns_asm + opasm_slo_abs_y	// 0x1B: SLO abs,y		undocumented
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0x1C: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_ora_abs_x	// 0x1D: ORA abs,x
+	.long 0 - fns_asm + opasm_asl_abs_x	// 0x1E: ASL abs,x
+	.long 0 - fns_asm + opasm_slo_abs_x	// 0x1F: SLO abs,x		undocumented
+	.long 0 - fns_asm + opasm_jsr     	// 0x20: JSR
+	.long 0 - fns_asm + opasm_and_indzx   // 0x21: AND (,x)
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rla_indzx	// 0x23: RLA (,x)		undocumented
+	.long 0 - fns_asm + opasm_bit_zp		// 0x24: BIT zp
+	.long 0 - fns_asm + opasm_and_zp		// 0x25: AND zp
+	.long 0 - fns_asm + opasm_rol_zp  	// 0x26: ROL zp
+	.long 0 - fns_asm + opasm_rla_zp  	// 0x27: RLA zp			undocumented
+	.long 0 - fns_asm + opasm_plp     	// 0x28: PLP
+	.long 0 - fns_asm + opasm_and_imm		// 0x29: AND
+	.long 0 - fns_asm + opasm_rol_a   	// 0x2A: ROL A
+	.long 0 				// 0x2B: ANC imm		undocumented
+	.long 0 - fns_asm + opasm_bit_abs		// 0x2C: BIT abs
+	.long 0 - fns_asm + opasm_and_abs		// 0x2D: AND abs
+	.long 0 - fns_asm + opasm_rol_abs		// 0x2E: ROL abs
+	.long 0 - fns_asm + opasm_rla_abs 	// 0x2F: RLA abs		undocumented
+	.long 0 - fns_asm + opasm_bmi 		// 0x30: BMI
+	.long 0 - fns_asm + opasm_and_indzy   // 0x31: AND (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rla_indzy   // 0x33: RLA (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x34: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_and_zp_x	// 0x35: AND zp,x
+	.long 0 - fns_asm + opasm_rol_zp_x	// 0x36: ROL zp,x
+	.long 0 - fns_asm + opasm_rla_zp_x	// 0x37: RLA zp,x		undocumented
+	.long 0 - fns_asm + opasm_sec 		// 0x38: SEC
+	.long 0 - fns_asm + opasm_and_abs_y	// 0x39: AND abs,y
+	.long 0 - fns_asm + opasm_nop	    	// 0x3A: NOP			undocumented
+	.long 0 - fns_asm + opasm_rla_abs_y	// 0x3B: RLA abs,y		undocumented
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0x3C: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_and_abs_x	// 0x3D: AND abs,x
+	.long 0 - fns_asm + opasm_rol_abs_x	// 0x3E: ROL abs,x
+	.long 0 - fns_asm + opasm_rla_abs_x	// 0x3F: RLA abs,x		undocumented
+	.long 0 - fns_asm + opasm_rti			// 0x40: RTI
+	.long 0 - fns_asm + opasm_eor_indzx	// 0x41: EOR (,x)
+	.long 0 - fns_asm + opasm_undef
+	.long 0   				// 0x43: SRE (,x)		undocumented
+	.long 0 - fns_asm + opasm_nop_zp  	// 0x44: NOP zp
+	.long 0 - fns_asm + opasm_eor_zp  	// 0x45: EOR zp
+	.long 0 - fns_asm + opasm_lsr_zp  	// 0x46: LSR zp
+	.long 0  				// 0x47: SRE zp			undocumented
+	.long 0 - fns_asm + opasm_pha     	// 0x48: PHA
+	.long 0 - fns_asm + opasm_eor_imm 	// 0x49: EOR imm
+	.long 0 - fns_asm + opasm_lsr_a   	// 0x4A: LSR A
+	.long 0 				// 0x4B: ASR imm		undocumented
+	.long 0 - fns_asm + opasm_jmp			// 0x4C: JMP
+	.long 0 - fns_asm + opasm_eor_abs		// 0x4D: EOR abs
+	.long 0 - fns_asm + opasm_lsr_abs		// 0x4E: LSR abs
+	.long 0 				// 0x4F: SRE abs		undocumented
+	.long 0 - fns_asm + opasm_bvc 		// 0x50: BVC
+	.long 0 - fns_asm + opasm_eor_indzy	// 0x51: EOR (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0   				// 0x53: SRE (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x54: NOP zp,x
+	.long 0 - fns_asm + opasm_eor_zp_x	// 0x55: EOR zp,x
+	.long 0 - fns_asm + opasm_lsr_zp_x	// 0x56: LSR zp,x
+	.long 0					// 0x57: SRE zp,x		undocumented
+	.long 0 - fns_asm + opasm_cli     	// 0x58: CLI
+	.long 0 - fns_asm + opasm_eor_abs_y	// 0x59: EOR abs,y
+	.long 0 - fns_asm + opasm_nop 		// 0x5A: NOP			undocumented
+	.long 0					// 0x5B: SRE abs,y		undocumented
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0x5C: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_eor_abs_x	// 0x5D: EOR abs,x
+	.long 0 - fns_asm + opasm_lsr_abs_x	// 0x5E: LSR abs,x
+	.long 0					// 0x5F: SRE abs,x		undocumented
+	.long 0 - fns_asm + opasm_rts 		// 0x60: RTS
+	.long 0 - fns_asm + opasm_adc_indzx   // 0x61: ADC (,x)
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rra_indzx   // 0x63: RRA (,x)		undocumented
+	.long 0 - fns_asm + opasm_nop_zp  	// 0x64: NOP zp			undocumented
+	.long 0 - fns_asm + opasm_adc_zp  	// 0x65: ADC zp
+	.long 0 - fns_asm + opasm_ror_zp		// 0x66: ROR zp
+	.long 0 - fns_asm + opasm_rra_zp  	// 0x67: RRA zp			undocumented
+	.long 0 - fns_asm + opasm_pla    		// 0x68: PLA
+	.long 0 - fns_asm + opasm_adc_imm 	// 0x69: ADC imm
+	.long 0 - fns_asm + opasm_ror_a   	// 0x6A: ROR A
+	.long 0     			// 0x6B: ARR			undocumented
+	.long 0 - fns_asm + opasm_jmp_ind		// 0x6C: JMP ()
+	.long 0 - fns_asm + opasm_adc_abs 	// 0x6D: ADC abs
+	.long 0 - fns_asm + opasm_ror_abs 	// 0x6E: ROR abs
+	.long 0 - fns_asm + opasm_rra_abs 	// 0x6F: RRA abs		undocumented
+	.long 0 - fns_asm + opasm_bvs     	// 0x70: BVS
+	.long 0 - fns_asm + opasm_adc_indzy   // 0x71: ADC (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_rra_indzy  	// 0x73: RRA (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0x74: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_adc_zp_x 	// 0x75: ADC zp,x
+	.long 0 - fns_asm + opasm_ror_zp_x	// 0x76: ROR zp,x
+	.long 0 - fns_asm + opasm_rra_zp_x	// 0x77: RRA zp,x		undocumented
+	.long 0 - fns_asm + opasm_sei     	// 0x78: SEI
+	.long 0 - fns_asm + opasm_adc_abs_y	// 0x79: ADC abs,y
+	.long 0 - fns_asm + opasm_nop			// 0x7A: NOP			undocumented
+	.long 0 - fns_asm + opasm_rra_abs_y	// 0x7B: RRA abs,y		undocumented
+	.long 0 - fns_asm + opasm_undef
+	.long 0 - fns_asm + opasm_adc_abs_x	// 0x7D: ADC abs,x
+	.long 0 - fns_asm + opasm_ror_abs_x	// 0x7E: ROR abs,x
+	.long 0 - fns_asm + opasm_rra_abs_x	// 0x7F: RRA abs,x		undocumented
+	.long 0 - fns_asm + opasm_nop_imm  	// 0x80: NOP imm		undocumented
+	.long 0 - fns_asm + opasm_sta_indzx	// 0x81: STA (,x)
+	.long 0 - fns_asm + opasm_nop_imm 	// 0x82: NOP imm		undocumented
+	.long 0   				// 0x83: SAX (,x)		undocumented
+	.long 0 - fns_asm + opasm_sty_zp  	// 0x84: STY zp
+	.long 0 - fns_asm + opasm_sta_zp  	// 0x85: STA zp
+	.long 0 - fns_asm + opasm_stx_zp  	// 0x86: STX zp
+	.long 0  				// 0x87: SAX zp			undocumented
+	.long 0 - fns_asm + opasm_dey     	// 0x88: DEY
+	.long 0 - fns_asm + opasm_nop_imm 	// 0x89: NOP imm		undocumented
+	.long 0 - fns_asm + opasm_txa     	// 0x8A: TXA
+	.long 0     			// 0x8B: ANE			undocumented
+	.long 0 - fns_asm + opasm_sty_abs 	// 0x8C: STY abs
+	.long 0 - fns_asm + opasm_sta_abs 	// 0x8D: STA abs
+	.long 0 - fns_asm + opasm_stx_abs 	// 0x8E: STX abs
+	.long 0 				// 0x8F: SAX abs		undocumented
+	.long 0 - fns_asm + opasm_bcc     	// 0x90: BCC
+	.long 0 - fns_asm + opasm_sta_indzy	// 0x91: STA (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0   				// 0x93: SHA (),y		undocumented
+	.long 0 - fns_asm + opasm_sty_zp_x	// 0x94: STY zp,x
+	.long 0 - fns_asm + opasm_sta_zp_x	// 0x95: STA zp,x
+	.long 0 - fns_asm + opasm_stx_zp_y	// 0x96: STX zp,y
+	.long 0					// 0x97: SAX zp,y		undocumented
+	.long 0 - fns_asm + opasm_tya     	// 0x98: TYA
+	.long 0 - fns_asm + opasm_sta_abs_y	// 0x99: STA abs,y
+	.long 0 - fns_asm + opasm_txs     	// 0x9A: TXS
+	.long 0					// 0x9B: SHS abs,y		undocumented
+	.long 0					// 0x9C: SHY abs,x		undocumented
+	.long 0 - fns_asm + opasm_sta_abs_x	// 0x9D: STA abs,x
+	.long 0					// 0x9E: SHX abs,y		undocumented
+	.long 0					// 0x9F: SHA abs,y		undocumented
+	.long 0 - fns_asm + opasm_ldy_imm 	// 0xA0: LDY imm
+	.long 0 - fns_asm + opasm_lda_indzx   // 0xA1: LDA (,x)
+	.long 0 - fns_asm + opasm_ldx_imm 	// 0xA2: LDX imm
+	.long 0   				// 0xA3: LAX (,y)		undocumented
+	.long 0 - fns_asm + opasm_ldy_zp  	// 0xA4: LDY zp
+	.long 0 - fns_asm + opasm_lda_zp  	// 0xA5: LDA zp
+	.long 0 - fns_asm + opasm_ldx_zp		// 0xA6: LDX zp
+	.long 0  				// 0xA7: LAX zp			undocumented
+	.long 0 - fns_asm + opasm_tay     	// 0xA8: TAY
+	.long 0 - fns_asm + opasm_lda_imm 	// 0xA9: LDA imm
+	.long 0 - fns_asm + opasm_tax     	// 0xAA: TAX
+	.long 0     			// 0xAB: LAX			undocumented
+	.long 0 - fns_asm + opasm_ldy_abs 	// 0xAC: LDY abs
+	.long 0 - fns_asm + opasm_lda_abs 	// 0xAD: LDA abs
+	.long 0 - fns_asm + opasm_ldx_abs 	// 0xAE: LDX abs
+	.long 0 				// 0xAF: LAX abs
+	.long 0 - fns_asm + opasm_bcs     	// 0xB0: BCS
+	.long 0 - fns_asm + opasm_lda_y   	// 0xB1: LDA (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0  				// 0xB3: LAX (),y
+	.long 0 - fns_asm + opasm_ldy_zp_x	// 0xB4: LDY zp,x
+	.long 0 - fns_asm + opasm_lda_zp_x	// 0xB5: LDA zp,x
+	.long 0 - fns_asm + opasm_ldx_zp_y	// 0xB6: LDX zp,y
+	.long 0 - fns_asm + opasm_lax_zp_y	// 0xB7: LAX zp,y
+	.long 0 - fns_asm + opasm_clv     	// 0xB8: CLV
+	.long 0 - fns_asm + opasm_lda_abs_y	// 0xB9: LDA abs,y
+	.long 0 - fns_asm + opasm_tsx     	// 0xBA: TSX
+	.long 0					// 0xBB: LAS abs,y		undocumented
+	.long 0 - fns_asm + opasm_ldy_abs_x	// 0xBC: LDY abs,x
+	.long 0 - fns_asm + opasm_lda_abs_x	// 0xBD: LDA abs,x
+	.long 0 - fns_asm + opasm_ldx_abs_y	// 0xBE: LDX abs,y
+	.long 0					// 0xBF: LAX abs,y
+	.long 0 - fns_asm + opasm_cpy_imm 	// 0xC0: CPY imm
+	.long 0 - fns_asm + opasm_cmp_indzx	// 0xC1: CMP (,x)
+	.long 0 - fns_asm + opasm_nop_imm 	// 0xC2: NOP imm		undocumented
+	.long 0					// 0xC3: DCP (,x)		undocumented
+	.long 0 - fns_asm + opasm_cpy_zp  	// 0xC4: CPY zp
+	.long 0 - fns_asm + opasm_cmp_zp		// 0xC5: CMP zp
+	.long 0 - fns_asm + opasm_dec_zp  	// 0xC6: DEC zp
+	.long 0  				// 0xC7: DCP zp			undocumented
+	.long 0 - fns_asm + opasm_iny     	// 0xC8: INY
+	.long 0 - fns_asm + opasm_cmp_imm 	// 0xC9: CMP imm
+	.long 0 - fns_asm + opasm_dex     	// 0xCA: DEX
+	.long 0 				// 0xCB: SBX imm		undocumented
+	.long 0 - fns_asm + opasm_cpy_abs		// 0xCC: CPY abs
+	.long 0 - fns_asm + opasm_cmp_abs		// 0xCD: CMP abs
+	.long 0 - fns_asm + opasm_dec_abs		// 0xCE: DEC abs
+	.long 0 				// 0xCF: DCP abs		undocumented
+	.long 0 - fns_asm + opasm_bne     	// 0xD0: BNE
+	.long 0 - fns_asm + opasm_cmp_indzy	// 0xD1: CMP (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0					// 0xD3: DCP (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x	// 0xD4: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_cmp_zp_x	// 0xD5: CMP zp,x
+	.long 0 - fns_asm + opasm_dec_zp_x	// 0xD6: DEC zp,x
+	.long 0					// 0xD7: DCP zp,x		undocumented
+	.long 0 - fns_asm + opasm_cld     	// 0xD8: CLD
+	.long 0 - fns_asm + opasm_cmp_abs_y	// 0xD9: CMP abs,y
+	.long 0 - fns_asm + opasm_nop     	// 0xDA: NOP			undocumented
+	.long 0					// 0xDB: DCP abs,y		undocumented
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0xDC: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_cmp_abs_x	// 0xDD: CMP abs,x
+	.long 0 - fns_asm + opasm_dec_abs_x	// 0xDE: DEC abs,x
+	.long 0					// 0xDF: DCP abs,x		undocumented
+	.long 0 - fns_asm + opasm_cpx_imm 	// 0xE0: CPX imm
+	.long 0 - fns_asm + opasm_sbc_indzx	// 0xE1: SBC (,x)
+	.long 0 - fns_asm + opasm_nop_imm 	// 0xE2: NOP imm		undocumented
+	.long 0					// 0xE3: ISB (,x)		undocumented
+	.long 0 - fns_asm + opasm_cpx_zp  	// 0xE4: CPX zp
+	.long 0 - fns_asm + opasm_sbc_zp  	// 0xE5: SBC zp
+	.long 0 - fns_asm + opasm_inc_zp  	// 0xE6: INC zp
+	.long 0  				// 0xE7: ISB zp			undocumented
+	.long 0 - fns_asm + opasm_inx     	// 0xE8: INX
+	.long 0 - fns_asm + opasm_sbc_imm 	// 0xE9: SBC imm
+	.long 0 - fns_asm + opasm_nop     	// 0xEA: NOP
+	.long 0 - fns_asm + opasm_sbc_imm 	// 0xEB: SBC imm		undocumented
+	.long 0 - fns_asm + opasm_cpx_abs		// 0xEC: CPX abs
+	.long 0 - fns_asm + opasm_sbc_abs 	// 0xED: SBC abs
+	.long 0 - fns_asm + opasm_inc_abs 	// 0xEE: INC abs
+	.long 0 				// 0xEF: ISB abs		undocumented
+	.long 0 - fns_asm + opasm_beq    		// 0xF0: BEQ
+	.long 0 - fns_asm + opasm_sbc_indzy	// 0xF1: SBC (),y
+	.long 0 - fns_asm + opasm_undef
+	.long 0					// 0xF3: ISB (),y		undocumented
+	.long 0 - fns_asm + opasm_nop_zp_x 	// 0xF4: NOP zp,x		undocumented
+	.long 0 - fns_asm + opasm_sbc_zp_x	// 0xF5: SBC zp,x
+	.long 0 - fns_asm + opasm_inc_zp_x	// 0xF6: INC zp,x
+	.long 0					// 0xF7: ISB zp,x		undocumented
+	.long 0 - fns_asm + opasm_sed     	// 0xF8: SED
+	.long 0 - fns_asm + opasm_sbc_abs_y	// 0xF9: SBC abs,y
+	.long 0 - fns_asm + opasm_nop     	// 0xFA: NOP			undocumented
+	.long 0					// 0xFB: ISB abs,y		undocumented
+	.long 0 - fns_asm + opasm_nop_abs_x	// 0xFC: NOP abs,x		undocumented
+	.long 0 - fns_asm + opasm_sbc_abs_x	// 0xFD: SBC abs,x
+	.long 0 - fns_asm + opasm_inc_abs_x	// 0xFE: INC abs,x
+	.long 0					// 0xFF: ISB abs,x		undocumented
+
