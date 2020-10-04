@@ -88,35 +88,35 @@
 
 
 .macro pusha
-    push rax
     push rcx
     push rdx
     push rbx
     push rbp
     push rsi
     push rdi
+    push rax
 .endm # pushaq
 
 .macro popa
+    pop rax
     pop rdi
     pop rsi
     pop rbp
     pop rbx
     pop rdx
     pop rcx
-    pop rax
 .endm # popaq
 
 .macro C_CALL_PRE
-	push  rcx
-	push  rdx
-	//pusha
+//	push  rcx
+//	push  rdx
+	pusha
 .endm
 
 .macro C_CALL_POST
-	pop  rdx
-	pop  rcx
-	//popa
+//	pop  rdx
+//	pop  rcx
+	popa
 .endm
 
 .macro LOG_CPU
@@ -142,19 +142,23 @@
 
 .macro LOG4 arg1 arg2 arg3 arg4
     pusha
-	mov rdi, \arg1
-	mov rsi, \arg2
-	mov rdx, \arg3
-	mov rcx, \arg4
+    push \arg1
+    push \arg2
+    push \arg3
+    push \arg4
+    pop rcx
+    pop rdx
+    pop rsi
+    pop rdi
 	push rdi
-	mov rax, [Rcpu + Slog_asm_C] // log_asm
-	call rax
+	mov Rcpu, [Rcpu + Slog_asm_C] // log_asm
+	call Rcpu
 	add  rsp,8
 	popa
 .endm
 
 .macro LOG arg
-    LOG4 \arg \arg \arg \arg
+    LOG4 \arg \arg \arg rRpc
 .endm
 
 .macro PUSH_BYTE reg8
