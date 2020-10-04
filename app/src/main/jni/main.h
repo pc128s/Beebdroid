@@ -182,6 +182,7 @@ extern void vblankint();
 extern void polladc();
 
 extern void* exec6502(M6502* cpu);
+extern void* opasm_lda_imm();
 extern void *fns_asm;
 
 void writesysvia(uint16_t addr, uint8_t val);

@@ -9,6 +9,7 @@
 
 .text
 .global exec6502
+.global opasm_lda_imm
 .global fns_asm
 .global acpu
 

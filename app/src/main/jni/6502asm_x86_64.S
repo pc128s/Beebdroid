@@ -9,6 +9,7 @@
 
 .text
 .global exec6502
+.global opasm_lda_imm
 .global fns_asm
 .global acpu
 
@@ -110,7 +111,7 @@
 .macro C_CALL_PRE
 //	push  rcx
 //	push  rdx
-	pusha
+	pusha // TODO: reign this back to fewer registers
 .endm
 
 .macro C_CALL_POST
@@ -241,7 +242,7 @@ loop:
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
 //   for i in  x86/6502_x86.*.log.x ; do echo $i; diff -wu $i arm/6502_arm.${i#*.} ; done|less
 
-    LOG 1
+//    LOG 1
 
 	# Get the opcode into eax and update cpu->PC
 	xor  rax, rax
@@ -255,29 +256,30 @@ pc_restrict:
 pc_in_range:
 	# Get the ASM function. If this doesnt exist, fall back to C version.
 	// NOT-PIC lea   ebx, fns_asm
-    LOG 2
-	mov rbx, [Rcpu + Sfns_asm ] // 44 = fns_asm
-	mov   rbx, [ rbx +  rax*4]
+//    LOG 2
+	mov rbx, [Rcpu + Sfns_asm ] // rbx = &fns_asm
+	movsxd   rbx, dword ptr [ rbx +  rax*4]  // rbx = fns_asm[op]
 //jmp  quit //update_cycles // done_call// quit
 
 	cmp   rbx, 0
 	jz  use_c_fn
 
 	# Call assembly function: ebx is (cop
-    LOG 3
+//    LOG4 3, rbx, Rcpu, rRpc
 //    push rax // preserve?
 //    mov eax, [Rcpu + Sfns_asm] // 44 = fns_asm
 //    add ebx, eax
 //    pop rax // preserve?
-    add rbx, [Rcpu + Sfns_asm] // 44 = fns_asm
+    add rbx, [Rcpu + Sfns_asm] // rbx = (-fns_asm + opasm_xxx) + &fns_asm
+//LOG4 0x31, rbx, Rcpu, rRpc
 // hohoho?
-//TEMP	call  rbx
+    call  rbx
 	jmp done_call
 
 	# Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
 use_c_fn:
 	// NOT-PIC lea   ebx, fns
-    LOG 4
+//    LOG 4
 	mov rbx, [Rcpu + Scfns] // 40=c_fns
 	mov   rbx, [ rbx +  rax*8]
     mov [ Rcpu+Spc],  Rpc 	#  di = PC
@@ -297,7 +299,7 @@ use_c_fn:
     mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
 
 done_call:
-    LOG 5   // It's quick to here!
+//    LOG 5   // It's quick to here!
 	bt   eax, 31   // sei cli return -2.
 	jc  already_updated_interrupts
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
@@ -356,7 +358,7 @@ no_interrupt:
 update_cycles:
 mov eax, 1
 	sub [ Rcpu+Scycles],  eax
-LOG 0x71
+//LOG 0x71
 	# Update intermediate cycle counter
 	C_CALL_PRE
 	push  rax
@@ -368,7 +370,7 @@ LOG 0x71
  //	call rax
  	add  rsp,16
  	C_CALL_POST
-LOG 0x93
+//LOG 0x93
 	mov  eax, [ Rcpu+Scycles]
 
 	# Loop back until cpu->cycles <=0
