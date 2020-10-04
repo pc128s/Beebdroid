@@ -27,14 +27,14 @@
 # r11 = P
 
 #define Rcpu  rbp   //  r4 = cpu*
-#define Rmem  rsi   //  r5 = mem
-#define Rpc   di   //  r6 = PC
-#define eRpc  edi   //  r6 = PC
-#define rRpc  rdi   //  r6 = PC
-#define Ra    cl   //  r7 = A
-#define Rx    dl   //  r8 = X
+#define Rmem  rsi   //  r5 = mem         <-- arg2 rsi
+#define Rpc   di   //  r6 = PC  2bytes   <-- arg1 rdi
+#define eRpc  edi   //  r6 = PC 4bytes
+#define rRpc  rdi   //  r6 = PC 8bytes
+#define Ra    cl   //  r7 = A            <-- arg4 rcx
+#define Rx    dl   //  r8 = X            <-- arg3 rdx
 #define Ry    dh   //  r9 = Y
-#define Rs    ch   // r10 = S
+#define Rs    ch   // r10 = S            <-- arg4 rcx
 //Rp   .req r11  @ r11 = P
 //Rcyc .req r12  @ r12 = cpu->cycles
 
@@ -70,21 +70,21 @@
 #define SpcTrig4 30 //	uint16_t pc_triggers[4]; //+30
 
 
-
+#define p 8
 #define Scfns    40 //	int (**c_fns)(M6502*); // +40 for c_fns table
-#define Smem     44 //  uint8_t* mem; // +40+ptr_len, formerly at 0
+#define Smem     (Scfns + p*1) //  uint8_t* mem; // +40+ptr_len, formerly at 0
 
 	// All the following are bodges for x86 because I don't understand the loader
-#define Sfns_asm      48 // void * fns_asm ; // +44 for fns_asm table
-#define Sdo_poll_C    52 // void * do_poll_C ; // +48 for do_poll_C
-#define Sreadmem_ex   56 // void * readmem_ex ; // +52 for readmem_ex
-#define Sreadword_ex  60 // void * readword_ex ; // +56 for readword_ex
-#define Swritemem_ex  64 // void * writemem_ex ; // +60 for writemem_ex
-#define Sadc_bcd_C    68 // void * adc_bcd_C ; // +64 for adc_bcd_C
-#define Ssbc_bcd_C    72 // void * sbc_bcd_C ; // +68 for sbc_bcd_C
-#define Slog_undef_opcode_C  76 // void * log_undef_opcode_C ; // +72 for log_undef_opcode_C
-#define Slog_cpu_C    80 // void * log_cpu_C ; // +76 for log_cpu_C
-#define Slog_asm_C    84 // void * log_asm_C ; // +80 for log_cpu_C
+#define Sfns_asm      (Scfns + p*2) // void * fns_asm ; // +44 for fns_asm table
+#define Sdo_poll_C    (Scfns + p*3) // void * do_poll_C ; // +48 for do_poll_C
+#define Sreadmem_ex   (Scfns + p*4) // void * readmem_ex ; // +52 for readmem_ex
+#define Sreadword_ex  (Scfns + p*5) // void * readword_ex ; // +56 for readword_ex
+#define Swritemem_ex  (Scfns + p*6) // void * writemem_ex ; // +60 for writemem_ex
+#define Sadc_bcd_C    (Scfns + p*7) // void * adc_bcd_C ; // +64 for adc_bcd_C
+#define Ssbc_bcd_C    (Scfns + p*8) // void * sbc_bcd_C ; // +68 for sbc_bcd_C
+#define Slog_undef_opcode_C  (Scfns + p*9) // void * log_undef_opcode_C ; // +72 for log_undef_opcode_C
+#define Slog_cpu_C    (Scfns + p*10) // void * log_cpu_C ; // +76 for log_cpu_C
+#define Slog_asm_C    (Scfns + p*11) // void * log_asm_C ; // +80 for log_cpu_C
 
 
 .macro pusha
@@ -126,11 +126,12 @@
     mov [ Rcpu+Sry],  Ry 	#  r9 = Y
     mov [ Rcpu+Srs],  Rs 	#  r10 = S
     pusha
-	push  Rcpu
+	push  Rcpu  //??!?!?!  Do we need to put arg1 on the stack any more?
+	mov rdi, Rcpu
 	// NOT-PIC call log_cpu_C
 	mov rax, [ Rcpu + Slog_cpu_C ]
 	call rax
-	add  esp,4
+	add  rsp,8
 	popa
     mov  Rpc,  [ Rcpu+Spc] 	#  di = r6  = PC
     mov  Ra,  [ Rcpu+Sra] 	#  cl = r7  = A
@@ -139,17 +140,22 @@
     mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
 .endm
 
-.macro LOG arg
+.macro LOG4 arg1 arg2 arg3 arg4
     pusha
-    mov  eax, \arg
-	push rax
+	mov rdi, \arg1
+	mov rsi, \arg2
+	mov rdx, \arg3
+	mov rcx, \arg4
+	push rdi
 	mov rax, [Rcpu + Slog_asm_C] // log_asm
 	call rax
-	add  esp,4
+	add  rsp,8
 	popa
 .endm
 
-
+.macro LOG arg
+    LOG4 \arg \arg \arg \arg
+.endm
 
 .macro PUSH_BYTE reg8
     movzx  ebx,  Rs
@@ -188,23 +194,24 @@
 .endm
 
 exec6502:
-//	mov eax, [esp + 4] //&acpu is first parameter - let's hope this works.
+//	mov eax, [rsp + 4] //&acpu is first parameter - let's hope this works.
 //	ret  // This returns &acpu
 
-//	mov eax, [esp + 4] //&acpu is first parameter - let's hope this works.
+//	mov eax, [rsp + 4] //&acpu is first parameter - let's hope this works.
 //	mov eax, [eax + 76] // acpu.log_cpu_C should be offset 76
 //	ret // This returns log_cpu_C
 
 	pusha
-
 	# Keep CPU* in EBP
+	// First six arguments are in rdi, rsi, rdx, rcx, r8d, r9d; remaining arguments are on the stack.
 	// NOT-PIC lea  Rcpu,acpu
-	//mov Rcpu, [esp] // acpu is first parameter - let's hope this works.
+	//mov Rcpu, [rsp] // acpu is first parameter - let's hope this works.
 
-    mov Rcpu, [esp + 4 + 32] // hopefully first param = acpu
+// mov [rsp + 4 + 32], Rcpu // hopefully first param = acpu
+    mov Rcpu, rdi  // <---- How about we just use rdi for Rcpu?
 
 //    mov eax, [Rcpu + Slog_cpu_C] // log-cpu-c again, hopefully
-//    mov [esp + 28], eax // return in eax from pop
+//    mov [rsp + 28], eax // return in eax from pop
 //	popa
 //	ret
 
@@ -224,52 +231,60 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-//    LOG_CPU
+    LOG_CPU
 // rm -rf x86/
 //   adb pull /storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files ./x86
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
 //   for i in  x86/6502_x86.*.log.x ; do echo $i; diff -wu $i arm/6502_arm.${i#*.} ; done|less
 
-    //LOG 1
+    LOG 1
 
 	# Get the opcode into eax and update cpu->PC
 	xor  rax, rax
 	mov  al,[ Rmem+ rRpc]
 	inc  Rpc
-
+pc_restrict:
+	cmp Rpc, #0x10000
+	jl pc_in_range
+	sub Rpc, #0x10000
+	jmp pc_restrict
+pc_in_range:
 	# Get the ASM function. If this doesnt exist, fall back to C version.
 	// NOT-PIC lea   ebx, fns_asm
-    //LOG 2
+    LOG 2
 	mov rbx, [Rcpu + Sfns_asm ] // 44 = fns_asm
 	mov   rbx, [ rbx +  rax*4]
+//jmp  quit //update_cycles // done_call// quit
+
 	cmp   rbx, 0
 	jz  use_c_fn
 
 	# Call assembly function: ebx is (cop
-    //LOG 3
+    LOG 3
 //    push rax // preserve?
 //    mov eax, [Rcpu + Sfns_asm] // 44 = fns_asm
 //    add ebx, eax
 //    pop rax // preserve?
     add rbx, [Rcpu + Sfns_asm] // 44 = fns_asm
 // hohoho?
-	call  rbx
+//TEMP	call  rbx
 	jmp done_call
 
 	# Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
 use_c_fn:
 	// NOT-PIC lea   ebx, fns
-   // LOG 4
+    LOG 4
 	mov rbx, [Rcpu + Scfns] // 40=c_fns
-	mov   rbx, [ rbx +  rax*4]
+	mov   rbx, [ rbx +  rax*8]
     mov [ Rcpu+Spc],  Rpc 	#  di = PC
     mov [ Rcpu+Sra],  Ra 	#  cl = A
     mov [ Rcpu+Srx],  Rx 	#  dl = X
     mov [ Rcpu+Sry],  Ry 	#  r9 = Y
     mov [ Rcpu+Srs],  Rs 	#  r10 = S
 	push  Rcpu  	# Sole parameter for C opcode functions is r0 = CPU*
+// PROBABLY rdi now, for arg0 on x86_64
 	call  rbx
-	add  esp, 8 //4 ?
+	add  rsp, 8 //4 ?
     mov   rRpc, 0
     mov  Rpc,  [ Rcpu+Spc] 	#  di = r6  = PC
     mov  Ra,  [ Rcpu+Sra] 	#  cl = r7  = A
@@ -278,7 +293,7 @@ use_c_fn:
     mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
 
 done_call:
- //   LOG 5   // It's quick to here!
+    LOG 5   // It's quick to here!
 	bt   eax, 31   // sei cli return -2.
 	jc  already_updated_interrupts
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
@@ -288,7 +303,7 @@ already_updated_interrupts:
 	xor   eax, 0xFFFFFFFF
 	inc   eax
 //	LOG eax  // 02
-//	LOG esp  //..1c
+//	LOG rsp  //..1c
 done_interrupts:
     push  rax   // cycles for that instruction
 
@@ -302,55 +317,60 @@ no_nmi:
 	cmp dword ptr [ Rcpu+Stakeint], 0   # Rcpu+20 = cpu->take_int
 	jz no_interrupt
 	mov dword ptr [ Rcpu+Stakeint], 0
-//LOG esp //..18
+//LOG rsp //..18
 //LOG 0xfffe
 	push 0xfffe
 do_interrupt:
-//LOG esp //..14
+//LOG rsp //..14
 //LOG rRpc // f12e
 	PUSHWORD  Rpc			# push(cpu->pc)
 	movzx  eax, byte ptr [ Rcpu+Srp]
 	or   eax, 0x20   	# uint8_t temp = cpu->p | 0x20;
-//LOG esp // ..14
+//LOG rsp // ..14
 //LOG eax // 25
 	PUSH_BYTE  al             # push(temp);
-//LOG esp //..14
+//LOG rsp //..14
 	pop  rax //  hmmm? ax
 //LOG eax // fffe
-//LOG esp //..16
+//LOG rsp //..16
 	mov  Rpc, [ Rmem+ rax] 		# cpu->pc=*(uint16_t*)&(cpu->mem[0xfffe]);
 	or byte ptr [ Rcpu+Srp], 4 	# cpu->p |= FLAG_I;
 	mov [ Rcpu+Spc], Rpc            # Remove when C-only
 	mov [ Rcpu+Srs], Rs    	    # Remove when C-only
 	pop  rax
 //LOG eax
-//LOG esp
+//LOG rsp
 	add  rax,7		            # c += 7;
 	push  rax  // cycles
-//LOG esp
+//LOG rsp
 //LOG eax
 no_interrupt:
     and dword ptr [ Rcpu+Sint], 0xFFFFFF7f   # cpu->interrupt &= ~128
 
 	# Update CPU->cycles
 	pop  rax
+update_cycles:
+mov eax, 1
 	sub [ Rcpu+Scycles],  eax
-//LOG 0x71
+LOG 0x71
 	# Update intermediate cycle counter
 	C_CALL_PRE
 	push  rax
 	push  Rcpu
- 	//NOT-PIC call do_poll_C
+	mov rdi, rax
+	mov rsi, Rcpu
+ 	//NOT-PIC call do_poll_C (M6502*, c)
  	mov rax, [Rcpu + Sdo_poll_C]
- 	call rax
- 	add  rsp,8
+ //	call rax
+ 	add  rsp,16
  	C_CALL_POST
-//LOG 0x93
+LOG 0x93
 	mov  eax, [ Rcpu+Scycles]
 
 	# Loop back until cpu->cycles <=0
 	cmp dword ptr [ Rcpu+Scycles], 0
 	jg loop
+quit:
 
 	# Update cpu fields, restore regs and exit
     mov [ Rcpu+Spc],  Rpc 	#  PC
@@ -358,6 +378,8 @@ no_interrupt:
     mov [ Rcpu+Srx],  Rx	#  r8 = X
     mov [ Rcpu+Sry],  Ry	#  r9 = Y
     mov [ Rcpu+Srs],  Rs	# r10 = S
+
+// The called routine is expected to preserve rsp,rbp, rbx, r12, r13, r14, and r15 but may trample any other registers.
 	popa
     ret
 
@@ -382,7 +404,7 @@ no_interrupt:
 	//NOT-PIC call readmem_ex
 	mov rax, [Rcpu + Sreadmem_ex] // readmem_ex
 	call rax
-	add  esp,2
+	add  rsp,2
 	C_CALL_POST
 2:
 .endm
@@ -405,7 +427,7 @@ no_interrupt:
 	//NOT-PIC call readword_ex
 	mov rax, [Rcpu + Sreadword_ex] // readword_ex
 	call rax // readword_ex
-	add  esp,2
+	add  rsp,2
 	C_CALL_POST
 2:
 .endm
@@ -426,25 +448,25 @@ no_interrupt:
 	mov [ Rmem + rbx], \val
 	jmp 2f
 1:
-//LOG esp  //...18
+//LOG rsp  //...18
 	C_CALL_PRE
-//LOG esp  //...10
+//LOG rsp  //...10
 	movzx  eax,\val
 //LOG eax  // 0f
 //	push 0
 	push rax  //ax
-	LOG eax
+//	LOG eax
 //	push 0
 	push rbx // bx
 	//NOT-PIC call writemem_ex
-//LOG esp // ...0c
+//LOG rsp // ...0c
 	mov rax, [Rcpu + Swritemem_ex]
 	call rax
-//LOG esp // ...0c
-	add  esp,  8 // 4
-//LOG esp // ...14
+//LOG rsp // ...0c
+	add  rsp,  8 // 4
+//LOG rsp // ...14
 	C_CALL_POST
-//LOG esp // ...1c
+//LOG rsp // ...1c
 2:
 .endm
 
@@ -574,7 +596,7 @@ no_interrupt:
 	//NOT-PIC call adc_bcd_C
 	mov rax, [Rcpu+Sadc_bcd_C] // adc_bcd_C
 	call rax  // adc_bcd_C
-	add  esp, 8
+	add  rsp, 16
 	C_CALL_POST
 	mov  Ra, [ Rcpu+Sra]	    # update A
 4:
@@ -1726,18 +1748,18 @@ opasm_rts:
     cmc
     sbb  Ra,  al            # x86 SBB  works similarly to 6502 SBC
     cmc
-//    LOG esp
+//    LOG rsp
 	pushf
-//    LOG esp
+//    LOG rsp
 	and  bl, 0xBE           # clear C and V
 	xor  ah,  Ra
 	bt  ax, 15
     jnc 2f
 	or  bx, 0x40           # set V
 2:
-//    LOG esp
+//    LOG rsp
 	pop  ax # eax was too wide for pushf
-//    LOG esp
+//    LOG rsp
 	bt  ax,0
 	jnc 1f
 	or  bl,1                # set C
@@ -1754,7 +1776,7 @@ opasm_rts:
 		mov rax, [Rcpu+Ssbc_bcd_C] // sbc_bcd_C
     	call rax  // sbc_bcd_C
 
-	add  esp, 8
+	add  rsp, 16
 	C_CALL_POST
 	mov  Ra,  [ Rcpu+Sra]     # update A
 4:
@@ -1764,11 +1786,11 @@ opasm_rts:
 // 0xE9: SBC imm
 // 0xEB: SBC imm
 opasm_sbc_imm:
-//LOG esp  // pushf was too narrow for pop rax
+//LOG rsp  // pushf was too narrow for pop rax
 	READBYTE_PC     		# register uint8_t temp=readmem(cpu->pc); cpu->pc++;
-//LOG esp
+//LOG rsp
 	BODY_SBC
-//LOG esp
+//LOG rsp
 	RETURN ticks2
 
 // 0xE5: SBC zp
@@ -1922,11 +1944,11 @@ opasm_sta_abs:
 
 // 0x8E: STX abs
 opasm_stx_abs:
-   // LOG esp // stx
+   // LOG rsp // stx
 	READWORD_PC;
-//	LOG esp // stx
+//	LOG rsp // stx
 	WRITEBYTE  Rx,  ax
-//	LOG esp // stx
+//	LOG rsp // stx
 	RETURN ticks4
 
 // 0x99: STA abs,y
@@ -2010,7 +2032,7 @@ opasm_undef:
 	//NOT-PIC call log_undef_opcode_C
 	mov rax, [Rcpu+Slog_undef_opcode_C] // log_undef_opcode_C
 	call rax  // log_undef_opcode
-	add  esp, 4
+	add  rsp, 8
 	C_CALL_POST
 	dec  Rpc                  # cpu->pc--;      	// PC never moves on
     mov dword ptr [ Rcpu+Stakeint], 0		# cpu->takeint=0; 	// Interrupts never occur
