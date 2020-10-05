@@ -32,7 +32,7 @@ static int framecurrent = -1;
 
 void LOGF(char* format, ...) {
 #if LOGGING
-	char buff[256];
+	char buff[512];
 	va_list args;
 	va_start (args, format);
 
@@ -127,9 +127,10 @@ void log_asm(void* x0, void* x1, void* x2, void* x3) {
     gettimeofday(&tval_1, NULL);
     timersub(&tval_1, &tval_0, &tval_diff);
 	//LOGI("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, cpu->cycles, cpu->pc);
-	LOGF("here! %08p %08p %08p %08p tv:%ld.%06ld (cycle %i  pc ~%02X ldaimm=%p\n",
+	LOGF("lasm! %08p %08p %08p %08p tv:%ld.%06ld (cycle %i  pc ~%02X ldaimm=%p\n",
 			     x0, x1, x2, x3,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec,
 			                       the_cpu->cycles, the_cpu->pc, opasm_lda_imm);
+	1;
 #endif
 }
 

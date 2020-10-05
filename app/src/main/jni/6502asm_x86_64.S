@@ -87,37 +87,70 @@
 #define Slog_cpu_C    (Scfns + p*10) // void * log_cpu_C ; // +76 for log_cpu_C
 #define Slog_asm_C    (Scfns + p*11) // void * log_asm_C ; // +80 for log_cpu_C
 
+.macro pushall
+    push r15
+    push r14
+    push r13
+    push r12
+    push r11
+    push r10
+    push r9
+    push r8
+    pusha
+.endm
+
+.macro popall
+    popa
+    pop r8
+    pop r9
+    pop r10
+    pop r11
+    pop r12
+    pop r13
+    pop r14
+    pop r15
+.endm
 
 .macro pusha
-    push rcx
     push rdx
+    push rcx
     push rbx
     push rbp
     push rsi
     push rdi
-    push rax
+//    push rax Don't push rax=return value
+    push 0
+    push 1
+    test sp, 8
+    jnz 10f
+    push 1 // Could have a second macro for off alignment, or just push an extra 1.
+ 10:
 .endm # pushaq
 
 .macro popa
-    pop rax
+10:
+    pop rbx
+    cmp rbx, 0
+    jne 10b
+//    pop rax // Don't pop rax=return value
     pop rdi
     pop rsi
     pop rbp
     pop rbx
-    pop rdx
     pop rcx
+    pop rdx
 .endm # popaq
 
 .macro C_CALL_PRE
 //	push  rcx
-//	push  rdx
+	push  rdx  // Stack align 16!!!!!
 	pusha // TODO: reign this back to fewer registers
 .endm
 
 .macro C_CALL_POST
-//	pop  rdx
-//	pop  rcx
 	popa
+	pop  rdx
+//	pop  rcx
 .endm
 
 .macro LOG_CPU
@@ -142,7 +175,8 @@
 .endm
 
 .macro LOG4 arg1 arg2 arg3 arg4
-    pusha
+    push rax  // LOG should change nothing
+    pushall
     push \arg1
     push \arg2
     push \arg3
@@ -154,12 +188,13 @@
 	push rdi
 	mov Rcpu, [Rcpu + Slog_asm_C] // log_asm
 	call Rcpu
-	add  rsp,8
-	popa
+	add  rsp,8 //    pop rdi
+	popall
+	pop rax // LOG should not corrupt rax - no return code.
 .endm
 
 .macro LOG arg
-    LOG4 \arg \arg \arg rRpc
+    LOG4 \arg \arg rsp rRpc
 .endm
 
 .macro PUSH_BYTE reg8
@@ -242,7 +277,7 @@ loop:
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
 //   for i in  x86/6502_x86.*.log.x ; do echo $i; diff -wu $i arm/6502_arm.${i#*.} ; done|less
 
-//    LOG 1
+    LOG 1
 
 	# Get the opcode into eax and update cpu->PC
 	xor  rax, rax
@@ -256,11 +291,11 @@ pc_restrict:
 pc_in_range:
 	# Get the ASM function. If this doesnt exist, fall back to C version.
 	// NOT-PIC lea   ebx, fns_asm
-//    LOG 2
+    LOG 2
 	mov rbx, [Rcpu + Sfns_asm ] // rbx = &fns_asm
 	movsxd   rbx, dword ptr [ rbx +  rax*4]  // rbx = fns_asm[op]
 //jmp  quit //update_cycles // done_call// quit
-
+LOG 3
 	cmp   rbx, 0
 	jz  use_c_fn
 
@@ -273,7 +308,9 @@ pc_in_range:
     add rbx, [Rcpu + Sfns_asm] // rbx = (-fns_asm + opasm_xxx) + &fns_asm
 //LOG4 0x31, rbx, Rcpu, rRpc
 // hohoho?
+    push rbx   // Keep stack 16 byte aligned!!
     call  rbx
+    pop rbx
 	jmp done_call
 
 	# Get the C function pointer and call it, updating and restoring the in-memory 6502 state before and after the call.
@@ -399,18 +436,25 @@ quit:
 // NB: Macro return/destination values are always in eax. Macro params are always inputs.
 
 .macro READBYTE addr16       # #define readmem(x)  ((x<0xfe00) ? cpu->mem[x] : readmem_ex(x))
-	cmp \addr16, 0xfe00
+	cmp r\addr16, 0xfe00
 	jae 1f
 	movzx  rax, \addr16
 	movzx  eax, byte ptr [ Rmem +  rax]
 	jmp 2f
 1:
+LOG4 0xDE, rax, rRpc, rsp
 	C_CALL_PRE
-	push \addr16  # push s/w/
+LOG4 0xDF, rax, rRpc, rsp
+	push r\addr16  # push s/w/
+//	push r\addr16  # push s/w/
 	//NOT-PIC call readmem_ex
+LOG4 0xDE, rax, rRpc, rsp
+    mov rdi, r\addr16  // arg1 = rax=addr
 	mov rax, [Rcpu + Sreadmem_ex] // readmem_ex
+LOG4 0xDE, rax, rRpc, rsp
 	call rax
-	add  rsp,2
+LOG4 0xDE, rax, rRpc, rsp
+	add  rsp,2*8
 	C_CALL_POST
 2:
 .endm
@@ -428,12 +472,15 @@ quit:
 	movzx  eax, word ptr [ Rmem + rax]
 	jmp 2f
 1:
+LOG 0xDE
 	C_CALL_PRE
+LOG 0xDE
 	push \src  # s/w/
+LOG 0xDE
 	//NOT-PIC call readword_ex
 	mov rax, [Rcpu + Sreadword_ex] // readword_ex
-	call rax // readword_ex
-	add  rsp,2
+	call rax // readword_ex  -> rax
+	add  rsp,8    //two!? Uh, 8? And then stack align
 	C_CALL_POST
 2:
 .endm
@@ -1249,11 +1296,17 @@ opasm_ldy_zp_x:
 // 0xAE: LDX abs
 .macro LOAD_ABS dest
 	READWORD_PC			    # uint16_t addr=readwordpc();
+LOG 0xDD
+LOG4 0xDD, rax, rRpc, rsp
 	READBYTE  ax   	        # cpu->a=readmem(addr);
+LOG 0xDD
 	mov \dest,  al
 	SETZN \dest				# setzn(cpu->a);
     RETURN ticks4
 .endm
+
+// [01:43:08] tayra ~/git/fluffytoys/Beebdroid/x86_64 (master)$ adb pull /sdcard/Android/data/com.littlefluffytoys.beebdroid/files ./ && for i in files/6* ; do diff -wyW220 <( perl -ple 's/tv:\S+//' ../bootup-logs/6502_x86${i#files/6502_x86} ) <( perl -ple 's/tv:\S+//' $i ); done|less
+
 opasm_lda_abs:
 	LOAD_ABS  Ra
 opasm_ldx_abs:
