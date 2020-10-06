@@ -47,13 +47,20 @@
 #define ticks7 7
 
 #define flagC   1
+#define flagCb   0
 #define flagZ   2
+#define flagZb   1
 #define flagI   4
+#define flagIb   2
 #define flagD   8
+#define flagDb   3
 #define flagxxx 0x10
 #define flagInt 0x20
+#define flagIntb 5
 #define flagV   0x40
+#define flagVb   6
 #define flagN   0x80
+#define flagNb   7
 
 // #define Smem  0  //	uint8_t* mem; // +0
 #define Spc   4  //	uint16_t pc;  // +4   'ax'
@@ -474,7 +481,7 @@ quit:
 LOG 0xDE
 	C_CALL_PRE
 LOG 0xDE
-	push \src  # s/w/
+	push r\src  # s/w/
 LOG 0xDE
 	//NOT-PIC call readword_ex
 	mov rax, [Rcpu + Sreadword_ex] // readword_ex
@@ -516,9 +523,11 @@ LOG rax  // 0f
 	//NOT-PIC call writemem_ex
 //LOG rsp // ...0c
 	mov rax, [Rcpu + Swritemem_ex]
+LOG 0x45
 	call rax
-//LOG rsp // ...0c
-	add  rsp,  8 // 4
+LOG 0x45
+//LOG rsp // ...0
+	add  rsp,  24 // 4
 //LOG rsp // ...14
 	C_CALL_POST
 //LOG rsp // ...1c
@@ -625,18 +634,18 @@ LOG rax  // 0f
 .macro BODY_ADC
     push rbx
     movzx  ebx, byte ptr [ Rcpu+Srp]
-	bt  bx,3
-	jc 3f
-	bt  bx,0
+	bt  bx,flagDb
+	jc 3f // BCD mode, pls.
+	bt  bx,flagCb
 	adc  Ra,  al
-	pushf
-	pop  ax // eax
+	pushfq // flags (quad)
+	pop  rax // eax
 	and  bl, 0xBE # clear C and V
-	bt  ax,0
+	bt  ax,flagCb
 	jnc 1f
 	or  bl,1    # set C
 1:
-    bt  ax,11
+    bt  ax,11  // 11?!
     jnc 2f
 	or  bx, 0x40    # set V
 2:
@@ -1215,11 +1224,13 @@ opasm_jmp_ind:
  *******/
 
 opasm_jsr:
+LOG4 0xEE, Rsp, 0x00, 0x00
 	READWORD  Rpc		    # uint16_t addr=readwordpc(); cpu->pc--;
 	mov  bx,  ax
 	inc  Rpc
 	PUSHWORD  Rpc
 	mov  Rpc,  bx		    # cpu->pc=addr;
+LOG4 0xEE, Rsp, 0x00, 0x00
 	RETURN ticks6
 
 
@@ -1802,15 +1813,15 @@ opasm_rts:
 .macro BODY_SBC
     push rbx               # if (cpu->p & FLAG_D) do BCD arithmetic in a C function
     movzx  ebx, byte ptr [ Rcpu+Srp]
-	bt  bx,3
+	bt  bx,flagDb // BCD?
 	jc 3f
 	mov  ah,  Ra
     bt  bx, 0               # get FLAG_C into x86 carry flag
-    cmc
+    cmc  // complement carry flag: you look lovely.
     sbb  Ra,  al            # x86 SBB  works similarly to 6502 SBC
     cmc
 //    LOG rsp
-	pushf
+	pushfq
 //    LOG rsp
 	and  bl, 0xBE           # clear C and V
 	xor  ah,  Ra
@@ -1819,7 +1830,7 @@ opasm_rts:
 	or  bx, 0x40           # set V
 2:
 //    LOG rsp
-	pop  ax # eax was too wide for pushf
+	pop  rax # eax was too wide for pushf
 //    LOG rsp
 	bt  ax,0
 	jnc 1f
@@ -1962,7 +1973,9 @@ opasm_slo_indzy:
 // 0x8C: STY abs
 opasm_sty_abs:
 	READWORD_PC			    # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
+LOG 0x44
 	WRITEBYTE  Ry,  ax		# writemem(addr, cpu->y);
+LOG 0x44
 	RETURN ticks4
 
 // 0x85: STA zp
