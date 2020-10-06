@@ -344,14 +344,14 @@ use_c_fn:
 
 done_call:
 //    LOG 5   // It's quick to here!
-	bt   eax, 31   // sei cli return -2.
+	bt   rax, 63   // sei cli return -2.
 	jc  already_updated_interrupts
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	UPDATE_TAKEINT
 	jmp done_interrupts
 already_updated_interrupts:
-	xor   eax, 0xFFFFFFFF
-	inc   eax
+	xor   rax, -1
+	inc   rax
 //	LOG eax  // 02
 //	LOG rsp  //..1c
 done_interrupts:
@@ -535,7 +535,7 @@ LOG 0x45
 .endm
 
 .macro RETURN clocks
-	mov  eax, \clocks
+	mov  rax, \clocks
 	ret
 .endm
 

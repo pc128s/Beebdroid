@@ -51,6 +51,11 @@ void LOGF(char* format, ...) {
         s_file = fopen(buff, "w+");
 	}
 
+  	if (framecount == 20) {
+  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
+  		abort();
+  	}
+
 	vsprintf (buff,format, args);
 
     if (s_file) {
