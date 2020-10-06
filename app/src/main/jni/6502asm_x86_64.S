@@ -277,7 +277,7 @@ loop:
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
 //   for i in  x86/6502_x86.*.log.x ; do echo $i; diff -wu $i arm/6502_arm.${i#*.} ; done|less
 
-    LOG 1
+//    LOG 1
 
 	# Get the opcode into eax and update cpu->PC
 	xor  rax, rax
@@ -291,11 +291,11 @@ pc_restrict:
 pc_in_range:
 	# Get the ASM function. If this doesnt exist, fall back to C version.
 	// NOT-PIC lea   ebx, fns_asm
-    LOG 2
+ //   LOG 2
 	mov rbx, [Rcpu + Sfns_asm ] // rbx = &fns_asm
 	movsxd   rbx, dword ptr [ rbx +  rax*4]  // rbx = fns_asm[op]
 //jmp  quit //update_cycles // done_call// quit
-LOG 3
+//LOG 3
 	cmp   rbx, 0
 	jz  use_c_fn
 
@@ -393,7 +393,6 @@ no_interrupt:
 	# Update CPU->cycles
 	pop  rax
 update_cycles:
-mov eax, 1
 	sub [ Rcpu+Scycles],  eax
 //LOG 0x71
 	# Update intermediate cycle counter
@@ -442,18 +441,18 @@ quit:
 	movzx  eax, byte ptr [ Rmem +  rax]
 	jmp 2f
 1:
-LOG4 0xDE, rax, rRpc, rsp
+//LOG4 0xDE, rax, rRpc, rsp
 	C_CALL_PRE
-LOG4 0xDF, rax, rRpc, rsp
+//LOG4 0xDF, rax, rRpc, rsp
 	push r\addr16  # push s/w/
 //	push r\addr16  # push s/w/
 	//NOT-PIC call readmem_ex
-LOG4 0xDE, rax, rRpc, rsp
+//LOG4 0xDE, rax, rRpc, rsp
     mov rdi, r\addr16  // arg1 = rax=addr
 	mov rax, [Rcpu + Sreadmem_ex] // readmem_ex
-LOG4 0xDE, rax, rRpc, rsp
+//LOG4 0xDE, rax, rRpc, rsp
 	call rax
-LOG4 0xDE, rax, rRpc, rsp
+//LOG4 0xDE, rax, rRpc, rsp
 	add  rsp,2*8
 	C_CALL_POST
 2:
@@ -495,22 +494,25 @@ LOG 0xDE
 	mov [ Rmem + rbx], \val
 .endm
 .macro WRITEBYTE val, addr
-    movzx  ebx,\addr
-	cmp  ebx,0x8000
+    movzx  rbx,\addr
+	cmp  rbx,0x8000
 	jae 1f
 	mov [ Rmem + rbx], \val
 	jmp 2f
 1:
 //LOG rsp  //...18
 	C_CALL_PRE
+	push 1 // AUTOCLEARED BY C-CALL-POST
 //LOG rsp  //...10
-	movzx  eax,\val
-//LOG eax  // 0f
+	movzx  si,\val  // arg2=data, was eax
+	movzx  rsi,si  // arg2=data, was eax
+LOG rax  // 0f
 //	push 0
-	push rax  //ax
-//	LOG eax
+	push rsi  //ax
+//	LOG rsi
 //	push 0
-	push rbx // bx
+	push rbx // bx = addr
+	mov rdi, rbx // rdi=arg1=addr
 	//NOT-PIC call writemem_ex
 //LOG rsp // ...0c
 	mov rax, [Rcpu + Swritemem_ex]
@@ -1296,10 +1298,10 @@ opasm_ldy_zp_x:
 // 0xAE: LDX abs
 .macro LOAD_ABS dest
 	READWORD_PC			    # uint16_t addr=readwordpc();
-LOG 0xDD
-LOG4 0xDD, rax, rRpc, rsp
+//LOG 0xDD
+//LOG4 0xDD, rax, rRpc, rsp
 	READBYTE  ax   	        # cpu->a=readmem(addr);
-LOG 0xDD
+//LOG 0xDD
 	mov \dest,  al
 	SETZN \dest				# setzn(cpu->a);
     RETURN ticks4
