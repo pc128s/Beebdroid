@@ -52,6 +52,8 @@ void LOGF(char* format, ...) {
 	}
 
   	if (framecount == 20) {
+  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
+  	    fclose(s_file);
   		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
   		abort();
   	}
