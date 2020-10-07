@@ -201,7 +201,7 @@
 .endm
 
 .macro LOG arg
-    LOG4 \arg \arg rsp rRpc
+    LOG4 \arg 0 0 0 //rsp rRpc
 .endm
 
 .macro PUSH_BYTE reg8
@@ -229,6 +229,7 @@
 .endm
 
 .macro UPDATE_TAKEINT 	# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
+LOG 1
 	cmp dword ptr [ Rcpu+Sint], 0	# r12 = cpu->interrupt
 	jz  1f
 	test byte ptr [ Rcpu+Srp], 4  		# test the FLAG_I
@@ -237,6 +238,7 @@
 	jmp 2f
 1:
 	mov dword ptr [ Rcpu+Stakeint], 0   				#cpu->take_int = r1
+LOG 2
 2:
 .endm
 
@@ -346,6 +348,7 @@ done_call:
 //    LOG 5   // It's quick to here!
 	bt   rax, 63   // sei cli return -2.
 	jc  already_updated_interrupts
+LOG 4
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	UPDATE_TAKEINT
 	jmp done_interrupts
@@ -364,6 +367,7 @@ done_interrupts:
 	push 0xfffa
 	jmp do_interrupt
 no_nmi:
+LOG 9
 	cmp dword ptr [ Rcpu+Stakeint], 0   # Rcpu+20 = cpu->take_int
 	jz no_interrupt
 	mov dword ptr [ Rcpu+Stakeint], 0
@@ -395,7 +399,7 @@ do_interrupt:
 //LOG rsp
 //LOG eax
 no_interrupt:
-    and dword ptr [ Rcpu+Sint], 0xFFFFFF7f   # cpu->interrupt &= ~128
+    and dword ptr [ Rcpu+Sint], -128 // 0xFFFFFF7f   # cpu->interrupt &= ~128
 
 	# Update CPU->cycles
 	pop  rax
@@ -404,14 +408,15 @@ update_cycles:
 //LOG 0x71
 	# Update intermediate cycle counter
 	C_CALL_PRE
+	push  rax // stack 16 align
 	push  rax
 	push  Rcpu
 	mov rdi, rax
 	mov rsi, Rcpu
  	//NOT-PIC call do_poll_C (M6502*, c)
  	mov rax, [Rcpu + Sdo_poll_C]
- //	call rax
- 	add  rsp,16
+ 	call rax
+ 	add  rsp,24
  	C_CALL_POST
 //LOG 0x93
 	mov  eax, [ Rcpu+Scycles]
@@ -478,11 +483,11 @@ quit:
 	movzx  eax, word ptr [ Rmem + rax]
 	jmp 2f
 1:
-LOG 0xDE
+//LOG 0xDE
 	C_CALL_PRE
-LOG 0xDE
+//LOG 0xDE
 	push r\src  # s/w/
-LOG 0xDE
+//LOG 0xDE
 	//NOT-PIC call readword_ex
 	mov rax, [Rcpu + Sreadword_ex] // readword_ex
 	call rax // readword_ex  -> rax
@@ -513,7 +518,7 @@ LOG 0xDE
 //LOG rsp  //...10
 	movzx  si,\val  // arg2=data, was eax
 	movzx  rsi,si  // arg2=data, was eax
-LOG rax  // 0f
+//LOG rax  // 0f
 //	push 0
 	push rsi  //ax
 //	LOG rsi
@@ -523,9 +528,9 @@ LOG rax  // 0f
 	//NOT-PIC call writemem_ex
 //LOG rsp // ...0c
 	mov rax, [Rcpu + Swritemem_ex]
-LOG 0x45
+//LOG 0x45
 	call rax
-LOG 0x45
+//LOG 0x45
 //LOG rsp // ...0
 	add  rsp,  24 // 4
 //LOG rsp // ...14
@@ -1224,13 +1229,13 @@ opasm_jmp_ind:
  *******/
 
 opasm_jsr:
-LOG4 0xEE, Rsp, 0x00, 0x00
+//LOG4 0xEE, Rsp, 0x00, 0x00
 	READWORD  Rpc		    # uint16_t addr=readwordpc(); cpu->pc--;
 	mov  bx,  ax
 	inc  Rpc
 	PUSHWORD  Rpc
 	mov  Rpc,  bx		    # cpu->pc=addr;
-LOG4 0xEE, Rsp, 0x00, 0x00
+//LOG4 0xEE, Rsp, 0x00, 0x00
 	RETURN ticks6
 
 
@@ -1922,6 +1927,7 @@ opasm_sed:
 opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	or byte ptr [ Rcpu+Srp], 4			# cpu->p |= FLAG_I;
+LOG 3
 	RETURN -ticks2  # ARM returns -2 to show interrupt taken
 
 
@@ -1973,9 +1979,9 @@ opasm_slo_indzy:
 // 0x8C: STY abs
 opasm_sty_abs:
 	READWORD_PC			    # uint16_t addr=readword(cpu->pc); cpu->pc+=2;
-LOG 0x44
+//LOG 0x44
 	WRITEBYTE  Ry,  ax		# writemem(addr, cpu->y);
-LOG 0x44
+//LOG 0x44
 	RETURN ticks4
 
 // 0x85: STA zp

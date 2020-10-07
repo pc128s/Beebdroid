@@ -117,17 +117,29 @@
     mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
 .endm
 
-.macro LOG arg
+.macro MVPUSHARG arg, offs
+    mov edi, [esp + \offs]
+    mov edi, \arg
+    push edi
+.endm
+
+.macro LOG4 arg1 arg2 arg3 arg4
     pusha
-    mov  eax, \arg
-	push  eax
+    mov edi, \arg4
+    push edi  // 16 byte stack align?
+    push edi
+    MVPUSHARG \arg3, 4
+    MVPUSHARG \arg2, 8
+    MVPUSHARG \arg1, 12
 	mov eax, [Rcpu + Slog_asm_C] // log_asm
 	call eax
-	add  esp,4
+	add  esp,16 + 4
 	popa
 .endm
 
-
+.macro LOG arg
+    LOG4 \arg 0 0 0
+.endm
 
 .macro PUSH_BYTE reg8
     movzx  ebx,  Rs
@@ -154,6 +166,7 @@
 .endm
 
 .macro UPDATE_TAKEINT 	# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
+LOG 1
 	cmp dword ptr [ Rcpu+Sint], 0	# r12 = cpu->interrupt
 	jz  1f
 	test byte ptr [ Rcpu+Srp], 4  		# test the FLAG_I
@@ -162,6 +175,7 @@
 	jmp 2f
 1:
 	mov dword ptr [ Rcpu+Stakeint], 0   				#cpu->take_int = r1
+LOG 2
 2:
 .endm
 
@@ -202,7 +216,7 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-//    LOG_CPU
+   LOG_CPU
 // rm -rf x86/
 //   adb pull /storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files ./x86
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
@@ -259,6 +273,7 @@ done_call:
  //   LOG 5   // It's quick to here!
 	bt   eax, 31   // sei cli return -2.
 	jc  already_updated_interrupts
+LOG 4
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	UPDATE_TAKEINT
 	jmp done_interrupts
@@ -277,6 +292,7 @@ done_interrupts:
 	push 0xfffa
 	jmp do_interrupt
 no_nmi:
+LOG 9
 	cmp dword ptr [ Rcpu+Stakeint], 0   # Rcpu+20 = cpu->take_int
 	jz no_interrupt
 	mov dword ptr [ Rcpu+Stakeint], 0
@@ -411,7 +427,7 @@ no_interrupt:
 //LOG eax  // 0f
 //	push 0
 	push  eax  //ax
-	LOG eax
+//	LOG eax
 //	push 0
 	push  ebx // bx
 	//NOT-PIC call writemem_ex
@@ -1806,6 +1822,7 @@ opasm_sed:
 opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	or byte ptr [ Rcpu+Srp], 4			# cpu->p |= FLAG_I;
+LOG 3
 	RETURN -ticks2  # ARM returns -2 to show interrupt taken
 
 
