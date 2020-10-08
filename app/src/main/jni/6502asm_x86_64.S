@@ -397,7 +397,7 @@ do_interrupt:
 	add  rax,7		            # c += 7;
 	push  rax  // cycles
 //LOG rsp
-//LOG eax
+LOG rax
 no_interrupt:
     and dword ptr [ Rcpu+Sint], -128 // 0xFFFFFF7f   # cpu->interrupt &= ~128
 
@@ -408,11 +408,11 @@ update_cycles:
 //LOG 0x71
 	# Update intermediate cycle counter
 	C_CALL_PRE
-	push  rax // stack 16 align
-	push  rax
+	push  Rcpu // stack 16 align
 	push  Rcpu
-	mov rdi, rax
-	mov rsi, Rcpu
+	push  rax
+	mov rsi, rax
+	mov rdi, Rcpu
  	//NOT-PIC call do_poll_C (M6502*, c)
  	mov rax, [Rcpu + Sdo_poll_C]
  	call rax

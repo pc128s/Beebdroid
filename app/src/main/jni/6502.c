@@ -28,7 +28,7 @@ static int s_logflag = 0;
 FILE* s_file = NULL;
 static int framecurrent = -1;
 
-#define LOGGING 1
+#define LOGGING 0
 
 void LOGF(char* format, ...) {
 #if LOGGING
@@ -51,12 +51,12 @@ void LOGF(char* format, ...) {
         s_file = fopen(buff, "w+");
 	}
 
-  	if (framecount == 20) {
-  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
-  	    fclose(s_file);
-  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
-  		abort();
-  	}
+//  	if (framecount == 20) {
+//  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
+//  	    fclose(s_file);
+//  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
+//  		abort();
+//  	}
 
 	vsprintf (buff,format, args);
 
@@ -135,11 +135,11 @@ void log_asm(void* x0, void* x1, void* x2, void* x3) {
     timersub(&tval_1, &tval_0, &tval_diff);
 	//LOGI("here! %08x %ld.%06ld (cycle %i  pc ~%02X\n", v,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, cpu->cycles, cpu->pc);
 	LOGF("lasm! %08p %08p %08p %08p "
-	    // "tv:%ld.%06ld "
+	    "tv:%ld.%06ld "
 	     "(cycle %i  pc:%02X p:%02x s:%x02 "
          "i:%i ti:%i nmi:%i\n",
          x0, x1, x2, x3,
-        // (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec,
+        (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec,
          the_cpu->cycles, the_cpu->pc, the_cpu->p, the_cpu->s,
          the_cpu->interrupt, the_cpu->takeint, the_cpu->nmi
          );
@@ -415,7 +415,7 @@ int vidclockacc=0;
 
 void do_poll_C(M6502* cpu, int c) {
 
-	LOGF("do_poll %d\n", c);
+	LOGF("do_poll cpu %p c %x\n", cpu, c);
 	if (otherstuffcount<=0) {
 		otherstuffcount+=128;
 		logvols();

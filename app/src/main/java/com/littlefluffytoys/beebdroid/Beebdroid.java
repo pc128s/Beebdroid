@@ -369,7 +369,11 @@ public class Beebdroid extends Activity {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             // Create this directory so LOGGING can use it.
-            Log.i("Storage", getExternalFilesDirs("xyz").toString());
+            File dir = getExternalFilesDir("");
+            Log.i("Storage", dir.toString());
+            for (File file : dir.listFiles()) {
+                file.delete();
+            }
         }
 
         setContentView(R.layout.activity_beebdroid);
