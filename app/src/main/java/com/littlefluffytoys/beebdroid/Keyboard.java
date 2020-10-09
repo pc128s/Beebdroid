@@ -73,6 +73,7 @@ public class Keyboard extends TouchpadsView {
                 case KeyEvent.KEYCODE_3: return BeebKeys.BBCKEY_POUND; // vs US mapping.
                 case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_COPY;
                 case KeyEvent.KEYCODE_DEL: return BeebKeys.BBCKEY_COPY;
+                case KeyEvent.KEYCODE_ALT_RIGHT: return BeebKeys.BBCKEY_COPY;
             }
         }
         switch (keyCode) {

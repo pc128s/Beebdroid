@@ -65,7 +65,7 @@
 		android:id="@+id/info"
 		android:text=""
 		android:layout_alignParentRight="true"
-		android:layout_centerVertical="true"
+        android:layout_below="@id/btnSave"
 		/>
 
 	<TextView
@@ -89,15 +89,19 @@
 		android:layout_width="26pt"
 		android:layout_height="wrap_content"
 		android:layout_below="@id/lock"
+		android:background="@color/background_material_dark"
 		android:layout_alignParentLeft="true"
-		android:text="\nAlt+...\n\n`=Caps\n1=ShLk\n2=TKbd\n3=£\nSpc=Cpy"
+		android:text="`=Esc\n\nAlt+...\n\n`=Caps\n1=ShLk\n2=TKbd\n3=£\nSpc=Cpy"
 		/>
 	<TextView
+        android:id="@+id/keyboard_help"
 		android:layout_width="26pt"
 		android:layout_height="wrap_content"
 		android:layout_below="@id/lock"
+		android:background="@color/background_material_dark"
 		android:layout_alignParentLeft="true"
-		android:text="f10=ShLock f11=@ f12=£/_ AltRt=Copy"/>
+        android:layout_alignBottom="@id/kb_bt_alt"
+		android:text="A-2=Tkbd\nf10=ShLk\nf11=@\nf12=£/_\nAltRt=Cpy"/>
 	<TextView
 	android:id="@+id/fps"
 	android:layout_width="fill_parent"

@@ -8,45 +8,54 @@
 	android:layout_height="fill_parent"
 	android:orientation="vertical"
 	>
-	<LinearLayout
+	<RelativeLayout
         android:id="@+id/toolbar"
         android:layout_height="?attr/actionBarSize"
         android:layout_width="match_parent"
         android:background="@color/background_material_dark"
-        android:orientation="horizontal"
-        android:gravity="right"
         >
-		<LinearLayout
+		<FrameLayout
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
-			android:orientation="vertical"
+			android:layout_alignParentLeft="true"
+			android:layout_toLeftOf="@+id/lock"
+			android:layout_centerInParent="true"
 			>
+			<!-- narf="Alt-\u2190\u2191\u2192\u2193" -->
 			<TextView
 				android:id="@+id/kb_bt_alt"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:text="Alt-`=Caps Alt-1=ShLk Alt-2=TKbd\nAlt-3=£ Alt-Spc=Copy"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:gravity="center"
+				android:background="@color/background_material_dark"
+				android:text="`=Esc Alt-`=Caps\nAlt-1=ShLk Alt-2=TKbd\nAlt-3=£ RtAlt=Cpy"
 				/>
 			<TextView
 				android:id="@+id/keyboard_help"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:text="f10=ShLock f11=@ f12=£/_ AltRt=Copy"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
+				android:visibility="invisible"
+				android:gravity="center"
+				android:background="@color/background_material_dark"
+				android:text="Alt-2=Tkbd f11=@ f12=£/_\nf10=ShLk AltRt=Copy"
 				/>
-			<!-- narf="Alt-\u2190\u2191\u2192\u2193" -->
 			<TextView
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
+				android:layout_width="match_parent"
+				android:layout_height="match_parent"
 				android:id="@+id/info"
-				android:lines="1"
+				android:gravity="center"
+				android:visibility="invisible"
+				android:background="@color/background_material_dark"
 				android:text="__________\n__________________"
 				/>
-		</LinearLayout>
+		</FrameLayout>
 
 		<TextView
 			android:layout_width="wrap_content"
 			android:layout_height="?attr/actionBarSize"
 			android:id="@+id/lock"
+			android:gravity="center"
+			android:layout_toLeftOf="@+id/btnInput"
 			android:text="ShCaLck"
 			/>
 		<ImageView
@@ -55,12 +64,14 @@
 			android:layout_height="?attr/actionBarSize"
 			android:layout_gravity="center"
 			android:layout_marginRight="8dp"
+			android:layout_toLeftOf="@+id/btnSave"
 			android:scaleType="centerInside"
 			android:background="@drawable/tab"
 			android:src="@drawable/keyboard"
 			android:clickable="true"
 			/>
 		<ImageView
+			android:id="@+id/btnSave"
 			android:layout_width="?attr/actionBarSize"
 			android:layout_height="?attr/actionBarSize"
 			android:layout_gravity="center"
@@ -70,8 +81,9 @@
 			android:src="@drawable/save"
 			android:clickable="true"
 			android:onClick="onOpenClicked"
+			android:layout_alignParentRight="true"
 			/>
-    </LinearLayout>
+	</RelativeLayout>
 
 
 <view class="com.littlefluffytoys.beebdroid.Beebdroid$BeebView"
@@ -106,7 +118,6 @@
 	/>
 
 </RelativeLayout>
-
 
 
 </LinearLayout>

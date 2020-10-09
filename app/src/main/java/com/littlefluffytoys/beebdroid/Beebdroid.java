@@ -187,14 +187,18 @@ public class Beebdroid extends Activity {
 
 //    static long thing = 0;
 
-    boolean onKeyUpDown(final int keycode, KeyEvent event, final int isDown) {
+    boolean onKeyUpDown(final int keycode, KeyEvent event, final boolean isDown) {
 //        Log.e(TAG, "updown " + (thing - event.getEventTime()) + " " + event.toString());
 //        thing = event.getEventTime();
-        if (keyboardShowing != KeyboardState.BLUETOOTH_KBD && isXperiaPlay && onXperiaKey(keycode, event, isDown)) {
+        if (keyboardShowing != KeyboardState.BLUETOOTH_KBD && isXperiaPlay && onXperiaKey(keycode, event, isDown ? 1 : 0)) {
             return true;
         }
 
-        if (isDown == 1
+//        if ( keycode == KeyEvent.KEYCODE_ALT_LEFT ) {
+            Utils.setVisible(this, R.id.info, isDown);
+//        }
+
+        if (isDown
                 && event.isAltPressed()
                 && event.getUnicodeChar(0) == '2') {
             toggleKeyboard();
@@ -207,13 +211,13 @@ public class Beebdroid extends Activity {
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
             if (keycode == KeyEvent.KEYCODE_MENU) return false; // Someone else's problem!
             int scancode = bbcKeyActionFromUnicode(event);
-            if (isDown == 1) showInfo(event, scancode);
+            if (isDown) showInfo(event, scancode);
             if (scancode != 0) return true;
             return false;
         }
 
         // If pressed 'back' while game loaded, reset the emulator rather than exit the app
-        if (keycode == KeyEvent.KEYCODE_BACK && isDown == 1) {
+        if (keycode == KeyEvent.KEYCODE_BACK && isDown) {
             if (diskInfo != null) {
                 //bbcInit(model.mem, model.roms, audiobuff, model.info.flags);
                 bbcBreak(0);
@@ -224,25 +228,25 @@ public class Beebdroid extends Activity {
             }
         }
         if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
-            shiftDown = isDown == 1;
+            shiftDown = isDown;
         }
 
         final int scancode = lookup(keycode);
-        if (isDown == 1 || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
+        if (isDown || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
             unscheduleKeyup(keycode);
-            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
+            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown ? 1 : 0);
         } else {
             scheduleKeyup(keycode, new Runnable() {
                 @Override
                 public void run() {
                     synchronized (delayedUp) {
                         if (delayedUp.remove(keycode) == this)
-                            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
+                            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown ? 1 : 0);
                     }
                 }
             });
         }
-        if (isDown == 1) showInfo(event, scancode);
+        if (isDown) showInfo(event, scancode);
         return false;
     }
 
@@ -253,23 +257,23 @@ public class Beebdroid extends Activity {
         String text = uToStr(u0) + "=" + u0 +
                 " " + uToStr(u1) + "=" + u1 +
                 " " + Integer.toHexString(scancode) + "=inkey(-" + (0xff & scancode + 1) + ")" +
-                " " + KeyEvent.keyCodeToString(event.getKeyCode());
+                "\n" + KeyEvent.keyCodeToString(event.getKeyCode());
         t.setText(text);
     }
 
     @Override
     public boolean onKeyDown(int keycode, KeyEvent event) {
-        return onKeyUpDown(keycode, event, 1) || super.onKeyDown(keycode, event);
+        return onKeyUpDown(keycode, event, true) || super.onKeyDown(keycode, event);
     }
 
     @Override
     public boolean onKeyUp(int keycode, KeyEvent event) {
-        return onKeyUpDown(keycode, event, 0) || super.onKeyUp(keycode, event);
+        return onKeyUpDown(keycode, event, false) || super.onKeyUp(keycode, event);
     }
 
     private String uToStr(int u0) {
         try {
-            return new String(Character.toChars(u0));
+            return u0 < 32 ? "" : new String(Character.toChars(u0));
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "uToStr(" + u0 + ") threw " + e);
             return "";
