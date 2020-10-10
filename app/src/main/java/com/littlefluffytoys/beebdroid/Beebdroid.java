@@ -198,23 +198,24 @@ public class Beebdroid extends Activity {
     boolean onKeyUpDown(final int keycode, KeyEvent event, final boolean isDown) {
 //        Log.e(TAG, "updown " + (thing - event.getEventTime()) + " " + event.toString());
 //        thing = event.getEventTime();
+
+        Utils.setVisible(this, R.id.info, isDown);
+
         if (keyboardShowing != KeyboardState.BLUETOOTH_KBD && isXperiaPlay && onXperiaKey(keycode, event, isDown ? 1 : 0)) {
             return true;
         }
 
-//        if ( keycode == KeyEvent.KEYCODE_ALT_LEFT ) {
-            Utils.setVisible(this, R.id.info, isDown);
-//        }
-
+        // Keyboard toggle in all modules.
         if (isDown
                 && event.isAltPressed()
-                && event.getUnicodeChar(0) == '2') {
+                && event.getUnicodeChar(0) == 'x') {
             toggleKeyboard();
             if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
                 beebView.requestFocus();
             }
             return true;
         }
+
 
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
             if (keycode == KeyEvent.KEYCODE_MENU) return false; // Someone else's problem!
@@ -235,11 +236,12 @@ public class Beebdroid extends Activity {
                 return true;
             }
         }
+
         if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
             shiftDown = isDown;
         }
 
-        final int scancode = lookup(keycode);
+        final int scancode = lookup(keycode, event);
         if (isDown || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
             unscheduleKeyup(keycode);
             bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown ? 1 : 0);
@@ -770,7 +772,11 @@ public class Beebdroid extends Activity {
     boolean shiftDown;
 
 
-    int lookup(int keycode) {
+    int lookup(int keycode, KeyEvent event) {
+        if (event.isAltPressed()) {
+            int beebKey = Keyboard.unicodeAltToBeebKey(event);
+            if  (beebKey != 0) return beebKey;
+        }
         switch (keycode) {
             case KeyEvent.KEYCODE_CTRL_LEFT:
             case KeyEvent.KEYCODE_CTRL_RIGHT:

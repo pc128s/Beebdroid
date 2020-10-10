@@ -67,14 +67,8 @@ public class Keyboard extends TouchpadsView {
     public static int unicodeToBeebKey(KeyEvent event) {
         int keyCode = event.getKeyCode();
         if (event.isAltPressed()) {
-            switch (keyCode) {
-                case KeyEvent.KEYCODE_GRAVE: return BeebKeys.BBCKEY_CAPS;
-                case KeyEvent.KEYCODE_1: return BeebKeys.BBCKEY_SHIFTLOCK;
-                case KeyEvent.KEYCODE_3: return BeebKeys.BBCKEY_POUND; // vs US mapping.
-                case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_COPY;
-                case KeyEvent.KEYCODE_DEL: return BeebKeys.BBCKEY_COPY;
-                case KeyEvent.KEYCODE_ALT_RIGHT: return BeebKeys.BBCKEY_COPY;
-            }
+            int beebKey = unicodeAltToBeebKey(event);
+            if (beebKey != 0 ) return beebKey;
         }
         switch (keyCode) {
             case KeyEvent.KEYCODE_DEL: return BeebKeys.BBCKEY_DELETE;
@@ -101,6 +95,23 @@ public class Keyboard extends TouchpadsView {
         }
         String uni = new String(Character.toChars(unicodeChar));
         return KeyMap.kmap.containsKey(uni) ? KeyMap.kmap.get(uni) : 0;
+    }
+
+    public static int unicodeAltToBeebKey(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_C: return BeebKeys.BBCKEY_CAPS;
+            case KeyEvent.KEYCODE_S: return BeebKeys.BBCKEY_SHIFTLOCK;
+            case KeyEvent.KEYCODE_2: return BeebKeys.BBCKEY_AT; // vs US mapping
+            case KeyEvent.KEYCODE_3: // vs US mapping.
+                if (event.isShiftPressed()) return BeebKeys.BBCKEY_UNDERSCORE;
+                else return BeebKeys.BBCKEY_POUND; // vs US mapping.
+                // Don't mind having extra copy keys. :)
+            case KeyEvent.KEYCODE_SPACE: return BeebKeys.BBCKEY_COPY;
+            case KeyEvent.KEYCODE_DEL: return BeebKeys.BBCKEY_COPY;
+            case KeyEvent.KEYCODE_ALT_RIGHT: return BeebKeys.BBCKEY_COPY;
+        }
+        return 0;
     }
 
     public static List<KeyMap> keyboard = Arrays.asList(

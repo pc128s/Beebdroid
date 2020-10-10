@@ -93,7 +93,7 @@
 		android:background="@color/background_material_dark"
 		android:layout_alignParentLeft="true"
 		android:layout_toRightOf="@id/beeb"
-		android:text="&lt;&lt;`=Esc\n\nAlt+...\n`: Caps\n1: ShLk\n2: Kbd\n3: £\nRtAlt:>Cpy"
+		android:text="&lt;&lt;Alt+...>X:Kbd\nC:Caps\nS:ShLk\n2:@\n3:£/_\n`:Esc&lt;RtAlt:>Cpy"
 		/>
 	<TextView
 		android:id="@+id/keyboard_help"
@@ -104,14 +104,14 @@
 		android:layout_alignParentLeft="true"
 		android:layout_toRightOf="@id/beeb"
 		android:layout_alignBottom="@id/kb_bt_alt"
-		android:text="&lt;&lt;Alt-2:>Kbd&lt;f10:>ShLk&lt;f11:>@&lt;f12:>£/_&lt;AltRt:>Cpy"/>
+		android:text="&lt;&lt;Alt+...>X:Kbd\nC:Caps\nS:ShLk\n2:@\n3:£/_\n`:Esc&lt;RtAlt:>Cpy"/>
 	<TextView
 		android:id="@+id/fps"
 		android:layout_width="fill_parent"
 		android:layout_height="48dp"
 		android:layout_alignParentBottom="true"
 		android:gravity="center"
-		android:textColor="#ffffffff"
+		android:textColor="#88ffffff"
 		android:visibility="visible"
 		/>
 
