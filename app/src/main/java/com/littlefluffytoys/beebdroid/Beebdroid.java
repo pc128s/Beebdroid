@@ -36,7 +36,12 @@ import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.content.Context;
 import android.content.Intent;
+import android.text.Layout;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.AlignmentSpan;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyCharacterMap;
@@ -54,6 +59,9 @@ import android.widget.Toast;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 
+import static android.text.Layout.Alignment.ALIGN_NORMAL;
+import static android.text.Layout.Alignment.ALIGN_OPPOSITE;
+import static android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
 import static com.littlefluffytoys.beebdroid.BeebKeys.*;
 import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToBeebKey;
 
@@ -399,6 +407,9 @@ public class Beebdroid extends Activity {
         controller = (ControllerView) findViewById(R.id.controller);
         controller.beebdroid = this;
 
+        enrichen(R.id.kb_bt_alt);
+        enrichen(R.id.keyboard_help);
+
         // See if we're a previous instance of the same activity, or a totally fresh one
         Beebdroid prev = (Beebdroid) getLastNonConfigurationInstance();
         if (prev == null) {
@@ -470,6 +481,43 @@ public class Beebdroid extends Activity {
         });
 
         UserPrefs.setGrandfatheredIn(this, true);
+    }
+
+    void enrichen(int resourceID) {
+        View v = findViewById(resourceID);
+        if (v instanceof TextView) {
+            TextView tv = (TextView)v;
+            String s = tv.getText().toString();
+            if (s.charAt(0) == '<') {
+                SpannableStringBuilder b = new SpannableStringBuilder();
+                int i = 0;
+                while (i < s.length()) {
+                    int r = nextEnd(s, '>', i);
+                    int l = nextEnd(s, '<', i);
+                    int end = Math.min(r, l);
+                    int lr = "<>".indexOf(s.charAt(i));
+                    if ( lr == -1 ) {
+                        b.append(s, i + 1, s.length());
+                        break;
+                    } else {
+                        SpannableString span = new SpannableString(s.substring(i + 1, end) + "\n");
+                        span.setSpan(
+                                new AlignmentSpan.Standard(lr > 0 ? ALIGN_OPPOSITE : ALIGN_NORMAL),
+                                0, span.length(),
+                                SPAN_EXCLUSIVE_EXCLUSIVE);
+                        b.append(span);
+                        i = end;
+                    }
+                }
+                tv.setText(b);
+            }
+        }
+    }
+
+    private int nextEnd(String s, char ch, int i) {
+        int a = s.indexOf(ch, i + 1);
+        if (a == -1) a = s.length();
+        return a;
     }
 
     private boolean onMouseSomething(View v, MotionEvent event) {

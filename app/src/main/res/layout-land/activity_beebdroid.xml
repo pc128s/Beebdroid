@@ -1,71 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout 
+<RelativeLayout
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:lft="http://schemas.android.com/apk/res-auto"
-	
+
 	android:id="@+id/root"
 	android:layout_width="fill_parent"
 	android:layout_height="fill_parent"
 	>
-	
-	
-<view class="com.littlefluffytoys.beebdroid.Beebdroid$BeebView"
-	android:id="@+id/beeb"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent"
-	android:layout_marginLeft="60dp"
-	android:layout_marginRight="60dp"
-	android:focusableInTouchMode="true"
-	android:focusable="true"
-	>
-	<requestFocus/>
-</view>
 
 
-<FrameLayout 	
-	android:layout_width="fill_parent"
-	android:layout_height="@dimen/keyboardAreaHeight"
-	android:layout_alignParentBottom="true"
->	
-<ViewFlipper 
-	android:id="@+id/flipper"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent"
->	
-
-<view class="com.littlefluffytoys.beebdroid.Keyboard"
-	android:id="@+id/keyboard"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent"
-	/>
-
-<view class="com.littlefluffytoys.beebdroid.ControllerView"
-	android:id="@+id/controller"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent"
-	/>
-
-</ViewFlipper>
-</FrameLayout>
+	<view class="com.littlefluffytoys.beebdroid.Beebdroid$BeebView"
+		android:id="@+id/beeb"
+		android:layout_width="fill_parent"
+		android:layout_height="fill_parent"
+		android:layout_marginLeft="60dp"
+		android:layout_marginRight="60dp"
+		android:focusableInTouchMode="true"
+		android:focusable="true"
+		>
+		<requestFocus/>
+	</view>
 
 
-<ImageView 
-	android:id="@+id/btnSave"
-	android:layout_width="48dp"
-	android:layout_height="48dp"
-	android:background="@drawable/tab"
-	android:src="@drawable/save"
-	android:onClick="onOpenClicked"
-	android:layout_alignParentRight="true"
-/>
+	<FrameLayout
+		android:layout_width="fill_parent"
+		android:layout_height="@dimen/keyboardAreaHeight"
+		android:layout_alignParentBottom="true"
+		>
+		<ViewFlipper
+			android:id="@+id/flipper"
+			android:layout_width="fill_parent"
+			android:layout_height="fill_parent"
+			>
+
+			<view class="com.littlefluffytoys.beebdroid.Keyboard"
+				android:id="@+id/keyboard"
+				android:layout_width="fill_parent"
+				android:layout_height="fill_parent"
+				/>
+
+			<view class="com.littlefluffytoys.beebdroid.ControllerView"
+				android:id="@+id/controller"
+				android:layout_width="fill_parent"
+				android:layout_height="fill_parent"
+				/>
+
+		</ViewFlipper>
+	</FrameLayout>
+
+
+	<ImageView
+		android:id="@+id/btnSave"
+		android:layout_width="48dp"
+		android:layout_height="48dp"
+		android:background="@drawable/tab"
+		android:src="@drawable/save"
+		android:onClick="onOpenClicked"
+		android:layout_alignParentRight="true"
+		/>
 
 	<TextView
 		android:layout_width="48dp"
 		android:layout_height="wrap_content"
 		android:id="@+id/info"
-		android:text=""
+		android:text="inkey(-x) info here"
 		android:layout_alignParentRight="true"
-        android:layout_below="@id/btnSave"
+		android:layout_toLeftOf="@id/beeb"
+		android:layout_below="@id/btnSave"
 		/>
 
 	<TextView
@@ -78,12 +79,12 @@
 		/>
 
 	<ImageView
-	android:id="@+id/btnInput"
-	android:layout_width="48dp"
-	android:layout_height="48dp"
-	android:background="@drawable/tab"
-	android:src="@drawable/keyboard"
-/>
+		android:id="@+id/btnInput"
+		android:layout_width="48dp"
+		android:layout_height="48dp"
+		android:background="@drawable/tab"
+		android:src="@drawable/keyboard"
+		/>
 	<TextView
 		android:id="@+id/kb_bt_alt"
 		android:layout_width="26pt"
@@ -91,25 +92,27 @@
 		android:layout_below="@id/lock"
 		android:background="@color/background_material_dark"
 		android:layout_alignParentLeft="true"
-		android:text="`=Esc\n\nAlt+...\n\n`=Caps\n1=ShLk\n2=TKbd\n3=£\nSpc=Cpy"
+		android:layout_toRightOf="@id/beeb"
+		android:text="&lt;&lt;`=Esc\n\nAlt+...\n`: Caps\n1: ShLk\n2: Kbd\n3: £\nRtAlt:>Cpy"
 		/>
 	<TextView
-        android:id="@+id/keyboard_help"
+		android:id="@+id/keyboard_help"
 		android:layout_width="26pt"
 		android:layout_height="wrap_content"
 		android:layout_below="@id/lock"
 		android:background="@color/background_material_dark"
 		android:layout_alignParentLeft="true"
-        android:layout_alignBottom="@id/kb_bt_alt"
-		android:text="A-2=Tkbd\nf10=ShLk\nf11=@\nf12=£/_\nAltRt=Cpy"/>
+		android:layout_toRightOf="@id/beeb"
+		android:layout_alignBottom="@id/kb_bt_alt"
+		android:text="&lt;&lt;Alt-2:>Kbd&lt;f10:>ShLk&lt;f11:>@&lt;f12:>£/_&lt;AltRt:>Cpy"/>
 	<TextView
-	android:id="@+id/fps"
-	android:layout_width="fill_parent"
-	android:layout_height="48dp"
-	android:layout_alignParentBottom="true"
-	android:gravity="center"
-	android:textColor="#ffffffff"
-	android:visibility="visible"
-/>
+		android:id="@+id/fps"
+		android:layout_width="fill_parent"
+		android:layout_height="48dp"
+		android:layout_alignParentBottom="true"
+		android:gravity="center"
+		android:textColor="#ffffffff"
+		android:visibility="visible"
+		/>
 
 </RelativeLayout>
