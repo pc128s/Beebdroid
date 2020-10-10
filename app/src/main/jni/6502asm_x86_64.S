@@ -229,7 +229,7 @@
 .endm
 
 .macro UPDATE_TAKEINT 	# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
-LOG 1
+//LOG 1
 	cmp dword ptr [ Rcpu+Sint], 0	# r12 = cpu->interrupt
 	jz  1f
 	test byte ptr [ Rcpu+Srp], 4  		# test the FLAG_I
@@ -238,7 +238,7 @@ LOG 1
 	jmp 2f
 1:
 	mov dword ptr [ Rcpu+Stakeint], 0   				#cpu->take_int = r1
-LOG 2
+//LOG 2
 2:
 .endm
 
