@@ -44,6 +44,7 @@ import android.text.TextUtils;
 import android.text.style.AlignmentSpan;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -208,7 +209,7 @@ public class Beebdroid extends Activity {
         // Keyboard toggle in all modules.
         if (isDown
                 && event.isAltPressed()
-                && event.getUnicodeChar(0) == 'x') {
+                && ( event.getUnicodeChar(0) == 'x' || event.getUnicodeChar(0) == 'k' )) {
             toggleKeyboard();
             if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
                 beebView.requestFocus();
@@ -385,8 +386,11 @@ public class Beebdroid extends Activity {
             // Create this directory so LOGGING can use it.
             File dir = getExternalFilesDir("");
             Log.i("Storage", dir.toString());
-            for (File file : dir.listFiles()) {
-                file.delete();
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    file.delete();
+                }
             }
         }
 

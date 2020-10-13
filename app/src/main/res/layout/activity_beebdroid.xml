@@ -28,7 +28,7 @@
 				android:layout_height="match_parent"
 				android:gravity="center"
 				android:background="@color/background_material_dark"
-				android:text="Alt-X=Kbd `=Esc\nRtAlt=Cpy Alt-S=ShLk Alt-C=Caps\nAlt-2=@ Alt-3=£/_"
+				android:text="Alt-X/K=Kbd `=Esc\nRtAlt=Cpy Alt-S=ShLk Alt-C=Caps\nAlt-2=@ Alt-3=£/_"
 				/>
 			<TextView
 				android:id="@+id/keyboard_help"
@@ -37,7 +37,7 @@
 				android:visibility="invisible"
 				android:gravity="center"
 				android:background="@color/background_material_dark"
-				android:text="Alt-X=Kbd Alt-`=Esc\nRtAlt=Copy Alt-S=ShLk Alt-C=Caps\nAlt-2=@ Alt-3=£/_"
+				android:text="Alt-X/K=Kbd Alt-`=Esc\nRtAlt=Copy Alt-S=ShLk Alt-C=Caps\nAlt-2=@ Alt-3=£/_"
 				/>
 			<TextView
 				android:layout_width="match_parent"

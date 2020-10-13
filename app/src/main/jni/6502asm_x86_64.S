@@ -333,11 +333,12 @@ use_c_fn:
     mov [ Rcpu+Srx],  Rx 	#  dl = X
     mov [ Rcpu+Sry],  Ry 	#  r9 = Y
     mov [ Rcpu+Srs],  Rs 	#  r10 = S
-	push  Rcpu  	# Sole parameter for C opcode functions is r0 = CPU*
+	pushall  	# Sole parameter for C opcode functions is r0 = CPU*
+	mov rdi, Rcpu
 // PROBABLY rdi now, for arg0 on x86_64
 	call  rbx
-	add  rsp, 8 //4 ?
-    mov   rRpc, 0
+	popall
+    mov   rRpc, 0  // ??!
     mov  Rpc,  [ Rcpu+Spc] 	#  di = r6  = PC
     mov  Ra,  [ Rcpu+Sra] 	#  cl = r7  = A
     mov  Rx,  [ Rcpu+Srx] 	#  dl = r8  = X

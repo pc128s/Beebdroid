@@ -102,6 +102,7 @@ public class Keyboard extends TouchpadsView {
         switch (keyCode) {
             case KeyEvent.KEYCODE_C: return BeebKeys.BBCKEY_CAPS;
             case KeyEvent.KEYCODE_S: return BeebKeys.BBCKEY_SHIFTLOCK;
+            case KeyEvent.KEYCODE_GRAVE: return BeebKeys.BBCKEY_ESCAPE;
             case KeyEvent.KEYCODE_2: return BeebKeys.BBCKEY_AT; // vs US mapping
             case KeyEvent.KEYCODE_3: // vs US mapping.
                 if (event.isShiftPressed()) return BeebKeys.BBCKEY_UNDERSCORE;
