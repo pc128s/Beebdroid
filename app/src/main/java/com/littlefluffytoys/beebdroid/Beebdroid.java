@@ -214,7 +214,6 @@ public class Beebdroid extends Activity {
             return true;
         }
 
-
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
             if (keycode == KeyEvent.KEYCODE_MENU) return false; // Someone else's problem!
             int scancode = causeBBCKeyActionFromUnicode(event);
