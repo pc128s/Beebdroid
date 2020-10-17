@@ -9,6 +9,9 @@ android {
         applicationId "com.littlefluffytoys.beebdroid"
         targetSdkVersion 26
         minSdkVersion 14
+        ndk {
+            abiFilters "x86", "armeabi-v7a", "arm64-v8a", "x86_64"
+        }
     }
     useLibrary 'org.apache.http.legacy'
     buildTypes {
@@ -37,13 +40,13 @@ android {
             path file('src/main/jni/Android.mk')
         }
     }
-    splits {
-        abi {
-            reset()
-            include "x86", "armeabi-v7a", "arm64-v8a", "x86_64"
-            enable true
-        }
-    }
+//    splits {
+//        abi {
+//            reset()
+//            include "x86", "armeabi-v7a", "arm64-v8a", "x86_64"
+//            enable true
+//        }
+//    }
 }
 
 dependencies {

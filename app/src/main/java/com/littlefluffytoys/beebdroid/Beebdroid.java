@@ -36,15 +36,12 @@ import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.content.Context;
 import android.content.Intent;
-import android.text.Layout;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
-import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.AlignmentSpan;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -220,7 +217,7 @@ public class Beebdroid extends Activity {
 
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
             if (keycode == KeyEvent.KEYCODE_MENU) return false; // Someone else's problem!
-            int scancode = bbcKeyActionFromUnicode(event);
+            int scancode = causeBBCKeyActionFromUnicode(event);
             if (isDown) showInfo(event, scancode);
             if (scancode != 0) return true;
             return false;
@@ -292,21 +289,21 @@ public class Beebdroid extends Activity {
     }
 
     // Keep track of what caused a keydown in case shift shifts ; to : and messes up the key.
-    HashMap<Integer, Integer> downKeycode = new HashMap<Integer, Integer>();
+    HashMap<Integer, Integer> pushedKeycodes = new HashMap<Integer, Integer>();
 
-    private int bbcKeyActionFromUnicode(final KeyEvent event) {
+    private int causeBBCKeyActionFromUnicode(final KeyEvent event) {
         final int keycode = event.getKeyCode();
         final boolean isDown = event.getAction() == KeyEvent.ACTION_DOWN;
         if (isDown) {
             unscheduleKeyup(keycode);
             int scancode = unicodeToBeebKey(event);
             if (scancode != 0) {
-                downKeycode.put(keycode, scancode);
+                pushedKeycodes.put(keycode, scancode);
                 bbcKeyEvent(scancode, 0, 1);
             }
             return scancode;
         } else {
-            final Integer scancode = downKeycode.remove(keycode);
+            final Integer scancode = pushedKeycodes.remove(keycode);
             if (scancode != null && scancode != 0) {
                 if (event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
                     // Probably don't care about unscheduling a keyup, but...

@@ -51,7 +51,7 @@ void LOGF(char* format, ...) {
         s_file = fopen(buff, "w+");
 	}
 
-//  	if (framecount == 20) {
+//  	if (framecount == 280) { // Booted and key press checks
 //  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
 //  	    fclose(s_file);
 //  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
@@ -101,9 +101,16 @@ void log_cpu_C(M6502* cpu) {
 	for (i=0 ; i<65536 ; i++) {
 		sum += cpu->mem[i];
 	}
-    LOGF("lcpuC PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X %i:%i tv:%ld.%06ld %s\n",
+    LOGF("lcpuC PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X "
+         "int:%08x take:%08x "
+         "mem:%08X %i:%i "
+      //   "tv:%ld.%06ld "
+         "%s\n",
           cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s,
-                                                                             sum, framecount, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, ops[p[cpu->pc]]);
+          cpu->interrupt, cpu->takeint,
+          sum, framecount, cpu->cycles,
+      //    (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec,
+          ops[p[cpu->pc]]);
 
 //    LOGI("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
 //          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
@@ -143,7 +150,6 @@ void log_asm(void* x0, void* x1, void* x2, void* x3) {
          the_cpu->cycles, the_cpu->pc, the_cpu->p, the_cpu->s,
          the_cpu->interrupt, the_cpu->takeint, the_cpu->nmi
          );
-	1;
 #endif
 }
 
@@ -412,10 +418,24 @@ void dump_callcounts() {
 
 
 int vidclockacc=0;
+int abcd=0;
+// int k = 18561; // Y6R
+//int k = 20250; // YFR
+//int k = 20500; // YF6R on x86, just Y on 86_64 but not under logging
+int k = 90500; // YF6R on x86, just Y on 86_64
+int m = 650000;
+extern uint8_t keys[16][16];
 
 void do_poll_C(M6502* cpu, int c) {
+    int d = 0;
+//    if (abcd++>m && abcd<m + k*8 - 1) {
+// Repeatably fake keys
+//        d = (abcd -m ) / k;
+//        keys[((d & 2) == 0) + 3][((d & 4) == 0) + 3] = (d & 1) == 0;
+//    }
 
-	LOGF("do_poll cpu %p c %x\n", cpu, c);
+//    LOGF("do_poll c %x abcd=%d d=%x int=%x take=%x\n", c, abcd, d, cpu->interrupt, cpu->takeint);
+
 	if (otherstuffcount<=0) {
 		otherstuffcount+=128;
 		logvols();
@@ -424,8 +444,6 @@ void do_poll_C(M6502* cpu, int c) {
 			if (!motorspin) fdcspindown();
 		}
 	}
-
-
 
 	// Time to poll hardware?
 	if (c > 0) {

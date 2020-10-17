@@ -26,7 +26,7 @@
 #  r9 = Y       dh
 # r10 = S       ch
 # r11 = P
-
+# rax, rbx,  Xrcx, Xrdx, Xrsp, Xrbp, Xrsi, Xrdi
 #define Rcpu  ebp   //  r4 = cpu*
 #define Rmem  esi   //  r5 = mem
 #define Rpc   di   //  r6 = PC
@@ -166,7 +166,7 @@
 .endm
 
 .macro UPDATE_TAKEINT 	# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
-LOG 1
+//LOG 1
 	cmp dword ptr [ Rcpu+Sint], 0	# r12 = cpu->interrupt
 	jz  1f
 	test byte ptr [ Rcpu+Srp], 4  		# test the FLAG_I
@@ -175,7 +175,7 @@ LOG 1
 	jmp 2f
 1:
 	mov dword ptr [ Rcpu+Stakeint], 0   				#cpu->take_int = r1
-LOG 2
+//LOG 2
 2:
 .endm
 
@@ -216,7 +216,7 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-   LOG_CPU
+//   LOG_CPU
 // rm -rf x86/
 //   adb pull /storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files ./x86
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
@@ -270,10 +270,11 @@ use_c_fn:
     mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
 
 done_call:
- //   LOG 5   // It's quick to here!
+//mov ebx, [ Rcpu + Sint ]
+//LOG4 5, ebx, 0, 0   // It's quick to here!
 	bt   eax, 31   // sei cli return -2.
 	jc  already_updated_interrupts
-LOG 4
+//LOG 4
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	UPDATE_TAKEINT
 	jmp done_interrupts
@@ -292,7 +293,7 @@ done_interrupts:
 	push 0xfffa
 	jmp do_interrupt
 no_nmi:
-LOG 9
+//LOG 9
 	cmp dword ptr [ Rcpu+Stakeint], 0   # Rcpu+20 = cpu->take_int
 	jz no_interrupt
 	mov dword ptr [ Rcpu+Stakeint], 0
@@ -1822,7 +1823,7 @@ opasm_sed:
 opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	or byte ptr [ Rcpu+Srp], 4			# cpu->p |= FLAG_I;
-LOG 3
+//LOG 3
 	RETURN -ticks2  # ARM returns -2 to show interrupt taken
 
 

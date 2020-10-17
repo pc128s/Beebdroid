@@ -346,7 +346,8 @@ use_c_fn:
     mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
 
 done_call:
-//    LOG 5   // It's quick to here!
+//mov ebx, [ Rcpu + Sint ]
+//LOG4 5, rbx, 0, 0   // It's quick to here!
 	bt   rax, 63   // sei cli return -2.
 	jc  already_updated_interrupts
 // LOG 4
@@ -400,11 +401,10 @@ do_interrupt:
 //LOG rsp
 // LOG rax
 no_interrupt:
-    and dword ptr [ Rcpu+Sint], -128 // 0xFFFFFF7f   # cpu->interrupt &= ~128
+    and dword ptr [ Rcpu+Sint], -129 // 0xFFFFFF7f   # cpu->interrupt &= ~128
 
 	# Update CPU->cycles
 	pop  rax
-update_cycles:
 	sub [ Rcpu+Scycles],  eax
 //LOG 0x71
 	# Update intermediate cycle counter
