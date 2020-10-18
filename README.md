@@ -1,12 +1,12 @@
 Beebdroid
 
-An emulator for BBC microcomputers.
+Android port by Reuben Scratton of the BeebEm emulator for BBC microcomputers.
 
 Changes
 
 Jan 2020
-- [TB] Moved assembly code to Position Independent Code, as required by new Android security requirements.
-- [TB] Added keycaps mode (Ab*) to support programming.
+- [TB] Adapted assembly code to Position Independent Code, as required by new Android security requirements.
+- [TB] Added keycaps mode (Ab*) and mouse on ADVAL to support programming.
 - [TB] Added snapshot handling to 'save' programming.
 
 Oct 2002
@@ -16,9 +16,11 @@ Overview
 
 The emulator supports all 6502 opcodes, including the unofficial ones arising because of the CPU's internal microcoding. (On the 64bit ports, there may be bugs in these unofficial opcodes.)
 
-At start-up, the emulator launches with an on-screen version of the original BBC micro.
+At start-up, the emulator launches with an on-screen version of the original BBC micro keyboard, targeting games which need precise keymapping, so symbols on the keyboard may not match what appears on the screen. Pressing the JoyPad icon switches to joypad mode and offers 'Ab*' mode. Ab* mode maps the keyboard symbols to make what is pressed appear on the screen.
 
-From Google Play Store:
+The disk icon allows you to download games from the internet archive under 'Games', or use local images 'Local', or 'Saved' to create snapshots of the machine, or restore to a previously saved image.
+
+Description from Google Play Store:
 
 We grew up with the BBC Micro and we loved it, so we're bringing it back to the world!
 
