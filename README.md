@@ -12,6 +12,13 @@ Jan 2020
 Oct 2002
 - [TB] Initial 32-bit assembly port to 64-bit assembly, according to new Android application requirements. Sound is broken on x86_64.
 
+Bugs
+- games are broken: the machine just resets - might only affect 64 bit architecture, might arise from keyboard changes
+- saved machine states may be partly broken, perhaps due to CPU structure entries
+- x86_64 sound is broken - probably in the C layer, since boot logging shows CPU instructions are identical to x86
+- opcodes not used during boot sequence completion are untested and probably broken
+- no automated testing
+
 Overview
 
 The emulator supports all 6502 opcodes, including the unofficial ones arising because of the CPU's internal microcoding. (On the 64bit ports, there may be bugs in these unofficial opcodes.)
