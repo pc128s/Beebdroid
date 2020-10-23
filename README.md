@@ -17,7 +17,8 @@ Bugs
 - saved machine states may be partly broken, perhaps due to CPU structure entries
 - x86_64 sound is broken - probably in the C layer, since boot logging shows CPU instructions are identical to x86
 - opcodes not used during boot sequence completion are untested and probably broken
-- no automated testing
+- no automated testing of emulated machine
+- would be nice to have a full C layer CPU emulation, to avoid needing to port to 64 bit architecture. Perhaps steal it from latest BeebEm.
 
 Overview
 
