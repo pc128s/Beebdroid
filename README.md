@@ -23,18 +23,17 @@ Overview
 
 The emulator supports all 6502 opcodes, including the unofficial ones arising because of the CPU's internal microcoding. (On the 64bit ports, there may be bugs in these unofficial opcodes.)
 
-At start-up, the emulator launches with an on-screen version of the original BBC micro keyboard, targeting games which need precise keymapping, so symbols on the keyboard may not match what appears on the screen. Pressing the JoyPad icon switches to joypad mode and offers 'Ab*' mode. Ab* mode maps the keyboard symbols to make what is pressed appear on the screen, and also maps touches and mouse to adval 1,2 for x,y and 3,4 for button and pressure. The least significant bit of each ADVAL channel shows whether the values are part of the same sampling - ensuring the least significant bit of the channels match avoids blocky-looking lines.
+At start-up, the emulator launches with an on-screen version of the original BBC micro keyboard, targeting games which need precise keymapping, so symbols on the keyboard may not match what appears on the screen. Pressing the JoyPad icon switches to joypad mode and offers 'Ab*' mode. Ab* mode maps the keyboard symbols to make what is pressed appear on the screen, and also maps screen touches and mouse activity to adval 1,2 for x,y and 3,4 for button and pressure. The least significant bit of each ADVAL channel shows whether the values are part of the same sampling - ensuring the least significant bit of the channels match avoids blocky-looking lines - for example:
 
-e.g.
-    10 MODE 0
+````
+    10 MODE 2
     20 B=-1
     30 OB=B
-    40 X=ADVAL 1 : Y=ADVAL 2 : B=ADVAL 3
-    50 IF (X AND 1) <> (Y AND 1) GOTO 40
-    60 IF (X AND 1) <> (B AND 1) GOTO 40
-    70 IF OB < 2 MOVE X/2, Y/2 ELSE DRAW X/2, Y/2
-    80 GOTO 30
-
+    40 REPEAT X=ADVAL 1 : Y=ADVAL 2 : B=ADVAL 3 : UNTIL ((X AND 1) + (Y AND 1) + (B AND 1)) MOD 3 = 0
+    50 GCOL 0, 1 + (ADVAL 4 DIV 128) : REM touch pressure = colour
+    60 IF OB < 2 MOVE X/2, Y/2 ELSE DRAW X/2, Y/2
+    70 GOTO 30
+````
 The disk icon allows you to download games from the internet archive under 'Games', or use local images 'Local', or 'Saved' to create snapshots of the machine, or restore to a previously saved image.
 
 Description from Google Play Store:
