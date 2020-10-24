@@ -10,7 +10,7 @@ Jan 2020
 - [TB] Added snapshot handling to 'save' programming.
 
 Oct 2002
-- [TB] Initial 32-bit assembly port to 64-bit assembly, according to new Android application requirements. Sound is broken on x86_64.
+- [TB] Initial 32-bit assembly port to 64-bit assembly, according to new Android application requirements.
 
 Bugs
 - games are broken: the machine just resets - might only affect 64 bit architecture, might arise from keyboard changes
