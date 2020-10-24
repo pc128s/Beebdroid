@@ -28,7 +28,7 @@
 				android:layout_height="match_parent"
 				android:gravity="center"
 				android:background="@color/background_material_dark"
-				android:text="Alt+... X/K=Kbd `=Esc S=ShLk C=Caps 2=@ 3=£/_ RAlt=Cpy"
+				android:text="Alt+... X/K=Kbd `=Esc S=ShLk C=Caps 2=@ 3=£/_ RAlt=Cpy Mouse/touch adval1,2,3"
 				/>
 			<TextView
 				android:id="@+id/keyboard_help"

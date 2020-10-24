@@ -42,6 +42,7 @@ import android.text.TextUtils;
 import android.text.style.AlignmentSpan;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.DragEvent;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -368,6 +369,7 @@ public class Beebdroid extends Activity {
     }
 
     int adctick = 0;
+    int updown = 0;
     long last_ms;
 
     @Override
@@ -522,11 +524,14 @@ public class Beebdroid extends Activity {
         return a;
     }
 
-    private boolean onMouseSomething(View v, MotionEvent event) {
+    private boolean onMouseSomething(final View v, final MotionEvent event) {
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
 
             long ms = event.getEventTime();
-            if (last_ms + 20 < ms) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) updown=1;
+            if (event.getAction() == MotionEvent.ACTION_UP) updown=0;
+            Log.i(TAG, "onMouseSomething: "+ event.getAction());
+            if (last_ms + 20 < ms || event.getAction() == MotionEvent.ACTION_UP) {
                 last_ms = ms;
                 adctick ^= 1;
 //						Log.e(TAG, "Hover " + (event.getX() + v.getX()) + ", " + (event.getY() + v.getY()));
@@ -536,7 +541,8 @@ public class Beebdroid extends Activity {
                 bbcPushAdc(
                         (int) xx * 2 + adctick,
                         (int) yy * 2 + adctick,
-                        event.getButtonState() * 2 + adctick, 0);
+                        (event.getButtonState() + updown) * 2 + adctick,
+                        updown * Math.round(event.getPressure()*1024) * 2 + adctick);
             }
             return true;
         }

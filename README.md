@@ -23,7 +23,7 @@ Overview
 
 The emulator supports all 6502 opcodes, including the unofficial ones arising because of the CPU's internal microcoding. (On the 64bit ports, there may be bugs in these unofficial opcodes.)
 
-At start-up, the emulator launches with an on-screen version of the original BBC micro keyboard, targeting games which need precise keymapping, so symbols on the keyboard may not match what appears on the screen. Pressing the JoyPad icon switches to joypad mode and offers 'Ab*' mode. Ab* mode maps the keyboard symbols to make what is pressed appear on the screen.
+At start-up, the emulator launches with an on-screen version of the original BBC micro keyboard, targeting games which need precise keymapping, so symbols on the keyboard may not match what appears on the screen. Pressing the JoyPad icon switches to joypad mode and offers 'Ab*' mode. Ab* mode maps the keyboard symbols to make what is pressed appear on the screen, and also maps touches and mouse to adval 1,2 for x,y and 3,4 for button and pressure. The least significant bit of each ADVAL channel shows whether the values are part of the same sampling - ensuring the least significant bit of the channels match avoids blocky-looking lines.
 
 The disk icon allows you to download games from the internet archive under 'Games', or use local images 'Local', or 'Saved' to create snapshots of the machine, or restore to a previously saved image.
 

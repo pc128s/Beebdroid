@@ -93,7 +93,7 @@
 		android:background="@color/background_material_dark"
 		android:layout_alignParentLeft="true"
 		android:layout_toRightOf="@id/beeb"
-		android:text="&lt;&lt;Alt+...>X/K:Kbd\nC:Caps\nS:ShLk\n2:@\n3:£/_\n`:Esc&lt;RtAlt:>Cpy"
+		android:text="&lt;&lt;Alt+...>X/K:Kbd\nC:Caps\nS:ShLk\n2:@\n3:£/_\n`:Esc&lt;RtAlt:>Cpy&lt;\nMouse or touch adval1,2,3"
 		/>
 	<TextView
 		android:id="@+id/keyboard_help"
