@@ -15,8 +15,7 @@ Oct 2002
 Bugs
 - games are broken: the machine just resets - might only affect 64 bit architecture, might arise from keyboard changes
 - saved machine states may be partly broken, perhaps due to CPU structure entries
-- x86_64 sound is broken - probably in the C layer, since boot logging shows CPU instructions are identical to x86
-- opcodes not used during boot sequence completion are untested and probably broken
+- opcodes not used during boot sequence completion are untested and probably broken in 64 emulations
 - no automated testing of emulated machine. Maybe http://visual6502.org/wiki/index.php?title=6502TestPrograms
 - would be nice to have a full C layer CPU emulation, to avoid needing to port to 64 bit architecture. Perhaps steal it from latest BeebEm.
 
