@@ -15,9 +15,11 @@ Oct 2002
 Bugs
 - games are broken: the machine just resets - might only affect 64 bit architecture, might arise from keyboard changes
 - saved machine states may be partly broken, perhaps due to CPU structure entries
+- no ASCII input/output methods: anything would be good - fake keyboard is adequate and parallel port would suffice, but RS232 would be nice.
 - opcodes not used during boot sequence completion are untested and probably broken in 64 emulations
 - no automated testing of emulated machine. Maybe http://visual6502.org/wiki/index.php?title=6502TestPrograms
-- would be nice to have a full C layer CPU emulation, to avoid needing to port to 64 bit architecture. Perhaps steal it from latest BeebEm.
+- would be nice to have a full C layer CPU emulation, to avoid having needed to update the assembly.
+-- Perhaps steal it from latest BeebEm - structure it so it's arranged as a huge case statement in a loop, either called for one-off opcode execution from the assembly, or able to run in its own loop.
 
 Overview
 
