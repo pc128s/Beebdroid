@@ -98,6 +98,9 @@ extern int joy1x,joy1y,joy2x,joy2y;
 
 //extern void writemem_ex(uint16_t addr, uint8_t val16);
 
+extern int beebOfferingRS232();
+extern uint8_t beebAcceptedRS232(uint8_t next);
+
 #ifdef _ARM_
 // Should be safe to make ARM uint32 too
 extern void writemem_ex(uint16_t addr, uint8_t val16);

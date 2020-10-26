@@ -97,7 +97,30 @@
 	<requestFocus/>
 	</view>
 
-<RelativeLayout 	
+	<LinearLayout
+		android:layout_height="?attr/actionBarSize"
+		android:layout_width="match_parent"
+		android:background="@color/background_material_dark"
+		>
+		<TextView
+			android:id="@+id/rs232rx"
+			android:layout_width="wrap_content"
+			android:layout_height="match_parent"
+			android:layout_weight="1"
+			android:text="RS232:Rx:"
+			android:hint="RS232:Rx:"
+			/>
+		<EditText
+			android:id="@+id/rs232tx"
+			android:visibility="gone"
+			android:layout_width="wrap_content"
+			android:layout_height="match_parent"
+			android:layout_weight="1"
+			android:text="RS232:Tx:"
+			android:hint="RS232:Tx:"
+			/>
+	</LinearLayout>
+<RelativeLayout
 	android:layout_width="fill_parent"
 	android:layout_height="0dp"
 	android:layout_weight="168"

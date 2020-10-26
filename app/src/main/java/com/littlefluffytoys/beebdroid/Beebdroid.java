@@ -42,7 +42,6 @@ import android.text.TextUtils;
 import android.text.style.AlignmentSpan;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.DragEvent;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -52,6 +51,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -72,6 +72,8 @@ public class Beebdroid extends Activity {
     // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
     public static final int MIN_KEY_DOWNUP_MS = 50; //10;
     public static boolean use25fps = false;
+    private TextView rs232rx;
+    private EditText rs232tx;
 
     private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
 
@@ -126,6 +128,10 @@ public class Beebdroid extends Activity {
     public native int bbcGetLocks();
 
     public native void bbcPushAdc(int x1, int y1, int x2, int y2);
+
+    public native int bbcOfferingRs232();
+
+    public native int bbcAcceptedRs232(byte b);
 
     long time_fps;
 
@@ -410,6 +416,9 @@ public class Beebdroid extends Activity {
         keyboard.beebdroid = this;
         controller = (ControllerView) findViewById(R.id.controller);
         controller.beebdroid = this;
+
+        rs232rx = findViewById(R.id.rs232rx);
+        rs232tx = findViewById(R.id.rs232tx);
 
         enrichen(R.id.kb_bt_alt);
         enrichen(R.id.keyboard_help);
@@ -1080,6 +1089,19 @@ public class Beebdroid extends Activity {
                 beebView.egl.eglSwapBuffers(beebView.display, beebView.surface);
             }
         }
+
+        // hijack fps for rs232 stuff.
+        if (rs232rx != null) {
+            int i = bbcOfferingRs232();
+            if (i != -1) {
+                rs232rx.append(String.valueOf((char)i));
+            }
+        }
+//        if (rs232tx != null && rs232tx.getText().length() > 0) {
+//            if (bbcAcceptedRs232((byte)rs232tx.getText().charAt(0)) == 1) {
+//                rs232tx.getText().delete(0,1);
+//            }
+//        }
 
         // Update status text once per second
         if (System.currentTimeMillis() - time_fps >= 1000) {

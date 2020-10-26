@@ -181,24 +181,42 @@ static inline uint16_t readwordZp(uint8_t x, M6502* cpu) { return (*((uint16_t*)
 
 uint8_t readmem_ex_real(uint16_t addr);
 
+uint8_t read6850acia(uint16_t addr);
+
+uint8_t readSerialULA(uint16_t addr);
+
+void write6850acia(uint32_t addr, uint8_t val);
+
+void writeSerialULA(uint32_t addr, uint8_t val);
+
 uint8_t readmem_ex(uint16_t addr)
 {
 	uint8_t rv = readmem_ex_real(addr);
-	//if (addr == 0xFE4f) {
-	//	LOGI("reading %02X from fe4f!", rv);
-	//}
 	LOGF("readmem_ex! addr=%04X val=%02X\n", addr, rv);
 
 	return rv;
 }
 
+uint8_t statusSerialULA = 0;
+
+uint8_t status6850=0;
+uint8_t control6850=0;
+int rxChar=-1;
+int txChar=-1;
+
+
 uint8_t readmem_ex_real(uint16_t addr) {
-	//LOGI("readmem_ex! %04X", addr);
+	if ( 0xFE08 <= addr && addr <= 0xFE1F) {
+		LOGF("Reading %04X! rx %04X tx %04X ctl %02X sta %02X int %02X\n", addr, rxChar, txChar, control6850, status6850, the_cpu->interrupt);
+	}
+
+//	LOGI("readmem_ex! %04X", addr);
         uint8_t temp;
-        switch (addr&~3)
+        switch (addr & ~3)
         {
                 case 0xFE00: case 0xFE04: return readcrtc(addr);
-                case 0xFE08: case 0xFE0C: /*return readacia(addr);*/break;
+                case 0xFE08: case 0xFE0C: return read6850acia(addr); // RS232+TAPE data 0xFE0A - 0xFE0F: also 6850, nominally
+                case 0xFE10: return readSerialULA(addr); // Serial ULA  0xFE11-1F : also serial ULA
                 //case 0xFE18: if (MASTER) return readadc(addr); break;
                 case 0xFE40: case 0xFE44: case 0xFE48: case 0xFE4C:
                 case 0xFE50: case 0xFE54: case 0xFE58: case 0xFE5C:
@@ -228,6 +246,93 @@ uint8_t readmem_ex_real(uint16_t addr) {
         //LOGI("reading from 0x%04X", addr);
         return the_cpu->mem[addr]; //
 }
+
+uint8_t readSerialULA(uint16_t addr) {
+    // baud rate tx0,1,2/rx3,4,5 6-0=TAPE or 1=RS232, 7=motor
+	return statusSerialULA;
+}
+
+void writeSerialULA(uint32_t addr, uint8_t val) {
+	statusSerialULA = val;
+	if (statusSerialULA & 64) {
+		status6850 &= ~2; // always low when rs232 selected
+	}
+}
+
+int beebOfferingRS232() {
+	return -1;
+	status6850 &= ~8u; // Always Clear To Send - external input
+	if (txChar == -1 || (status6850 & 2u)) return -1; // nothing for you, sorry.
+
+	int taken = txChar;
+	txChar = -1;
+	status6850 |= 2u; //  High now, because we've taken the char
+	if ((control6850 & 96u) == 64) the_cpu->interrupt |= 8u;
+	return taken;
+}
+
+void write6850acia(uint32_t addr, uint8_t val) {
+	return;
+	switch (addr) {
+		case 0xFE08:
+	// Control - write-only
+	// - b0,1 - counter divide 00-1,01-16,10-64,11-master_reset
+	// - b2,3,4 - 4databits-0=7,1=8; 3stopbits-1=1, 0=2*, 2parity-0=even* 1=odd* but *100=8bit2stop, *101=8bits1stop
+	// - b5,6 - tx ctl - 5-0=txint disabled, 6-0=RTS low, 10=RTS-high,txi enabled, 11=RTSlow, tx break level, txi disabled
+	// - b7 - receive interrupt enable=1
+	// e.g. 56 = 0101.0110 = 64/ 8bits1stop, rx disabled
+			control6850 = val;
+			if ((control6850 & 96u) == 64 && (status6850 & 2u))
+				the_cpu->interrupt |= 8u;
+			else
+				the_cpu->interrupt &= ~8u;
+			if ((control6850 & 128u) && (status6850 & 1u))
+				the_cpu->interrupt |= 4u;
+			else
+				the_cpu->interrupt &= ~4u;
+			return;
+		case 0xFE09: // tx byte
+			txChar = val;
+			status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
+		return;
+	}
+}
+
+uint8_t beebAcceptedRS232(uint8_t next) {
+	return 0;
+	if (status6850 & 1u) return 0; // that char not accepted yet, try again later
+
+	rxChar = next;
+	status6850 |= 1u; // Rx is full! Magically cleared by next processor read
+	if (control6850 & 128u) the_cpu->interrupt |= 4u; // Presume each system has its own bit - CPU just cares about nonzero
+	return 1; // that char accepted - try next, pls
+}
+
+uint8_t read6850acia(uint16_t addr) {
+	return 0;
+	switch (addr) {
+		case 0xFE08:  // Status - read only
+			// - b0=RxFull cleared by processor read from Rx
+			// - b1=TxEmpty low=full high=ready for processor to write to Tx
+			// - b2=DCD - always low when RS232 is selected, high=carrier missing from cassette input
+			// - b3=CTS - clear to send. always low for cassette, high if RS232 recipient is unready
+			// - b4=FrameError - received char was malformed start/stop/parity
+			// - b5=overrun - characters received but not read
+			// - b6=parity error
+			// - b7=IRQ bit high=serial issued IRQ (line is low), cleared by read from Rx or write to Tx
+			return status6850;
+		case 0xFE09:  // Rx=read
+			if (rxChar != -1 && (status6850 & 1u)) {
+				uint8_t taken = rxChar;
+				rxChar = -1;
+				status6850 &= ~1u; // Magic clear of RxFull
+				status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
+				return taken;
+			}
+		return rxChar;
+	}
+}
+
 uint16_t readword_ex(uint16_t addr)
 {
 	return readmem_ex(addr) | (readmem_ex(addr+1)<<8);
@@ -242,11 +347,11 @@ void writemem_ex(uint32_t addr, uint32_t val16)
 int lgd = -1;
 uint8_t val = (val16) & 0xff;
 addr &= 0xffff;
-if (addr == 0xFE4f || addr == 0xFE42) {
-	LOGF("writing %02X(%04X) to %04X!", val, val16, addr);
+if ( 0xFE08 <= addr && addr <= 0xFE1F) {
+	LOGF("Writing %02X(%04X) to %04X! rx %04X tx %04X ctl %02X sta %02X int %02X\n", val, val16, addr, rxChar, txChar, control6850, status6850, the_cpu->interrupt);
 	lgd = val;
 }
-LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
+//LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
 
 	int c;
 	if (addr<0xFC00 || addr>=0xFF00) return;
@@ -254,8 +359,8 @@ LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
 	switch (addr&~3)
 	{
 			case 0xFE00: case 0xFE04: writecrtc(addr,val); break;
-			case 0xFE08: case 0xFE0C: /*writeacia(addr,val);*/ break;
-			case 0xFE10: case 0xFE14: /*writeserial(addr,val);*/ break;
+		case 0xFE08: case 0xFE0C: write6850acia(addr,val); break;
+		case 0xFE10: case 0xFE14: writeSerialULA(addr, val); break;
 			//case 0xFE18: if (MASTER) writeadc(addr,val); break;
 			case 0xFE20: writeula(addr,val); break;
 			//case 0xFE24: if (MASTER) write1770(addr,val); else writeula(addr,val); break;

@@ -248,6 +248,15 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent
 
 
 
+JNIEXPORT jint JNICALL
+Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcOfferingRs232(JNIEnv *env, jobject thiz) {
+	return -1;//beebOfferingRS232();
+}
+
+JNIEXPORT jint JNICALL
+Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcAcceptedRs232(JNIEnv *env, jobject thiz, jbyte b) {
+	return 0;//beebAcceptedRS232(b);
+}
 
 
 
@@ -746,4 +755,3 @@ void closebbc()
         closedisc(1);
 
 }
-
