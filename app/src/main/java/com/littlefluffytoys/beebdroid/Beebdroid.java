@@ -51,6 +51,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -74,6 +75,7 @@ public class Beebdroid extends Activity {
     public static boolean use25fps = false;
     private EditText rs432printer;
     private EditText rs432keyboard;
+    private InputMethodManager imm;
 
     private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
 
@@ -417,8 +419,19 @@ public class Beebdroid extends Activity {
         controller = (ControllerView) findViewById(R.id.controller);
         controller.beebdroid = this;
 
+        imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+
         rs432printer = findViewById(R.id.rs432printer);
-        if (rs432printer != null) rs432printer.setKeyListener(null);
+        if (rs432printer != null) {
+            rs432printer.setKeyListener(null);
+            rs432printer.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent motionEvent) {
+                    hideKeyboard(view);
+                    return false;
+                }
+            });
+        }
         rs432keyboard = findViewById(R.id.rs432keyboard);
 
         enrichen(R.id.kb_bt_alt);
@@ -485,6 +498,7 @@ public class Beebdroid extends Activity {
 
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
                     bbcKeyEvent(BBCKEY_SPACE + BBCKEY_CTRL_MOD, 0, 1);
+                    hideKeyboard(v);
                 }
                 if (event.getAction() == MotionEvent.ACTION_UP) {
                     bbcKeyEvent(BBCKEY_SPACE + BBCKEY_CTRL_MOD, 0, 0);
@@ -495,6 +509,12 @@ public class Beebdroid extends Activity {
         });
 
         UserPrefs.setGrandfatheredIn(this, true);
+    }
+
+    private void hideKeyboard(View v) {
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(v.getWindowToken(), InputMethodManager.RESULT_UNCHANGED_SHOWN);
+        }
     }
 
     void enrichen(int resourceID) {
@@ -1098,11 +1118,11 @@ public class Beebdroid extends Activity {
                 rs432printer.append(String.valueOf((char)i));
             }
         }
-//        if (rs432keyboard != null && rs432keyboard.getText().length() > 0) {
-//            if (bbcAcceptedRs232((byte)rs432keyboard.getText().charAt(0)) == 1) {
-//                rs432keyboard.getText().delete(0,1);
-//            }
-//        }
+        if (rs432keyboard != null && rs432keyboard.getText().length() > 0) {
+            if (bbcAcceptedRs232((byte)rs432keyboard.getText().charAt(0)) == 1) {
+                rs432keyboard.getText().delete(0,1);
+            }
+        }
 
         // Update status text once per second
         if (System.currentTimeMillis() - time_fps >= 1000) {
