@@ -199,7 +199,7 @@ uint8_t readmem_ex(uint16_t addr)
 
 uint8_t statusSerialULA = 0;
 
-uint8_t status6850=0;
+uint8_t status6850=2; // start ready for new data
 uint8_t control6850=0;
 int rxChar=-1;
 int txChar=-1;
@@ -248,11 +248,13 @@ uint8_t readmem_ex_real(uint16_t addr) {
 }
 
 uint8_t readSerialULA(uint16_t addr) {
+	LOGI("6850 [a=%04x] read %02x\n", addr, statusSerialULA);
     // baud rate tx0,1,2/rx3,4,5 6-0=TAPE or 1=RS232, 7=motor
 	return statusSerialULA;
 }
 
 void writeSerialULA(uint32_t addr, uint8_t val) {
+	LOGI("6850 [a=%04x] = %02x\n", addr, val);
 	statusSerialULA = val;
 	if (statusSerialULA & 64) {
 		status6850 &= ~2; // always low when rs232 selected
@@ -260,19 +262,23 @@ void writeSerialULA(uint32_t addr, uint8_t val) {
 }
 
 int beebOfferingRS232() {
-	return -1;
 	status6850 &= ~8u; // Always Clear To Send - external input
-	if (txChar == -1 || (status6850 & 2u)) return -1; // nothing for you, sorry.
-
+	if (status6850 & 2u) {
+		return -1; // already removed, nothing new from processor.
+	}
 	int taken = txChar;
 	txChar = -1;
 	status6850 |= 2u; //  High now, because we've taken the char
-	if ((control6850 & 96u) == 64) the_cpu->interrupt |= 8u;
+	if (taken != -1)
+		if ((control6850 & 96u) == 64) {
+			status6850 |= 128u; //  High now, because we've taken the char
+			the_cpu->interrupt |= 8u; // interrupt if
+		}
+	LOGI("6850 offering tak%02x c%02x s%02x i%02x\n", taken, control6850, status6850, the_cpu->interrupt);
 	return taken;
 }
 
 void write6850acia(uint32_t addr, uint8_t val) {
-	return;
 	switch (addr) {
 		case 0xFE08:
 	// Control - write-only
@@ -280,9 +286,16 @@ void write6850acia(uint32_t addr, uint8_t val) {
 	// - b2,3,4 - 4databits-0=7,1=8; 3stopbits-1=1, 0=2*, 2parity-0=even* 1=odd* but *100=8bit2stop, *101=8bits1stop
 	// - b5,6 - tx ctl - 5-0=txint disabled, 6-0=RTS low, 10=RTS-high,txi enabled, 11=RTSlow, tx break level, txi disabled
 	// - b7 - receive interrupt enable=1
-	// e.g. 56 = 0101.0110 = 64/ 8bits1stop, rx disabled
+	// Seen so far:
+	// First:   03 = master reset
+	// Second:  56 = 0101.0110 = 64/ 8bits1stop, rts high, tx int disabled
+	// On VDU2: 36 = 0011.0110 = 64/ 8bits1stop, rts low, tx int enabled
 			control6850 = val;
-			if ((control6850 & 96u) == 64 && (status6850 & 2u))
+			if ((control6850 & 3u) == 3) {
+				// What should 'master reset do?
+				status6850=2; // Guess clear everything and indicate ready to be given a byte
+			}
+			if ((control6850 & 96u) == 32 && (status6850 & 2u) && txChar != -1)
 				the_cpu->interrupt |= 8u;
 			else
 				the_cpu->interrupt &= ~8u;
@@ -290,16 +303,20 @@ void write6850acia(uint32_t addr, uint8_t val) {
 				the_cpu->interrupt |= 4u;
 			else
 				the_cpu->interrupt &= ~4u;
+//			LOGI("6850 [a=%04x] = %02x (c%02x s%02x i%02x)\n", addr, val, control6850, status6850, the_cpu->interrupt);
 			return;
 		case 0xFE09: // tx byte
 			txChar = val;
 			status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
-		return;
+			status6850 &= ~2u; // Write to tx sets status to 'full/low' until accepted by recipient
+			LOGI("6850 [a=%04x] = %02x (%02x)\n", addr, val, status6850);
+			return;
+		default:
+			LOGI("6850 [a=%04x] = %02x\n", addr, val);
 	}
 }
 
 uint8_t beebAcceptedRS232(uint8_t next) {
-	return 0;
 	if (status6850 & 1u) return 0; // that char not accepted yet, try again later
 
 	rxChar = next;
@@ -309,7 +326,6 @@ uint8_t beebAcceptedRS232(uint8_t next) {
 }
 
 uint8_t read6850acia(uint16_t addr) {
-	return 0;
 	switch (addr) {
 		case 0xFE08:  // Status - read only
 			// - b0=RxFull cleared by processor read from Rx
@@ -320,6 +336,7 @@ uint8_t read6850acia(uint16_t addr) {
 			// - b5=overrun - characters received but not read
 			// - b6=parity error
 			// - b7=IRQ bit high=serial issued IRQ (line is low), cleared by read from Rx or write to Tx
+			LOGI("6850 [a=%04x] read %02x (tx%02x c%02x xi%02x)\n", addr, status6850, txChar, control6850, the_cpu->interrupt & ~1u /* ignore ifr */); // We're polled frequently to eliminate b7
 			return status6850;
 		case 0xFE09:  // Rx=read
 			if (rxChar != -1 && (status6850 & 1u)) {
@@ -327,9 +344,13 @@ uint8_t read6850acia(uint16_t addr) {
 				rxChar = -1;
 				status6850 &= ~1u; // Magic clear of RxFull
 				status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
+				LOGI("6850 [a=%04x] read %02x (st:%02x)\n", addr, taken, status6850);
 				return taken;
 			}
-		return rxChar;
+			return rxChar;
+		default:
+			LOGI("6850 [a=%04x] read default\n", addr);
+			return 0;
 	}
 }
 

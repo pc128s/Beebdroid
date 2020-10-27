@@ -72,8 +72,8 @@ public class Beebdroid extends Activity {
     // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
     public static final int MIN_KEY_DOWNUP_MS = 50; //10;
     public static boolean use25fps = false;
-    private TextView rs232rx;
-    private EditText rs232tx;
+    private EditText rs432printer;
+    private EditText rs432keyboard;
 
     private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
 
@@ -417,8 +417,9 @@ public class Beebdroid extends Activity {
         controller = (ControllerView) findViewById(R.id.controller);
         controller.beebdroid = this;
 
-        rs232rx = findViewById(R.id.rs232rx);
-        rs232tx = findViewById(R.id.rs232tx);
+        rs432printer = findViewById(R.id.rs432printer);
+        if (rs432printer != null) rs432printer.setKeyListener(null);
+        rs432keyboard = findViewById(R.id.rs432keyboard);
 
         enrichen(R.id.kb_bt_alt);
         enrichen(R.id.keyboard_help);
@@ -1091,15 +1092,15 @@ public class Beebdroid extends Activity {
         }
 
         // hijack fps for rs232 stuff.
-        if (rs232rx != null) {
+        if (rs432printer != null) {
             int i = bbcOfferingRs232();
             if (i != -1) {
-                rs232rx.append(String.valueOf((char)i));
+                rs432printer.append(String.valueOf((char)i));
             }
         }
-//        if (rs232tx != null && rs232tx.getText().length() > 0) {
-//            if (bbcAcceptedRs232((byte)rs232tx.getText().charAt(0)) == 1) {
-//                rs232tx.getText().delete(0,1);
+//        if (rs432keyboard != null && rs432keyboard.getText().length() > 0) {
+//            if (bbcAcceptedRs232((byte)rs432keyboard.getText().charAt(0)) == 1) {
+//                rs432keyboard.getText().delete(0,1);
 //            }
 //        }
 

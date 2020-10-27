@@ -102,22 +102,24 @@
 		android:layout_width="match_parent"
 		android:background="@color/background_material_dark"
 		>
-		<TextView
-			android:id="@+id/rs232rx"
+		<EditText
+			android:id="@+id/rs432printer"
 			android:layout_width="wrap_content"
 			android:layout_height="match_parent"
 			android:layout_weight="1"
-			android:text="RS232:Rx:"
-			android:hint="RS232:Rx:"
+			android:inputType="none"
+			android:textIsSelectable="true"
+			android:text=""
+			android:hint="RS232 printer: VDU2:*FX5 2"
 			/>
 		<EditText
-			android:id="@+id/rs232tx"
+			android:id="@+id/rs432keyboard"
 			android:visibility="gone"
 			android:layout_width="wrap_content"
 			android:layout_height="match_parent"
 			android:layout_weight="1"
-			android:text="RS232:Tx:"
-			android:hint="RS232:Tx:"
+			android:text=""
+			android:hint="RS232 keyboard: *FX 2 1"
 			/>
 	</LinearLayout>
 <RelativeLayout
