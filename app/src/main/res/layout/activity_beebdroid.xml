@@ -98,12 +98,13 @@
 	</view>
 
 	<LinearLayout
+		android:id="@+id/rs423layout"
 		android:layout_height="?attr/actionBarSize"
 		android:layout_width="match_parent"
 		android:background="@color/background_material_dark"
 		>
 		<EditText
-			android:id="@+id/rs432printer"
+			android:id="@+id/rs423printer"
 			android:layout_width="wrap_content"
 			android:layout_height="match_parent"
 			android:layout_weight="1"
@@ -113,7 +114,7 @@
 			android:hint="RS232 printer: VDU2:*FX5 2"
 			/>
 		<EditText
-			android:id="@+id/rs432keyboard"
+			android:id="@+id/rs423keyboard"
 			android:layout_width="wrap_content"
 			android:layout_height="match_parent"
 			android:layout_weight="1"

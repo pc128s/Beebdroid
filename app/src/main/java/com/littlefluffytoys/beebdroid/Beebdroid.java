@@ -73,11 +73,11 @@ public class Beebdroid extends Activity {
     // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
     public static final int MIN_KEY_DOWNUP_MS = 50; //10;
     public static boolean use25fps = false;
-    private EditText rs432printer;
-    private EditText rs432keyboard;
+    private EditText rs423printer;
+    private EditText rs423keyboard;
     private InputMethodManager imm;
 
-    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
+    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD, RS423_CONSOLE}
 
     static int locks = 0;
 
@@ -421,10 +421,10 @@ public class Beebdroid extends Activity {
 
         imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
 
-        rs432printer = findViewById(R.id.rs432printer);
-        if (rs432printer != null) {
-            rs432printer.setKeyListener(null);
-            rs432printer.setOnTouchListener(new View.OnTouchListener() {
+        rs423printer = findViewById(R.id.rs423printer);
+        if (rs423printer != null) {
+            rs423printer.setKeyListener(null);
+            rs423printer.setOnTouchListener(new View.OnTouchListener() {
                 @Override
                 public boolean onTouch(View view, MotionEvent motionEvent) {
                     hideKeyboard(view);
@@ -432,7 +432,7 @@ public class Beebdroid extends Activity {
                 }
             });
         }
-        rs432keyboard = findViewById(R.id.rs432keyboard);
+        rs423keyboard = findViewById(R.id.rs423keyboard);
 
         enrichen(R.id.kb_bt_alt);
         enrichen(R.id.keyboard_help);
@@ -588,6 +588,8 @@ public class Beebdroid extends Activity {
                 showKeyboard(KeyboardState.BLUETOOTH_KBD);
                 break;
             case BLUETOOTH_KBD:
+                showKeyboard(KeyboardState.RS423_CONSOLE);
+            case RS423_CONSOLE:
             default:
                 showKeyboard(KeyboardState.SCREEN_KEYBOARD);
                 break;
@@ -786,6 +788,7 @@ public class Beebdroid extends Activity {
         Utils.setVisible(this, R.id.keyboard_help, keyboardState != KeyboardState.BLUETOOTH_KBD);
         Utils.setVisible(this, R.id.controller, keyboardState == KeyboardState.CONTROLLER);
         Utils.setVisible(this, R.id.kb_bt_alt, keyboardState == KeyboardState.BLUETOOTH_KBD);
+        Utils.setVisible(this, R.id.rs423layout, keyboardState == KeyboardState.RS423_CONSOLE);
         final ImageView btnInput = (ImageView) findViewById(R.id.btnInput);
         if (btnInput != null) {
             btnInput.setImageResource(kbdImageForState(keyboardState));
@@ -800,6 +803,8 @@ public class Beebdroid extends Activity {
             case CONTROLLER:
                 return R.drawable.btkbabc;
             case BLUETOOTH_KBD:
+                return R.drawable.serialconsole;
+            case RS423_CONSOLE:
             default:
                 return R.drawable.keyboard;
         }
@@ -1112,18 +1117,18 @@ public class Beebdroid extends Activity {
         }
 
         // hijack fps for rs232 stuff. For now, anyway.
-        if (rs432printer != null) {
+        if (rs423printer != null) {
             int i = bbcOfferingRs232();
             if (i != -1) {
                 if (i==13) i=10;
-                rs432printer.append(String.valueOf((char)i));
+                rs423printer.append(String.valueOf((char)i));
             }
         }
-        if (rs432keyboard != null && rs432keyboard.getText().length() > 0) {
-            char c = rs432keyboard.getText().charAt(0);
+        if (rs423keyboard != null && rs423keyboard.getText().length() > 0) {
+            char c = rs423keyboard.getText().charAt(0);
             if (c==10) c=13;
             if (bbcAcceptedRs232((byte) c) == 1) {
-                rs432keyboard.getText().delete(0,1);
+                rs423keyboard.getText().delete(0,1);
             }
         }
 
