@@ -312,7 +312,8 @@ void write6850acia(uint32_t addr, uint8_t val) {
 //			LOGI("6850 [a=%04x] = %02x (%02x)\n", addr, val, status6850);
 			return;
 		default:
-//			LOGI("6850 [a=%04x] = %02x\n", addr, val);
+//			LOGI("6850 [a=%04x] = %02x\n", addr, val)
+		;
 	}
 }
 

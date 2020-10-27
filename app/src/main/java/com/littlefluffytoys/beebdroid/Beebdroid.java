@@ -1111,15 +1111,18 @@ public class Beebdroid extends Activity {
             }
         }
 
-        // hijack fps for rs232 stuff.
+        // hijack fps for rs232 stuff. For now, anyway.
         if (rs432printer != null) {
             int i = bbcOfferingRs232();
             if (i != -1) {
+                if (i==13) i=10;
                 rs432printer.append(String.valueOf((char)i));
             }
         }
         if (rs432keyboard != null && rs432keyboard.getText().length() > 0) {
-            if (bbcAcceptedRs232((byte)rs432keyboard.getText().charAt(0)) == 1) {
+            char c = rs432keyboard.getText().charAt(0);
+            if (c==10) c=13;
+            if (bbcAcceptedRs232((byte) c) == 1) {
                 rs432keyboard.getText().delete(0,1);
             }
         }
