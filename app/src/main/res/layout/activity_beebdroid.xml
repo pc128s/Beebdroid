@@ -134,38 +134,34 @@
                     android:textIsSelectable="true"
                     />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    >
-
                     <EditText
                         android:id="@+id/rs423keyboard"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:hint="RS232 keyboard: *FX 2 1"
                         android:text="" />
-                    <Button
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Inject\nfile"/>
                     <LinearLayout
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:orientation="horizontal">
+                        <Button
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Inject file"/>
                         <Button
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:onClick="setRs423Io"
+                            android:layout_weight="1"
                             android:text="RS423 i/o"/>
                         <Button
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:onClick="unsetRs423Io"
+                            android:layout_weight="1"
                             android:text="Normal i/o"/>
-                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
