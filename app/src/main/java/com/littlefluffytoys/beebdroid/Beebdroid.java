@@ -25,6 +25,7 @@ import com.littlefluffytoys.beebdroid.ControllerInfo.TriggerAction;
 
 import common.Utils;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -137,6 +138,35 @@ public class Beebdroid extends Activity {
     public native int bbcAcceptedRs232(byte b);
 
     long time_fps;
+
+    // TODO: Split these up and only trigger them when they independently have something. Maybe from callbacks like video?
+    // Also, looks like they don't run faster than 50Hz?
+    // Also, sometimes characters get doubled - is that Android or BBC?
+    private Runnable runRS423 = new Runnable() {
+        @Override
+        public void run() {
+            long now = android.os.SystemClock.uptimeMillis();
+            handler.postAtTime(runRS423, now + 2);
+            doRS423TxRx();
+        }
+
+        public void doRS423TxRx() {
+            if (rs423printer != null) {
+                int i = bbcOfferingRs232();
+                if (i != -1) {
+                    if (i == 13) i = 10;
+                    rs423printer.append(String.valueOf((char) i));
+                }
+            }
+            if (rs423keyboard != null && rs423keyboard.getText().length() > 0) {
+                char c = rs423keyboard.getText().charAt(0);
+                if (c == 10) c = 13;
+                if (bbcAcceptedRs232((byte) c) == 1) {
+                    rs423keyboard.getText().delete(0, 1);
+                }
+            }
+        }
+    };
 
     // This runnable drives the native emulation code
     private Runnable runInt50 = new Runnable() {
@@ -424,14 +454,16 @@ public class Beebdroid extends Activity {
 
         rs423printer = findViewById(R.id.rs423printer);
         if (rs423printer != null) {
-            rs423printer.setKeyListener(null);
-            rs423printer.setOnTouchListener(new View.OnTouchListener() {
-                @Override
-                public boolean onTouch(View view, MotionEvent motionEvent) {
-                    hideKeyboard(view);
-                    return false;
-                }
-            });
+            rs423printer.setKeyListener(null); // Prevent typing into the field
+            rs423printer.setOnTouchListener( // Yes, yes... evil accessibility thing, but they can press 'back'
+                    new View.OnTouchListener() {
+                        @SuppressLint("ClickableViewAccessibility")
+                        @Override
+                        public boolean onTouch(View view, MotionEvent motionEvent) {
+                            hideKeyboard(view);
+                            return false;
+                        }
+                    });
         }
         rs423keyboard = findViewById(R.id.rs423keyboard);
 
@@ -680,6 +712,7 @@ public class Beebdroid extends Activity {
                 }
             }, 200);
         handler.postDelayed(runInt50, 20);
+        handler.postDelayed(runRS423, 20);
         //showHint("hint_load_disks", R.string.hint_load_disks, 5);
     }
 
@@ -687,6 +720,7 @@ public class Beebdroid extends Activity {
     public void onPause() {
         super.onPause();
         handler.removeCallbacks(runInt50);
+        handler.removeCallbacks(runRS423);
         cancelPendingHints();
     }
 
@@ -817,6 +851,7 @@ public class Beebdroid extends Activity {
 
 
     int lookup(int keycode, KeyEvent event) {
+        // TODO: Somehow fold most of this into Keyboard.unicodeMap
         if (event.isAltPressed()) {
             int beebKey = Keyboard.unicodeAltToBeebKey(event.getKeyCode(), event.isShiftPressed());
             if (beebKey != 0) return beebKey;
@@ -1119,22 +1154,6 @@ public class Beebdroid extends Activity {
             }
         }
 
-        // hijack fps for rs232 stuff. For now, anyway.
-        if (rs423printer != null) {
-            int i = bbcOfferingRs232();
-            if (i != -1) {
-                if (i == 13) i = 10;
-                rs423printer.append(String.valueOf((char) i));
-            }
-        }
-        if (rs423keyboard != null && rs423keyboard.getText().length() > 0) {
-            char c = rs423keyboard.getText().charAt(0);
-            if (c == 10) c = 13;
-            if (bbcAcceptedRs232((byte) c) == 1) {
-                rs423keyboard.getText().delete(0, 1);
-            }
-        }
-
         // Update status text once per second
         if (System.currentTimeMillis() - time_fps >= 1000) {
             if (tvFps != null) {
@@ -1146,7 +1165,6 @@ public class Beebdroid extends Activity {
         }
 
     }
-
 
     public ByteBuffer loadFile(File file) {
         InputStream strm;

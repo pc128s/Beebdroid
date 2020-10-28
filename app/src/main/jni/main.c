@@ -242,7 +242,7 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent
 		// Press / unpress CTRL
 		keys[1][0] = ctrl ? down : 0x00;
 	}
-	LOGI("down %i vkey %04x %i ctrl %i shift %i raw %i col %i row %i\n", down, vkey, vkey, ctrl, shift, raw, col, row);
+//	LOGI("down %i vkey %04x %i ctrl %i shift %i raw %i col %i row %i\n", down, vkey, vkey, ctrl, shift, raw, col, row);
 	// Press / unpress the key
 	keys[col][row] = down ? 1 : 0;
 	//LOGI("Key event %d,%d = %d", col, row, down);

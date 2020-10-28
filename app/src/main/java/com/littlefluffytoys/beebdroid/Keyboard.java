@@ -111,7 +111,7 @@ public class Keyboard extends TouchpadsView {
             ctrlq = BBCKEY_CTRL_MOD;
         }
         int sc = KeyMap.unicodeMap.containsKey(uni) ? KeyMap.unicodeMap.get(uni) | ctrlq : 0;
-        Log.i("Keyboard", "uni: " + uni + " (" + chr + " | " + Integer.toHexString(ctrlq) + ") = sc " + sc + "=" + Integer.toHexString(sc));
+//        Log.i("Keyboard", "uni: " + uni + " (" + chr + " | " + Integer.toHexString(ctrlq) + ") = sc " + sc + "=" + Integer.toHexString(sc));
         return sc;
     }
 
@@ -213,6 +213,7 @@ public class Keyboard extends TouchpadsView {
                     new KeyMap("\u2193", null, 1f, BeebKeys.BBCKEY_ARROW_DOWN),
                     new KeyMap(),
                     new KeyMap("SHIFT", null, 2f, BeebKeys.BBCKEY_SHIFT_MOD),
+                    new KeyMap("CAPS", null, 1f, BeebKeys.BBCKEY_CAPS),
                     new KeyMap("CTRL", null, 1f, BeebKeys.BBCKEY_CTRL),
                     new KeyMap(" ", null, 4f, BeebKeys.BBCKEY_SPACE),
                     new KeyMap("DEL", null, 1f, BeebKeys.BBCKEY_DELETE),
