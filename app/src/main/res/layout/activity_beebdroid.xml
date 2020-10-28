@@ -1,148 +1,172 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-	xmlns:android="http://schemas.android.com/apk/res/android"
-	xmlns:lft="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-	android:id="@+id/root"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent"
-	android:orientation="vertical"
-	>
-	<RelativeLayout
+    xmlns:lft="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical">
+
+    <RelativeLayout
         android:id="@+id/toolbar"
-        android:layout_height="?attr/actionBarSize"
         android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/background_material_dark">
+
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_centerInParent="true"
+            android:layout_toLeftOf="@+id/lock">
+            <!-- narf="Alt-\u2190\u2191\u2192\u2193" -->
+            <TextView
+                android:id="@+id/kb_bt_alt"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/background_material_dark"
+                android:gravity="center"
+                android:text="Alt+... X/K=Kbd `=Esc S=ShLk C=Caps 2=@ 3=£/_ RAlt=Cpy Mouse/touch adval1,2,3" />
+
+            <TextView
+                android:id="@+id/keyboard_help"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/background_material_dark"
+                android:gravity="center"
+                android:text="Alt+... X/K=Kbd `=Esc S=ShLk C=Caps 2=@ 3=£/_ RAlt=Cpy"
+                android:visibility="invisible" />
+
+            <TextView
+                android:id="@+id/info"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/background_material_dark"
+                android:gravity="center"
+                android:text="__________\n__________________"
+                android:visibility="invisible" />
+        </FrameLayout>
+
+        <ImageView
+            android:id="@+id/btnInput"
+            android:layout_width="?attr/actionBarSize"
+            android:layout_height="?attr/actionBarSize"
+            android:layout_gravity="center"
+            android:layout_marginRight="8dp"
+            android:layout_toLeftOf="@+id/btnSave"
+            android:background="@drawable/tab"
+            android:clickable="true"
+            android:scaleType="centerInside"
+            android:src="@drawable/rs423" />
+
+        <ImageView
+            android:id="@+id/btnSave"
+            android:layout_width="?attr/actionBarSize"
+            android:layout_height="?attr/actionBarSize"
+            android:layout_alignParentRight="true"
+            android:layout_gravity="center"
+            android:layout_marginRight="8dp"
+            android:background="@drawable/button_bg"
+            android:clickable="true"
+            android:onClick="onOpenClicked"
+            android:scaleType="centerInside"
+            android:src="@drawable/save" />
+
+        <TextView
+            android:id="@+id/lock"
+            android:layout_width="wrap_content"
+            android:layout_height="?attr/actionBarSize"
+            android:layout_toLeftOf="@+id/btnInput"
+            android:gravity="center"
+            android:text="ShCaLck" />
+    </RelativeLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <view
+            android:id="@+id/beeb"
+            class="com.littlefluffytoys.beebdroid.Beebdroid$BeebView"
+            android:layout_width="fill_parent"
+            android:layout_height="0dp"
+            android:layout_weight="272"
+            android:focusable="true"
+            android:focusableInTouchMode="true">
+
+            <requestFocus />
+        </view>
+
+        <RelativeLayout
+            android:layout_width="fill_parent"
+            android:layout_height="0dp"
+            android:layout_weight="168"
+            android:background="#ff000000"
+            android:paddingTop="10dp">
+
+            <view
+                android:id="@+id/keyboard"
+                class="com.littlefluffytoys.beebdroid.Keyboard"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent" />
+
+            <view
+                android:id="@+id/controller"
+                class="com.littlefluffytoys.beebdroid.ControllerView"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent" />
+
+        </RelativeLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/rs423layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="invisible"
         android:background="@color/background_material_dark"
-        >
-		<FrameLayout
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:layout_alignParentLeft="true"
-			android:layout_toLeftOf="@+id/lock"
-			android:layout_centerInParent="true"
-			>
-			<!-- narf="Alt-\u2190\u2191\u2192\u2193" -->
-			<TextView
-				android:id="@+id/kb_bt_alt"
-				android:layout_width="match_parent"
-				android:layout_height="match_parent"
-				android:gravity="center"
-				android:background="@color/background_material_dark"
-				android:text="Alt+... X/K=Kbd `=Esc S=ShLk C=Caps 2=@ 3=£/_ RAlt=Cpy Mouse/touch adval1,2,3"
-				/>
-			<TextView
-				android:id="@+id/keyboard_help"
-				android:layout_width="match_parent"
-				android:layout_height="match_parent"
-				android:visibility="invisible"
-				android:gravity="center"
-				android:background="@color/background_material_dark"
-				android:text="Alt+... X/K=Kbd `=Esc S=ShLk C=Caps 2=@ 3=£/_ RAlt=Cpy"
-				/>
-			<TextView
-				android:layout_width="match_parent"
-				android:layout_height="match_parent"
-				android:id="@+id/info"
-				android:gravity="center"
-				android:visibility="invisible"
-				android:background="@color/background_material_dark"
-				android:text="__________\n__________________"
-				/>
-		</FrameLayout>
+        android:orientation="vertical">
 
-		<TextView
-			android:layout_width="wrap_content"
-			android:layout_height="?attr/actionBarSize"
-			android:id="@+id/lock"
-			android:gravity="center"
-			android:layout_toLeftOf="@+id/btnInput"
-			android:text="ShCaLck"
-			/>
-		<ImageView
-			android:id="@+id/btnInput"
-			android:layout_width="?attr/actionBarSize"
-			android:layout_height="?attr/actionBarSize"
-			android:layout_gravity="center"
-			android:layout_marginRight="8dp"
-			android:layout_toLeftOf="@+id/btnSave"
-			android:scaleType="centerInside"
-			android:background="@drawable/tab"
-			android:src="@drawable/keyboard"
-			android:clickable="true"
-			/>
-		<ImageView
-			android:id="@+id/btnSave"
-			android:layout_width="?attr/actionBarSize"
-			android:layout_height="?attr/actionBarSize"
-			android:layout_gravity="center"
-			android:layout_marginRight="8dp"
-			android:scaleType="centerInside"
-			android:background="@drawable/button_bg"
-			android:src="@drawable/save"
-			android:clickable="true"
-			android:onClick="onOpenClicked"
-			android:layout_alignParentRight="true"
-			/>
-	</RelativeLayout>
+        <EditText
+            android:id="@+id/rs423printer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="RS232 printer: VDU2:*FX5 2"
+            android:inputType="none"
+            android:text=""
+            android:textIsSelectable="true"
+            />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            >
 
-<view class="com.littlefluffytoys.beebdroid.Beebdroid$BeebView"
-	android:id="@+id/beeb"
-	android:layout_width="fill_parent"
-	android:layout_height="0dp"
-	android:layout_weight="272"
-	android:focusableInTouchMode="true"
-	android:focusable="true"
->
-	<requestFocus/>
-	</view>
-
-	<LinearLayout
-		android:id="@+id/rs423layout"
-		android:layout_height="?attr/actionBarSize"
-		android:layout_width="match_parent"
-		android:background="@color/background_material_dark"
-		>
-		<EditText
-			android:id="@+id/rs423printer"
-			android:layout_width="wrap_content"
-			android:layout_height="match_parent"
-			android:layout_weight="1"
-			android:inputType="none"
-			android:textIsSelectable="true"
-			android:text=""
-			android:hint="RS232 printer: VDU2:*FX5 2"
-			/>
-		<EditText
-			android:id="@+id/rs423keyboard"
-			android:layout_width="wrap_content"
-			android:layout_height="match_parent"
-			android:layout_weight="1"
-			android:text=""
-			android:hint="RS232 keyboard: *FX 2 1"
-			/>
-	</LinearLayout>
-<RelativeLayout
-	android:layout_width="fill_parent"
-	android:layout_height="0dp"
-	android:layout_weight="168"
-	android:background="#ff000000"
-	android:paddingTop="10dp"
->
-
-<view class="com.littlefluffytoys.beebdroid.Keyboard"
-	android:id="@+id/keyboard"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent"
-	/>
-
-<view class="com.littlefluffytoys.beebdroid.ControllerView"
-	android:id="@+id/controller"
-	android:layout_width="fill_parent"
-	android:layout_height="fill_parent"
-	/>
-
-</RelativeLayout>
-
-
+        <EditText
+            android:id="@+id/rs423keyboard"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="RS232 keyboard: *FX 2 1"
+            android:text="" />
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Inject\nfile"/>
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="injectMode"
+                android:text="Set\nmode"/>
+        </LinearLayout>
+    </LinearLayout>
+    </FrameLayout>
 </LinearLayout>

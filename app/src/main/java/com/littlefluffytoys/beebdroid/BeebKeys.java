@@ -24,7 +24,7 @@ public class BeebKeys {
 	public static final int BBCKEY_SHIFT_MOD = 0x100;
 	public static final int BBCKEY_ANTISHIFT_MOD = 0x200;
 	public static final int BBCKEY_CTRL_MOD = 0x400;
-	public static final int BBCKEY_RAW_MOD = 0x800;
+	public static final int BBCKEY_RAW_MOD = 0x800;  // Only useful for forcing 'just shift'.
 	public static final int BBCKEY_SHIFT_RAW = BBCKEY_RAW_MOD | BBCKEY_SHIFT_BUT_USE_RAW;
 	// 	0x10     Q    3    4    5    F4   8    F7   -=   ^~
 	public static final int BBCKEY_Q = 0x10;

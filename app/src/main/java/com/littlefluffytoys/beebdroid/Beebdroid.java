@@ -72,6 +72,7 @@ public class Beebdroid extends Activity {
     // don't register, so observe this and delay the key up.
     // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
     public static final int MIN_KEY_DOWNUP_MS = 50; //10;
+    public static final int INTER_AUTO_KEY_MS = 1;
     public static boolean use25fps = false;
     private EditText rs423printer;
     private EditText rs423keyboard;
@@ -91,8 +92,8 @@ public class Beebdroid extends Activity {
     BeebView beebView;
     Keyboard keyboard;
     ControllerView controller;
-    List<KeyEvent> keyboardTextEvents = new ArrayList<KeyEvent>();
-    KeyCharacterMap map = KeyCharacterMap.load(0);
+    List<String> keyboardTextEvents = new ArrayList<String>();
+    KeyCharacterMap map = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
     int fps, skipped;
     TextView tvFps;
     private KeyboardState keyboardShowing = KeyboardState.SCREEN_KEYBOARD;
@@ -119,7 +120,7 @@ public class Beebdroid extends Activity {
 
     public native void bbcSetTriggers(short[] pc_triggers);
 
-    public static native void bbcKeyEvent(int scancode, int flags, int down);
+    public static native void bbcKeyEvent(int scancode, int shift, int down);
 
     public native int bbcSerialize(byte[] buffer);
 
@@ -180,18 +181,19 @@ public class Beebdroid extends Activity {
                 keyboardTextWait--;
             } else {
                 if (keyboardTextEvents.size() > 0) {
-                    final KeyEvent event = keyboardTextEvents.remove(0);
-                    if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                        onKeyDown(event.getKeyCode(), event);
-                    }
-                    if (event.getAction() == KeyEvent.ACTION_UP) {
+                    String next = keyboardTextEvents.remove(0);
+                    Log.i(TAG, "keyboard text event ='" + next + "'");
+                    final int scancode = Keyboard.pureUnicodeToScancode(next);
+                    keyboardTextWait = MIN_KEY_DOWNUP_MS + INTER_AUTO_KEY_MS;
+                    if (scancode != 0) {
+                        bbcKeyEvent(scancode, 0, 1);
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                onKeyUp(event.getKeyCode(), event);
+                                bbcKeyEvent(scancode, 0, 0);
                                 keyboardTextWait = 1;
                             }
-                        }, MIN_KEY_DOWNUP_MS);
+                        }, keyboardTextWait - INTER_AUTO_KEY_MS);
                     }
                 }
             }
@@ -215,7 +217,7 @@ public class Beebdroid extends Activity {
         // Keyboard toggle in all modules.
         if (isDown
                 && event.isAltPressed()
-                && ( event.getUnicodeChar(0) == 'x' || event.getUnicodeChar(0) == 'k' )) {
+                && (event.getUnicodeChar(0) == 'x' || event.getUnicodeChar(0) == 'k')) {
             toggleKeyboard();
             if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
                 beebView.requestFocus();
@@ -250,14 +252,14 @@ public class Beebdroid extends Activity {
         final int scancode = lookup(keycode, event);
         if (isDown || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
             unscheduleKeyup(keycode);
-            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown ? 1 : 0);
+            bbcKeyEvent(scancode, shiftDown ? 1 : 0, isDown ? 1 : 0);
         } else {
             scheduleKeyup(keycode, new Runnable() {
                 @Override
                 public void run() {
                     synchronized (delayedUp) {
                         if (delayedUp.remove(keycode) == this)
-                            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown ? 1 : 0);
+                            bbcKeyEvent(scancode, shiftDown ? 1 : 0, isDown ? 1 : 0);
                     }
                 }
             });
@@ -317,8 +319,7 @@ public class Beebdroid extends Activity {
                     // Probably don't care about unscheduling a keyup, but...
                     unscheduleKeyup(keycode);
                     bbcKeyEvent(scancode, 0, 0);
-                }
-                else {
+                } else {
                     scheduleKeyup(keycode, new Runnable() {
                         @Override
                         public void run() {
@@ -372,8 +373,8 @@ public class Beebdroid extends Activity {
 
 
     private void doFakeKeys(String text) {
-        KeyEvent[] evs = map.getEvents(text.toCharArray());
-        keyboardTextEvents.addAll(Arrays.asList(evs));
+        keyboardTextEvents = new ArrayList(Arrays.asList(text.split("")));
+        Log.i(TAG, "doFakeKeys ='" + keyboardTextEvents + "'");
     }
 
     int adctick = 0;
@@ -408,7 +409,7 @@ public class Beebdroid extends Activity {
         // Detect the Xperia Play, for which we do special magic
         isXperiaPlay =
                 Build.DEVICE.equalsIgnoreCase("R800i")
-                || Build.DEVICE.equalsIgnoreCase("zeus")
+                        || Build.DEVICE.equalsIgnoreCase("zeus")
         //        || Build.DEVICE.equalsIgnoreCase("tank") // Amazon Fire TV
         ;
 
@@ -419,7 +420,7 @@ public class Beebdroid extends Activity {
         controller = (ControllerView) findViewById(R.id.controller);
         controller.beebdroid = this;
 
-        imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 
         rs423printer = findViewById(R.id.rs423printer);
         if (rs423printer != null) {
@@ -463,6 +464,7 @@ public class Beebdroid extends Activity {
             last_trigger = prev.last_trigger;
             keyboardTextWait = prev.keyboardTextWait;
             keyboardTextEvents = prev.keyboardTextEvents;
+            Log.i(TAG, "Prev text events ='" + keyboardTextEvents + "'");
             keyboardShowing = prev.keyboardShowing;
             currentController = prev.currentController;
             bbcInit(model.mem, model.roms, audiobuff, 0);
@@ -520,7 +522,7 @@ public class Beebdroid extends Activity {
     void enrichen(int resourceID) {
         View v = findViewById(resourceID);
         if (v instanceof TextView) {
-            TextView tv = (TextView)v;
+            TextView tv = (TextView) v;
             String s = tv.getText().toString();
             if (s.charAt(0) == '<') {
                 SpannableStringBuilder b = new SpannableStringBuilder();
@@ -530,7 +532,7 @@ public class Beebdroid extends Activity {
                     int l = nextEnd(s, '<', i);
                     int end = Math.min(r, l);
                     int lr = "<>".indexOf(s.charAt(i));
-                    if ( lr == -1 ) {
+                    if (lr == -1) {
                         b.append(s, i + 1, s.length());
                         break;
                     } else {
@@ -558,9 +560,9 @@ public class Beebdroid extends Activity {
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
 
             long ms = event.getEventTime();
-            if (event.getAction() == MotionEvent.ACTION_DOWN) updown=1;
-            if (event.getAction() == MotionEvent.ACTION_UP) updown=0;
-            Log.i(TAG, "onMouseSomething: "+ event.getAction());
+            if (event.getAction() == MotionEvent.ACTION_DOWN) updown = 1;
+            if (event.getAction() == MotionEvent.ACTION_UP) updown = 0;
+            Log.i(TAG, "onMouseSomething: " + event.getAction());
             if (last_ms + 20 < ms || event.getAction() == MotionEvent.ACTION_UP) {
                 last_ms = ms;
                 adctick ^= 1;
@@ -572,7 +574,7 @@ public class Beebdroid extends Activity {
                         (int) xx * 2 + adctick,
                         (int) yy * 2 + adctick,
                         (event.getButtonState() + updown) * 2 + adctick,
-                        updown * Math.round(event.getPressure()*1024) * 2 + adctick);
+                        updown * Math.round(event.getPressure() * 1024) * 2 + adctick);
             }
             return true;
         }
@@ -589,6 +591,7 @@ public class Beebdroid extends Activity {
                 break;
             case BLUETOOTH_KBD:
                 showKeyboard(KeyboardState.RS423_CONSOLE);
+                break;
             case RS423_CONSOLE:
             default:
                 showKeyboard(KeyboardState.SCREEN_KEYBOARD);
@@ -803,10 +806,10 @@ public class Beebdroid extends Activity {
             case CONTROLLER:
                 return R.drawable.btkbabc;
             case BLUETOOTH_KBD:
-                return R.drawable.serialconsole;
+                return R.drawable.rs423;
             case RS423_CONSOLE:
             default:
-                return R.drawable.keyboard;
+                return R.drawable.bbckeyboard;
         }
     }
 
@@ -815,8 +818,8 @@ public class Beebdroid extends Activity {
 
     int lookup(int keycode, KeyEvent event) {
         if (event.isAltPressed()) {
-            int beebKey = Keyboard.unicodeAltToBeebKey(event);
-            if  (beebKey != 0) return beebKey;
+            int beebKey = Keyboard.unicodeAltToBeebKey(event.getKeyCode(), event.isShiftPressed());
+            if (beebKey != 0) return beebKey;
         }
         switch (keycode) {
             case KeyEvent.KEYCODE_CTRL_LEFT:
@@ -1120,15 +1123,15 @@ public class Beebdroid extends Activity {
         if (rs423printer != null) {
             int i = bbcOfferingRs232();
             if (i != -1) {
-                if (i==13) i=10;
-                rs423printer.append(String.valueOf((char)i));
+                if (i == 13) i = 10;
+                rs423printer.append(String.valueOf((char) i));
             }
         }
         if (rs423keyboard != null && rs423keyboard.getText().length() > 0) {
             char c = rs423keyboard.getText().charAt(0);
-            if (c==10) c=13;
+            if (c == 10) c = 13;
             if (bbcAcceptedRs232((byte) c) == 1) {
-                rs423keyboard.getText().delete(0,1);
+                rs423keyboard.getText().delete(0, 1);
             }
         }
 
@@ -1226,6 +1229,9 @@ public class Beebdroid extends Activity {
         }
     }
 
+    public void injectMode(View v) {
+        doFakeKeys("*fx5 2\rvdu2\r*fx2 1\r");
+    }
 
     public void onOpenClicked(View v) {
         Intent intent = new Intent(this, LoadDisk.class);

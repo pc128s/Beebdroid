@@ -217,30 +217,32 @@ timersub(&tval_after, &tval_before, &tval_result);
 
 extern void dump_pages();
 
-JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent(JNIEnv * env, jclass _obj, jint vkey, jint flags, jint down) {
+JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent(JNIEnv * env, jclass _obj, jint jkey, jint jshift, jint down) {
+	int vkey = jkey;
 	//if (vkey == 0xaa) return; // BBCKEY_BREAK ?
-	int raw = vkey&0x800; // BBCKEY_RAW_MOD
-	int ctrl = vkey&0x400; // BBCKEY_CTRL_MOD
-	if (vkey&0x100) { // BBCKEY_SHIFT_MOD
-		flags = 1;
+	int raw = vkey & 0x800; // BBCKEY_RAW_MOD  - Used for forcing 'just shift' pressed
+	int ctrl = vkey & 0x400; // BBCKEY_CTRL_MOD
+	int shift = jshift;
+	if (vkey & 0x100) { // BBCKEY_SHIFT_MOD
+		shift = 1;
 	}
-	if (vkey&0x200) { // BBCKEY_ANTISHIFT_MOD
-		flags = 0;
+	if (vkey & 0x200) { // BBCKEY_ANTISHIFT_MOD
+		shift = 0;
 	}
-	vkey &= 0xff;
-	int col=vkey&15;
-	int row=(vkey>>4)&15;
+	int col=vkey & 15;
+	int row=(vkey >> 4) & 15;
 
-	if (down && vkey==0x37) { // BeebKeys.P
+	if (down && col == 7 && row == 3) { // BeebKeys.P = 0x37
 		dump_pages();
 	}
 
 	if (raw == 0) {
 		// Press / unpress SHIFT
-		keys[0][0] = flags ? down : 0x00;
+		keys[0][0] = shift ? down : 0x00;
 		// Press / unpress CTRL
 		keys[1][0] = ctrl ? down : 0x00;
 	}
+	LOGI("down %i vkey %04x %i ctrl %i shift %i raw %i col %i row %i\n", down, vkey, vkey, ctrl, shift, raw, col, row);
 	// Press / unpress the key
 	keys[col][row] = down ? 1 : 0;
 	//LOGI("Key event %d,%d = %d", col, row, down);
