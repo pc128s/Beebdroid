@@ -1262,8 +1262,12 @@ public class Beebdroid extends Activity {
         }
     }
 
-    public void injectMode(View v) {
-        doFakeKeys("*fx5 2\rvdu2\r*fx2 1\r");
+    public void setRs423Io(View v) {
+        doFakeKeys("\r*fx5 2\rvdu2\r*fx2 1\r");
+    }
+
+    public void unsetRs423Io(View v) {
+        rs423keyboard.setText("\rVDU3\r*fx 2 0\rVDU3\r");
     }
 
     public void onOpenClicked(View v) {

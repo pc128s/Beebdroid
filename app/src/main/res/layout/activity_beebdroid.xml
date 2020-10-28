@@ -151,11 +151,21 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Inject\nfile"/>
-                    <Button
+                    <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:onClick="injectMode"
-                        android:text="Set\nmode"/>
+                        android:orientation="vertical">
+                        <Button
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:onClick="setRs423Io"
+                            android:text="RS423 i/o"/>
+                        <Button
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:onClick="unsetRs423Io"
+                            android:text="Normal i/o"/>
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 
