@@ -37,6 +37,7 @@ import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.content.Context;
 import android.content.Intent;
+import android.text.Editable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -154,6 +155,7 @@ public class Beebdroid extends Activity {
             if (rs423printer != null) {
                 int i = bbcOfferingRs232();
                 if (i != -1) {
+                    // Alas, can't 'delete' mistakes in the printer: 127 is only sent with VDU1,127
                     if (i == 13) i = 10;
                     rs423printer.append(String.valueOf((char) i));
                 }
@@ -466,6 +468,19 @@ public class Beebdroid extends Activity {
                     });
         }
         rs423keyboard = findViewById(R.id.rs423keyboard);
+        if (rs423keyboard != null) {
+            rs423keyboard.setOnKeyListener(new View.OnKeyListener() {
+                @Override
+                public boolean onKey(View view, int i, KeyEvent keyEvent) {
+                    if (keyEvent.getAction() == KeyEvent.ACTION_DOWN && keyEvent.getKeyCode() == KeyEvent.KEYCODE_DEL) {
+                        rs423keyboard.setText("\u007f");
+                        // NOTE: Although this DOES delete on the BBC, it isn't passed to the printer without VDU1,127!
+                        // So... put Beebview in the RS232 layout, and add buttons for turning serial input and output on/off independently.
+                    }
+                    return false;
+                }
+            });
+        }
 
         enrichen(R.id.kb_bt_alt);
         enrichen(R.id.keyboard_help);

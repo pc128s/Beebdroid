@@ -81,11 +81,6 @@
             android:text="ShCaLck" />
     </RelativeLayout>
 
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_weight="1">
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -120,53 +115,52 @@
                 class="com.littlefluffytoys.beebdroid.ControllerView"
                 android:layout_width="fill_parent"
                 android:layout_height="fill_parent" />
+            <LinearLayout
+                android:id="@+id/rs423layout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="invisible"
+                android:background="@color/background_material_dark"
+                android:orientation="vertical">
+
+                <EditText
+                    android:id="@+id/rs423printer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="RS232 printer: VDU2:*FX5 2"
+                    android:inputType="none"
+                    android:text=""
+                    android:textIsSelectable="true"
+                    />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    >
+
+                    <EditText
+                        android:id="@+id/rs423keyboard"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="RS232 keyboard: *FX 2 1"
+                        android:text="" />
+                    <Button
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Inject\nfile"/>
+                    <Button
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:onClick="injectMode"
+                        android:text="Set\nmode"/>
+                </LinearLayout>
+            </LinearLayout>
 
         </RelativeLayout>
 
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/rs423layout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="invisible"
-        android:background="@color/background_material_dark"
-        android:orientation="vertical">
-
-        <EditText
-            android:id="@+id/rs423printer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="RS232 printer: VDU2:*FX5 2"
-            android:inputType="none"
-            android:text=""
-            android:textIsSelectable="true"
-            />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            >
-
-        <EditText
-            android:id="@+id/rs423keyboard"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="RS232 keyboard: *FX 2 1"
-            android:text="" />
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Inject\nfile"/>
-            <Button
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:onClick="injectMode"
-                android:text="Set\nmode"/>
-        </LinearLayout>
-    </LinearLayout>
-    </FrameLayout>
 </LinearLayout>
