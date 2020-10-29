@@ -8,6 +8,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -813,7 +814,7 @@ public class Beebdroid extends Activity {
         String file = "";
         if (data != null) {
             index = data.getIntExtra("index", -1);
-            file = data.getStringExtra("file");
+            file = data.getDataString();
         }
         switch (resultCode) {
             case LoadDisk.ID_RESULT_LOADDISK:
@@ -853,10 +854,18 @@ public class Beebdroid extends Activity {
                 }
                 SavedGameInfo.current = info;
                 break;
-
-            case LoadDisk.ID_RS423_INJECT:
-                injectStream = null ;// openFileInput()
-                break;
+            case -1:
+                switch (requestCode)  {
+                    case LoadDisk.ID_RS423_INJECT:
+                        try {
+                            file = URLDecoder.decode(file.replace("file://", ""));
+                            injectFile = new File(file);
+                            injectStream = new FileInputStream(file) ;// openFileInput()
+                        } catch (FileNotFoundException e) {
+                            Toast.makeText(this, "While opening " + file + " suffered " + e, Toast.LENGTH_SHORT).show();
+                        }
+                        break;
+                }
         }
 
     }
@@ -1352,7 +1361,7 @@ public class Beebdroid extends Activity {
     }
 
     public void setRs423Inject(View v) {
-        if (injectStream != null) {
+        if (injectStream == null) {
             Intent fileintent = new Intent(Intent.ACTION_GET_CONTENT);
             fileintent.setType("gagt/sdf");
             try {
@@ -1360,6 +1369,14 @@ public class Beebdroid extends Activity {
             } catch (ActivityNotFoundException e) {
                 Toast.makeText(this, "No activity can handle picking a file!?", Toast.LENGTH_LONG).show();
             }
+        } else {
+            try {
+                injectStream.close();
+            } catch (IOException e) {
+                Toast.makeText(this, "While closing " + injectFile.getAbsolutePath() + " had exception " + e, Toast.LENGTH_LONG).show();
+            }
+            injectStream = null;
+            injectFile = null;
         }
     }
 
