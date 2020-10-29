@@ -4,11 +4,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -27,6 +30,7 @@ import common.Utils;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -37,7 +41,6 @@ import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.content.Context;
 import android.content.Intent;
-import android.text.Editable;
 import android.text.SpannableString;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
@@ -79,6 +82,8 @@ public class Beebdroid extends Activity {
     private EditText rs423printer;
     private EditText rs423keyboard;
     private InputMethodManager imm;
+    private File captureFile;
+    private int rs423PendingInjectByte;
 
     private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD, RS423_CONSOLE}
 
@@ -155,24 +160,70 @@ public class Beebdroid extends Activity {
         }
 
         public void doRS423TxRx() {
-            if (rs423printer != null) {
+            if (captureStream != null || rs423printer != null) {
                 int len = bbcOfferingRs423(printerBuf);
                 for (int i = 0; i < len; i++) {
                     int c = printerBuf[i];
                     // Alas, can't 'delete' mistakes in the printer: 127 is only sent with VDU1,127
                     if (c == 13) c = 10;
-                    rs423printer.append(String.valueOf((char) c));
+                    if (captureStream != null) {
+                        try {
+                            captureStream.write((byte)c);
+                        } catch (IOException e) {
+                            Toast.makeText(Beebdroid.this, "Capture failed: " + e, Toast.LENGTH_LONG).show();
+                            try {
+                                captureStream.close();
+                            } catch (IOException ioException) {
+                                ;
+                            }
+                            captureStream = null;
+                            captureFile = null;
+                        }
+                    } else {
+                        rs423printer.append(String.valueOf((char) c));
+                    }
                 }
             }
-            while (rs423keyboard != null && rs423keyboard.getText().length() > 0) {
-                char c = rs423keyboard.getText().charAt(0);
-                if (c == 10) c = 13;
-                keyboardBuf[0] = (byte)c;
-                if (bbcAcceptedRs423(keyboardBuf) == 0) {
-                    break;
+            if (injectStream != null) {
+                if (rs423PendingInjectByte == -1) {
+                    try {
+                        rs423PendingInjectByte = injectStream.read();
+                    } catch (IOException e) {
+                        rs423PendingInjectByte = -1;
+                        Toast.makeText(Beebdroid.this, "Exception while injecting " + injectFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                    }
                 }
-                rs423keyboard.getText().delete(0, 1);
+                while (rs423PendingInjectByte >= 0 && sentRS423Char((char)rs423PendingInjectByte)) {
+                    try {
+                        rs423PendingInjectByte = injectStream.read();
+                    } catch (IOException e) {
+                        rs423PendingInjectByte = -1;
+                        Toast.makeText(Beebdroid.this, "Exception while injecting " + injectFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                    }
+                }
+                if (rs423PendingInjectByte == -1) {
+                    try {
+                        injectStream.close();
+                    } catch (IOException ioException) {
+                        Toast.makeText(Beebdroid.this, "Exception while closing " + injectFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                    }
+                    injectStream = null;
+                    injectFile = null;
+                    return;
+                }
+            } else {
+                while (rs423keyboard != null &&
+                        rs423keyboard.getText().length() > 0 &&
+                        sentRS423Char(rs423keyboard.getText().charAt(0))) {
+                    rs423keyboard.getText().delete(0, 1);
+                }
             }
+        }
+
+        public boolean sentRS423Char(char c) {
+            if (c == 10) c = 13;
+            keyboardBuf[0] = (byte)c;
+            return bbcAcceptedRs423(keyboardBuf) == 1;
         }
     };
 
@@ -759,8 +810,10 @@ public class Beebdroid extends Activity {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         int index = -1;
+        String file = "";
         if (data != null) {
             index = data.getIntExtra("index", -1);
+            file = data.getStringExtra("file");
         }
         switch (resultCode) {
             case LoadDisk.ID_RESULT_LOADDISK:
@@ -801,6 +854,9 @@ public class Beebdroid extends Activity {
                 SavedGameInfo.current = info;
                 break;
 
+            case LoadDisk.ID_RS423_INJECT:
+                injectStream = null ;// openFileInput()
+                break;
         }
 
     }
@@ -1265,6 +1321,45 @@ public class Beebdroid extends Activity {
         if (!playing) {
             audio.play();
             playing = true;
+        }
+    }
+
+    FileInputStream injectStream = null;
+    File injectFile = null;
+    FileOutputStream captureStream = null;
+
+    public void setRs423Capture(View v) {
+        if (captureStream != null) {
+            // We're capturing. Stop it.
+            try {
+                captureStream.close();
+                rs423printer.setText("Closed capture file " + captureFile.getAbsolutePath() + "\n");
+            } catch (IOException e) {
+                rs423printer.setText("Failed to close capture file: " + e +"\n");
+            }
+            captureStream = null;
+            captureFile = null;
+            return;
+        }
+        File dir = getExternalFilesDir("rs423captures");
+        captureFile = new File(dir, new Date().toString());
+        rs423printer.setText("Capturing to " + captureFile.getAbsolutePath() + "\n");
+        try {
+            captureStream = new FileOutputStream(captureFile.getAbsolutePath());
+        } catch (FileNotFoundException e) {
+            rs423printer.setText("Failed to create capture file: " + e + "\n");
+        }
+    }
+
+    public void setRs423Inject(View v) {
+        if (injectStream != null) {
+            Intent fileintent = new Intent(Intent.ACTION_GET_CONTENT);
+            fileintent.setType("gagt/sdf");
+            try {
+                startActivityForResult(fileintent, LoadDisk.ID_RS423_INJECT);
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(this, "No activity can handle picking a file!?", Toast.LENGTH_LONG).show();
+            }
         }
     }
 

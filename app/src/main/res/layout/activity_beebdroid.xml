@@ -148,8 +148,15 @@
                         <Button
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:onClick="setRs423Inject"
                             android:layout_weight="1"
                             android:text="Inject file"/>
+                        <Button
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:onClick="setRs423Capture"
+                            android:layout_weight="1"
+                            android:text="Capture file"/>
                         <Button
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"

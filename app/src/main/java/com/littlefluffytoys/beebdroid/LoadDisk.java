@@ -46,8 +46,10 @@ public class LoadDisk extends AppCompatActivity implements FilePickerFragment.On
 	public static final int ID_RESULT_LOADDISK = 101;
 	public static final int ID_RESULT_SAVE = 102;
 	public static final int ID_RESULT_RESTORE = 103;
-	
-	protected FragmentTabHost mTabHost;
+    public static final int ID_RS423_CAPTURE = 104;
+    public static final int ID_RS423_INJECT = 105;
+
+    protected FragmentTabHost mTabHost;
 
     public static class GamesListFragment extends ListFragment {
         public GamesListFragment() {
