@@ -377,7 +377,7 @@ void pollNextRS423Keyboard() {
 		the_cpu->interrupt |= 4u; // Presume each system has its own bit - CPU just cares about nonzero
 		status6850 |= 128u; // Rx is full! We caused an interrupt
 	}
-	kbdDelay=100;
+	kbdDelay=50; // 50 seemed safe, 10 wedged. What's good?
 }
 
 uint8_t read6850acia(uint16_t addr) {
