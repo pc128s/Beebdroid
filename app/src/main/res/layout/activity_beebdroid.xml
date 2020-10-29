@@ -128,7 +128,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="RS232 printer: VDU2:*FX5 2"
+                    android:hint="RS423 printer: VDU2:*FX5 2"
                     android:inputType="none"
                     android:text=""
                     android:textIsSelectable="true"
@@ -138,8 +138,8 @@
                         android:id="@+id/rs423keyboard"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:hint="RS232 keyboard: *FX 2 1"
+                        android:minHeight="10pt"
+                        android:hint="RS423 keyboard: *FX 2 1"
                         android:text="" />
                     <LinearLayout
                         android:layout_width="match_parent"

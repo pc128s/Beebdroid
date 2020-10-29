@@ -251,13 +251,21 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent
 
 
 JNIEXPORT jint JNICALL
-Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcOfferingRs232(JNIEnv *env, jobject thiz) {
-	return beebOfferingRS232();
+Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcOfferingRs423(JNIEnv *env, jobject thiz, jbyteArray bytes) {
+	if (bytes == 0) return beebPrintedRS423(0, 0);
+	jbyte *array = (*env)->GetByteArrayElements(env, bytes, 0);
+	jint ret = beebPrintedRS423((*env)->GetArrayLength(env, bytes),array);
+	(*env)->ReleaseByteArrayElements(env, bytes, array, 0);
+	return ret;
 }
 
 JNIEXPORT jint JNICALL
-Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcAcceptedRs232(JNIEnv *env, jobject thiz, jbyte b) {
-	return beebAcceptedRS232(b);
+Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcAcceptedRs423(JNIEnv *env, jobject thiz, jbyteArray bytes) {
+	if (bytes == 0) return beebAcceptedRS423(0, 0);
+	jbyte *array = (*env)->GetByteArrayElements(env, bytes, 0);
+	jint ret = beebAcceptedRS423((*env)->GetArrayLength(env, bytes), array);
+	(*env)->ReleaseByteArrayElements(env, bytes, array, 0);
+	return ret;
 }
 
 

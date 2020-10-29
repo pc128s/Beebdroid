@@ -204,7 +204,6 @@ uint8_t control6850=0;
 int rxChar=-1;
 int txChar=-1;
 
-
 uint8_t readmem_ex_real(uint16_t addr) {
 	if ( 0xFE08 <= addr && addr <= 0xFE1F) {
 		LOGF("Reading %04X! rx %04X tx %04X ctl %02X sta %02X int %02X\n", addr, rxChar, txChar, control6850, status6850, the_cpu->interrupt);
@@ -215,7 +214,7 @@ uint8_t readmem_ex_real(uint16_t addr) {
         switch (addr & ~3)
         {
                 case 0xFE00: case 0xFE04: return readcrtc(addr);
-                case 0xFE08: case 0xFE0C: return read6850acia(addr); // RS232+TAPE data 0xFE0A - 0xFE0F: also 6850, nominally
+                case 0xFE08: case 0xFE0C: return read6850acia(addr); // RS423+TAPE data 0xFE0A - 0xFE0F: also 6850, nominally
                 case 0xFE10: return readSerialULA(addr); // Serial ULA  0xFE11-1F : also serial ULA
                 //case 0xFE18: if (MASTER) return readadc(addr); break;
                 case 0xFE40: case 0xFE44: case 0xFE48: case 0xFE4C:
@@ -249,7 +248,7 @@ uint8_t readmem_ex_real(uint16_t addr) {
 
 uint8_t readSerialULA(uint16_t addr) {
 //	LOGI("6850 [a=%04x] read %02x\n", addr, statusSerialULA);
-    // baud rate tx0,1,2/rx3,4,5 6-0=TAPE or 1=RS232, 7=motor
+    // baud rate tx0,1,2/rx3,4,5 6-0=TAPE or 1=RS423, 7=motor
 	return statusSerialULA;
 }
 
@@ -257,25 +256,53 @@ void writeSerialULA(uint32_t addr, uint8_t val) {
 //	LOGI("6850 [a=%04x] = %02x\n", addr, val);
 	statusSerialULA = val;
 	if (statusSerialULA & 64) {
-		status6850 &= ~2; // always low when rs232 selected
+		status6850 &= ~2; // always low when rs423 selected
 	}
 }
 
-int beebOfferingRS232() {
+#define RS423_BUF 256
+uint_t kbdBuf[RS423_BUF];
+int kbdLastRead=0;
+int kbdLastWrite=0;
+int kbdDelay=0; // Avoid swamping beeb
+uint_t pntBuf[RS423_BUF];
+int pntLastRead=0;
+int pntLastWrite=0;
+
+int beebPrintedRS423(jint len, jbyte* bytes) {
+	if (len == 0) { return RS423_BUF; }
+
+	int ix = 0;
+	while (ix < len) {
+		if (pntLastRead == pntLastWrite) break; // Empty
+		pntLastRead = (pntLastRead + 1) % RS423_BUF;
+		bytes[ix++] = pntBuf[pntLastRead];
+	}
+
+	return ix;
+}
+
+void pollNextRS423Printer() {
 	status6850 &= ~8u; // Always Clear To Send - external input
 	if (status6850 & 2u) {
-		return -1; // already removed, nothing new from processor.
+		return; // already removed, nothing new from processor.
 	}
+
+	int nextWrite = (pntLastWrite + 1) % RS423_BUF;
+	if (pntLastRead == nextWrite) return; // Writing would cause 'empty', so wait.
+
 	int taken = txChar;
 	txChar = -1;
 	status6850 |= 2u; //  High now, because we've taken the char or 'taken' -1
-	if (taken != -1)
+	if (taken != -1) {
+		pntLastWrite = (pntLastWrite+1)%RS423_BUF;
+		pntBuf[pntLastWrite] = taken;
 		if ((control6850 & 96u) == 64) { // interrupt enabled?
-			status6850 |= 128u; //  High now, because we've taken the char
-			the_cpu->interrupt |= 8u; // interrupt if
+			status6850 |= 128u; //  we're causing an interrupt because we've taken the char
+			the_cpu->interrupt |= 8u; // interrupt
 		}
-//	LOGI("6850 offering tak%02x c%02x s%02x i%02x\n", taken, control6850, status6850, the_cpu->interrupt);
-	return taken;
+	}
+//	LOGI("6850 offering tak%02x c%02x s%02x i%02x\n", taken, control6850, status6850, the_cpu->interrupt);	return taken;
 }
 
 void write6850acia(uint32_t addr, uint8_t val) {
@@ -307,7 +334,8 @@ void write6850acia(uint32_t addr, uint8_t val) {
 			return;
 		case 0xFE09: // tx byte
 			txChar = val;
-			status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
+			if (rxChar == -1)
+				status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
 			status6850 &= ~2u; // Write to tx sets status to 'full/low' until accepted by recipient
 //			LOGI("6850 [a=%04x] = %02x (%02x)\n", addr, val, status6850);
 			return;
@@ -317,17 +345,39 @@ void write6850acia(uint32_t addr, uint8_t val) {
 	}
 }
 
-uint8_t beebAcceptedRS232(uint8_t next) {
-	if (status6850 & 1u) return 0; // that char not accepted yet, try again later
+jint beebAcceptedRS423(jint len, jbyte* bytes) {
+	if (len == 0) {
+		return RS423_BUF - (kbdLastWrite + RS423_BUF - kbdLastRead) % RS423_BUF; // Remaining capacity - don't convert a huge string to bytes!
+	}
 
-	rxChar = next;
+	int ix = 0;
+	while(ix < len) {
+		int kw = (kbdLastWrite + 1) % RS423_BUF;
+		if (kw == kbdLastRead) break; // Equality means 'empty' so don't cause it.
+		kbdBuf[kbdLastWrite = kw] = bytes[ix++];
+	}
+
+	return ix;
+}
+
+void pollNextRS423Keyboard() {
+	if (status6850 & 1u) return; // that char not accepted yet, try again later
+	if (kbdDelay > 0) { // Enforce minimum wait
+		kbdDelay--;
+		return;
+	}
+	if (kbdLastWrite == kbdLastRead) {
+		return;
+	}
+
+	kbdLastRead = (kbdLastRead + 1) % RS423_BUF;
+	rxChar = kbdBuf[kbdLastRead];
 	status6850 |= 1u;   // Rx is full! Magically cleared by next processor read
 	if (control6850 & 128u) {
 		the_cpu->interrupt |= 4u; // Presume each system has its own bit - CPU just cares about nonzero
 		status6850 |= 128u; // Rx is full! We caused an interrupt
 	}
-//	LOGI("6850 accepted rx%02x c%02x s%02x i%02x\n", rxChar, control6850, status6850, the_cpu->interrupt);
-	return 1; // that char accepted - try next, pls
+	kbdDelay=100;
 }
 
 uint8_t read6850acia(uint16_t addr) {
@@ -335,21 +385,24 @@ uint8_t read6850acia(uint16_t addr) {
 		case 0xFE08:  // Status - read only
 			// - b0=RxFull cleared by processor read from Rx
 			// - b1=TxEmpty low=full high=ready for processor to write to Tx
-			// - b2=DCD - always low when RS232 is selected, high=carrier missing from cassette input
-			// - b3=CTS - clear to send. always low for cassette, high if RS232 recipient is unready
+			// - b2=DCD - always low when RS423 is selected, high=carrier missing from cassette input
+			// - b3=CTS - clear to send. always low for cassette, high if RS423 recipient is unready
 			// - b4=FrameError - received char was malformed start/stop/parity
 			// - b5=overrun - characters received but not read
 			// - b6=parity error
 			// - b7=IRQ bit high=serial issued IRQ (line is low), cleared by read from Rx or write to Tx
 //			if ((the_cpu->interrupt & ~1u) != 0)
 //			    LOGI("6850 [a=%04x] read %02x (tx%02x c%02x xi%02x)\n", addr, status6850, txChar, control6850, the_cpu->interrupt & ~1u /* ignore ifr */); // We're polled frequently to eliminate b7
+			pollNextRS423Keyboard();
+			pollNextRS423Printer();
 			return status6850;
 		case 0xFE09:  // Rx=read
 			if (rxChar != -1 && (status6850 & 1u)) {
 				uint8_t taken = rxChar;
 				rxChar = -1;
 				status6850 &= ~1u; // Magic clear of RxFull
-				status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
+				if (txChar == -1)
+					status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while a tx is pending?
 //				LOGI("6850 [a=%04x] read %02x (st:%02x)\n", addr, taken, status6850);
 				return taken;
 			}
@@ -396,7 +449,7 @@ if ( 0xFE08 <= addr && addr <= 0xFE1F) {
 				ram_fe30=val;
 				if (romsel != (val&15)) {
 					romsel = val&15;
-					LOGI("ROMSEL set to %d", romsel);
+					//LOGI("ROMSEL set to %d", romsel);
 					memcpy(the_cpu->mem+0x8000, roms+(romsel*16384), 16384);
 				}
 				break;

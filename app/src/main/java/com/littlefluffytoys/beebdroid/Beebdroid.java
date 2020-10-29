@@ -74,7 +74,7 @@ public class Beebdroid extends Activity {
     // don't register, so observe this and delay the key up.
     // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
     public static final int MIN_KEY_DOWNUP_MS = 50; //10;
-    public static final int INTER_AUTO_KEY_MS = 1;
+    public static final int INTER_AUTO_KEY_MS = 10;
     public static boolean use25fps = false;
     private EditText rs423printer;
     private EditText rs423keyboard;
@@ -107,6 +107,9 @@ public class Beebdroid extends Activity {
         System.loadLibrary("bbcmicro");
     }
 
+    byte[] printerBuf = new byte[bbcOfferingRs423(null)];
+    byte[] keyboardBuf = new byte[1];
+
     // JNI interface
     public native void bbcInit(ByteBuffer mem, ByteBuffer roms, ByteBuffer audiob, int flags);
 
@@ -134,9 +137,9 @@ public class Beebdroid extends Activity {
 
     public native void bbcPushAdc(int x1, int y1, int x2, int y2);
 
-    public native int bbcOfferingRs232();
+    public native int bbcOfferingRs423(byte[] b);
 
-    public native int bbcAcceptedRs232(byte b);
+    public native int bbcAcceptedRs423(byte[] b);
 
     long time_fps;
 
@@ -147,25 +150,28 @@ public class Beebdroid extends Activity {
         @Override
         public void run() {
             long now = android.os.SystemClock.uptimeMillis();
-            handler.postAtTime(runRS423, now + 2);
+            handler.postAtTime(runRS423, now + 20); // buffered, hopefully.
             doRS423TxRx();
         }
 
         public void doRS423TxRx() {
             if (rs423printer != null) {
-                int i = bbcOfferingRs232();
-                if (i != -1) {
+                int len = bbcOfferingRs423(printerBuf);
+                for (int i = 0; i < len; i++) {
+                    int c = printerBuf[i];
                     // Alas, can't 'delete' mistakes in the printer: 127 is only sent with VDU1,127
-                    if (i == 13) i = 10;
-                    rs423printer.append(String.valueOf((char) i));
+                    if (c == 13) c = 10;
+                    rs423printer.append(String.valueOf((char) c));
                 }
             }
-            if (rs423keyboard != null && rs423keyboard.getText().length() > 0) {
+            while (rs423keyboard != null && rs423keyboard.getText().length() > 0) {
                 char c = rs423keyboard.getText().charAt(0);
                 if (c == 10) c = 13;
-                if (bbcAcceptedRs232((byte) c) == 1) {
-                    rs423keyboard.getText().delete(0, 1);
+                keyboardBuf[0] = (byte)c;
+                if (bbcAcceptedRs423(keyboardBuf) == 0) {
+                    break;
                 }
+                rs423keyboard.getText().delete(0, 1);
             }
         }
     };
@@ -475,7 +481,7 @@ public class Beebdroid extends Activity {
                     if (keyEvent.getAction() == KeyEvent.ACTION_DOWN && keyEvent.getKeyCode() == KeyEvent.KEYCODE_DEL) {
                         rs423keyboard.setText("\u007f");
                         // NOTE: Although this DOES delete on the BBC, it isn't passed to the printer without VDU1,127!
-                        // So... put Beebview in the RS232 layout, and add buttons for turning serial input and output on/off independently.
+                        // So... put Beebview in the RS423 layout, and add buttons for turning serial input and output on/off independently.
                     }
                     return false;
                 }
