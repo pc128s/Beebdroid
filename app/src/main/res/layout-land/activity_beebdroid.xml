@@ -83,7 +83,7 @@
 		android:layout_width="48dp"
 		android:layout_height="48dp"
 		android:background="@drawable/tab"
-		android:src="@drawable/keyboard"
+		android:src="@drawable/rs423"
 		/>
 	<TextView
 		android:id="@+id/kb_bt_alt"

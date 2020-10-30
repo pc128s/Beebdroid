@@ -11,11 +11,12 @@ Jan 2020
 
 Oct 2002
 - [TB] Initial 32-bit assembly port to 64-bit assembly, according to new Android application requirements.
+- [TB] RS423 input/output support for copy/paste with Android via *FX2,1/*FX5.2. Occasional doubled letters from Android keyboard.
+- [TB] Fixed autokey flakiness in debug mode.
 
 Bugs
 - games are broken: the machine just resets - might only affect 64 bit architecture, might arise from keyboard changes
 - saved machine states may be partly broken, perhaps due to CPU structure entries
-- no ASCII input/output methods: anything would be good - fake keyboard is adequate and parallel port would suffice, but RS232 would be nice.
 - opcodes not used during boot sequence completion are untested and probably broken in 64 emulations
 - no automated testing of emulated machine. Maybe http://visual6502.org/wiki/index.php?title=6502TestPrograms
 - would be nice to have a full C layer CPU emulation, to avoid having needed to update the assembly.

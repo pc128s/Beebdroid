@@ -398,13 +398,14 @@ void checkkeys()
     updatekeyboard();
 }
 
-
+int keyboardCounter;
 /*
  * updatekeyboard - scans bbckey[] and updates sysvia registers accordingly
  */
 void updatekeyboard()
 {
 	int c,d;
+	keyboardCounter++;
 	if (IC32&8) {
 		for (d=0;d<(/*(MASTER)?13:*/10);d++) {
 			for (c=1;c<8;c++) {
