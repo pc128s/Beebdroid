@@ -27,7 +27,7 @@ short* sndbuf;
 
 
 extern uint8_t keys[16][16];
-
+extern int keyboardCounter;
 
 jobject  g_obj;
 jclass cls;
@@ -109,6 +109,11 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcSetTrigg
 
 JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcExit(JNIEnv * env, jobject  obj) {
 	//moncleanup();
+}
+
+
+JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyboardCounter(JNIEnv * env, jobject  obj, jint base) {
+	return keyboardCounter - base;
 }
 
 

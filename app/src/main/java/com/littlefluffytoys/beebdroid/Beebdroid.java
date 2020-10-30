@@ -77,7 +77,7 @@ public class Beebdroid extends Activity {
     // The emulator keypresses from the physical keyboard are only 1-2ms and
     // don't register, so observe this and delay the key up.
     // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
-    public static final int MIN_KEY_DOWNUP_MS = 50; //10;
+    public static final int MIN_KEY_DOWNUP_MS = 50; //70; //10;  Even 50 is unreliable for debug mode.
     public static final int INTER_AUTO_KEY_MS = 10;
     public static boolean use25fps = false;
     private EditText rs423printer;
@@ -122,6 +122,8 @@ public class Beebdroid extends Activity {
     public native void bbcBreak(int flags);
 
     public native void bbcExit();
+
+    public native int bbcKeyboardCounter(int base);
 
     public native int bbcRun();
 
@@ -274,14 +276,21 @@ public class Beebdroid extends Activity {
                     String next = keyboardTextEvents.remove(0);
                     Log.i(TAG, "keyboard text event ='" + next + "'");
                     final int scancode = Keyboard.pureUnicodeToScancode(next);
-                    keyboardTextWait = MIN_KEY_DOWNUP_MS + INTER_AUTO_KEY_MS;
+                    keyboardTextWait = 2 + INTER_AUTO_KEY_MS;
                     if (scancode != 0) {
                         bbcKeyEvent(scancode, 0, 1);
+                        final int scan0 = bbcKeyboardCounter(0);
+                        // Nice to check for poll somewhere.
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                bbcKeyEvent(scancode, 0, 0);
-                                keyboardTextWait = 1;
+                                // Try to make this more reliable for debug mode.
+                                if (bbcKeyboardCounter(scan0) <= 10) {
+                                    handler.postDelayed(this, 2);
+                                } else {
+                                    bbcKeyEvent(scancode, 0, 0);
+                                    keyboardTextWait = 1;
+                                }
                             }
                         }, keyboardTextWait - INTER_AUTO_KEY_MS);
                     }
