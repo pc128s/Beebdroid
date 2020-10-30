@@ -1394,7 +1394,7 @@ public class Beebdroid extends Activity {
     }
 
     public void unsetRs423Io(View v) {
-        rs423keyboard.setText("\rVDU3\r*fx 2 0\rVDU3\r");
+        rs423keyboard.setText("\rVDU3\r*fx 2 0\r");
     }
 
     public void onOpenClicked(View v) {
