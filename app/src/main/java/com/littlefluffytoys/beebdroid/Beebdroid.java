@@ -1,5 +1,6 @@
 package com.littlefluffytoys.beebdroid;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
@@ -8,6 +9,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringBufferInputStream;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -275,6 +277,7 @@ public class Beebdroid extends Activity {
                 if (keyboardTextEvents.size() > 0) {
                     String next = keyboardTextEvents.remove(0);
                     Log.i(TAG, "keyboard text event ='" + next + "'");
+                    // Note: These are subject to CAPS/SHLOCK. Consider ANTISHIFT.
                     final int scancode = Keyboard.pureUnicodeToScancode(next);
                     keyboardTextWait = 2 + INTER_AUTO_KEY_MS;
                     if (scancode != 0) {
@@ -1342,7 +1345,7 @@ public class Beebdroid extends Activity {
         }
     }
 
-    FileInputStream injectStream = null;
+    InputStream injectStream = null;
     File injectFile = null;
     FileOutputStream captureStream = null;
 
@@ -1390,11 +1393,13 @@ public class Beebdroid extends Activity {
     }
 
     public void setRs423Io(View v) {
-        doFakeKeys("\r*fx5 2\rvdu2\r*fx2 1\r");
+        doFakeKeys("\u001b\r*FX5 2\rVDU2\r*FX2 1\r");
     }
 
     public void unsetRs423Io(View v) {
-        rs423keyboard.setText("\rVDU3\r*fx 2 0\r");
+        // byte[] bytes = { '\u001b', '\r', 'V', 'D', 'U', '3', '\r', '*', 'F', 'X', '2', '\r' };
+        // injectStream=new ByteArrayInputStream(bytes);
+        rs423keyboard.setText("\u001b\rVDU3\r*FX2\r"); // Escape is received but does not interrupt the line, even with *fx181
     }
 
     public void onOpenClicked(View v) {
