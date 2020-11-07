@@ -674,7 +674,7 @@ public class Beebdroid extends Activity {
     }
 
     private boolean onMouseSomething(final View v, final MotionEvent event) {
-        if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
+        if (keyboardShowing == KeyboardState.BLUETOOTH_KBD  || keyboardShowing == KeyboardState.RS423_CONSOLE) {
 
             long ms = event.getEventTime();
             if (event.getAction() == MotionEvent.ACTION_DOWN) updown = 1;
