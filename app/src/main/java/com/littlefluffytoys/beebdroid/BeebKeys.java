@@ -14,11 +14,19 @@ public class BeebKeys {
 	0x50     SLK  S    C    G    H    N    L    ;+   ])  DEL
 	0x60     TAB  Z    SPC  V    B    M    ,<   .>   /?  CPY
 	*
-	0x00     SHF  CTL
+	0x00     SHF  CTL  lk8  lk7  lk6  lk5  lk4  lk3  lk2 lk1
 	 */
 
 	public static final int BBCKEY_BREAK = 0xaa;
-	//  0x00    
+	//  0x00
+	public static final int BBCKEY_LK1 = 0x09; // +1 mode
+	public static final int BBCKEY_LK2 = 0x08; // +2 mode
+	public static final int BBCKEY_LK3 = 0x07; // +3 mode
+	public static final int BBCKEY_LK4 = 0x06; // shift-break
+	public static final int BBCKEY_LK5 = 0x05; // disc drive timings
+	public static final int BBCKEY_LK6 = 0x04; // disc drive timings
+	public static final int BBCKEY_LK7 = 0x03; // unused
+	public static final int BBCKEY_LK8 = 0x02; // nfs/dfs default
 	public static final int BBCKEY_CTRL = 0x01;
 	public static final int BBCKEY_SHIFT_BUT_USE_RAW = 0x00; // Can't use this directly: 0 means 'nothing'
 	public static final int BBCKEY_SHIFT_MOD = 0x100;
