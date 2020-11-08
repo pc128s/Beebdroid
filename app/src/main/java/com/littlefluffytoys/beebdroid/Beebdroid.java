@@ -1,6 +1,5 @@
 package com.littlefluffytoys.beebdroid;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
@@ -9,7 +8,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringBufferInputStream;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -127,7 +125,7 @@ public class Beebdroid extends Activity {
 
     public native int bbcKeyboardCounter(int base);
 
-    public native int bbcRun();
+    public native int bbcRun(String osarch);
 
     public native int bbcInitGl(int width, int height);
 
@@ -247,7 +245,7 @@ public class Beebdroid extends Activity {
                 beebView.initgl();
                 bbcInitGl(beebView.width, beebView.height);
             }
-            int trigger = bbcRun();
+            int trigger = bbcRun(System.getProperty("os.arch"));
 
             // Handle trigger events
             if (controller.controllerInfo != null) {
@@ -483,6 +481,7 @@ public class Beebdroid extends Activity {
     int updown = 0;
     long last_ms;
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

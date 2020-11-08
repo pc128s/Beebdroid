@@ -125,6 +125,8 @@ extern int disctime;
 extern int frames;
 extern int framecount;
 
+extern char* architecture;
+
 typedef struct VIA
 {
         uint8_t ora,orb,ira,irb;

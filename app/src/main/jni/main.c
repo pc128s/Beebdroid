@@ -154,15 +154,20 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInit(JNI
 	LOGI("exiting initbbc()");
 }
 
+char* architecture = 0;
+
 // Without the .S file, PIC is achieved
 // void exec6502(M6502* f) {}
 struct timeval tval_before, tval_after, tval_result;
 
-JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIEnv * env, jobject  obj)
-{
-
+JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIEnv * env, jobject  obj, jstring osarch) {
 	if (autoboot)
 		autoboot--;
+
+	const jchar* nativeString = (*env)->GetStringUTFChars(env, osarch, 0);
+	free(architecture);
+	architecture = strdup(nativeString);
+	(*env)->ReleaseStringUTFChars(env, osarch, nativeString);
 
     if (framecount++ == 0) {
     // Position independent code, hopefully!

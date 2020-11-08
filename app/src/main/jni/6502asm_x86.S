@@ -216,7 +216,7 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-//   LOG_CPU
+   LOG_CPU
 // rm -rf x86/
 //   adb pull /storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files ./x86
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done

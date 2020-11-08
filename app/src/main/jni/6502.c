@@ -28,7 +28,9 @@ static int s_logflag = 0;
 FILE* s_file = NULL;
 static int framecurrent = -1;
 
-#define LOGGING 0
+#define LOGGING 1
+// #define LOGCPU_ABORT_FRAME -1 // never
+#define LOGCPU_ABORT_FRAME 20 // immediately after boot
 
 void LOGF(char* format, ...) {
 #if LOGGING
@@ -38,25 +40,18 @@ void LOGF(char* format, ...) {
 
   	if (!s_file || framecurrent != framecount) {
   	    if (s_file) fclose(s_file);
-#ifdef _ARM_
-        //char* fmt = "/sdcard/6502_arm.%03i.log";
-        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_arm.%03i.log";
-#else
-		//s_file = fopen("/data/local/tmp/6502_x86.log","w+");
-//        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
-        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
-#endif
-        sprintf(buff, fmt, framecurrent = framecount);
+        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_%s.%03i.log";
+        sprintf(buff, fmt, architecture, framecurrent = framecount);
         LOGI("fopen - %s", buff);
         s_file = fopen(buff, "w+");
 	}
 
-//  	if (framecount == 280) { // Booted and key press checks
-//  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
-//  	    fclose(s_file);
-//  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
-//  		abort();
-//  	}
+  	if (framecount == LOGCPU_ABORT_FRAME) { // Booted and key press checks
+  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
+  	    fclose(s_file);
+  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
+  		abort();
+  	}
 
 	vsprintf (buff,format, args);
 
@@ -84,7 +79,6 @@ void log_cpu_C(M6502* cpu) {
 //    int mfc = 0 ; int mcy = 50000 ;
 //    if (framecount < mfc) return;
 //    if (framecount == mfc && cpu->cycles > mcy) return;
-    if (framecount > 16) return;
     if (tval_first) {
         gettimeofday(&tval_0, NULL);
         tval_first = 0;
