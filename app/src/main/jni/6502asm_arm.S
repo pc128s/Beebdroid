@@ -1706,7 +1706,7 @@ exec6502: // Was exec6502(), but now exec6502(M6502*)
 
     @loop
 loop:
-	LOG_CPU // TODO: Is this necessary for keyboard opeartion, like ARM64?
+	LOG_CPU // TODO: CHECK: Is this necessary for keyboard opeartion, like ARM64?
 
 	@ Trigger spotting... log PCs (NB: ALWAYS REMOVE FROM RELEASE CODE! ITS ONLY FOR FINDING GOOD PLACES FOR TRIGGERS)
 	//mov  r0,  Rcpu

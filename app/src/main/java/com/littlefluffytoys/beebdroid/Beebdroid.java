@@ -871,9 +871,11 @@ public class Beebdroid extends Activity {
                         try {
                             file = URLDecoder.decode(file.replace("file://", ""));
                             injectFile = new File(file);
-                            injectStream = new FileInputStream(file) ;// openFileInput()
+                            injectStream = getContentResolver().openInputStream(data.getData());
+                            // injectStream = new FileInputStream(file) ;// openFileInput()
                         } catch (FileNotFoundException e) {
-                            Toast.makeText(this, "While opening " + file + " suffered " + e, Toast.LENGTH_SHORT).show();
+                            Log.i(TAG, "While opening " + file + " suffered " + e);
+                            Toast.makeText(this, "While opening " + file + " suffered " + e, Toast.LENGTH_LONG).show();
                         }
                         break;
                 }
@@ -1362,7 +1364,7 @@ public class Beebdroid extends Activity {
             return;
         }
         File dir = getExternalFilesDir("rs423captures");
-        captureFile = new File(dir, new Date().toString());
+        captureFile = new File(dir, new Date().toString() + ".txt");
         rs423printer.setText("Capturing to " + captureFile.getAbsolutePath() + "\n");
         try {
             captureStream = new FileOutputStream(captureFile.getAbsolutePath());
@@ -1374,7 +1376,7 @@ public class Beebdroid extends Activity {
     public void setRs423Inject(View v) {
         if (injectStream == null) {
             Intent fileintent = new Intent(Intent.ACTION_GET_CONTENT);
-            fileintent.setType("gagt/sdf");
+            fileintent.setType("text/*");
             try {
                 startActivityForResult(fileintent, LoadDisk.ID_RS423_INJECT);
             } catch (ActivityNotFoundException e) {

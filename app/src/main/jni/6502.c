@@ -28,7 +28,7 @@ static int s_logflag = 0;
 FILE* s_file = NULL;
 static int framecurrent = -1;
 
-#define LOGGING 1
+#define LOGGING 0
 // #define LOGCPU_ABORT_FRAME -1 // never
 #define LOGCPU_ABORT_FRAME 20 // immediately after boot
 

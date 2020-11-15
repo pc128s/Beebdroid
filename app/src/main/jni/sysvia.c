@@ -393,7 +393,7 @@ void checkkeys()
 	//		bbckey[c][d]=keys[c][d];
 	//	}
 	//}
-    int bootmode=2; // MODE2 is broken on ARM64! Time for more differential logging.
+    int bootmode=7; // MODE2 is broken on ARM64! Time for more differential logging.
     bbckey[9][0]=(bootmode & 1) == 0; // BBCKEY_LK1 mode
     bbckey[8][0]=(bootmode & 2) == 0; // BBCKEY_LK2 mode
     bbckey[7][0]=(bootmode & 4) == 0; // BBCKEY_LK3 mode
