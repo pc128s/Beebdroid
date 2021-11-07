@@ -21,7 +21,7 @@
 
 		<activity
 		    android:name=".Beebdroid"
-			android:label="Beebdroid"
+			android:label="Beebdroid 2"
 			>
 
 			<intent-filter>
