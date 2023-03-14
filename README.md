@@ -14,6 +14,9 @@ Oct 2002
 - [TB] RS423 input/output support for copy/paste with Android via *FX2,1/*FX5.2. Occasional doubled letters from Android keyboard.
 - [TB] Fixed autokey flakiness in debug mode.
 
+Nov 2002
+- [TB] x86_64 and ARM64 are basically working, MODE2 seems fairly happy. Haven't tried loading games. Added RS232 keyboard mode for 6502 compliance tests; rudimentary and stupid. Should support direct-RAM load, but don't want to write a filing system!
+
 Bugs
 - games are broken: the machine just resets - might only affect 64 bit architecture, might arise from keyboard changes
 - saved machine states may be partly broken, perhaps due to CPU structure entries
