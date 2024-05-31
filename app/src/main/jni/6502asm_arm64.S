@@ -438,7 +438,7 @@ LDP \xa, \xb, [sp], #16 // pop first pair, lose space for second
 	eor  r0,  Ra,  r2		// r1 = cpu->a ^ result_of_addition
 	tst  r0, #128           // is 2^7 set?
 	beq 2f                  // zero -> 2f
-	orr  Rp, Rp, #flagV		// set FLAG_V
+	orr  Rp, Rp, #flagV		// set FLAG_V 0x40
 2:
 	and  Ra,  r2, #255		// cpu->a = result_of_addition & 255
 	SETZN  Ra				// setzn(cpu->a);   <-- 5 instructions
@@ -1415,6 +1415,7 @@ opasm_rla_indzy:
 	tst \reg, #0x100		// if (rotate carried) SET_FLAG(FLAG_C);
 	beq 1f
 	orr  Rp, Rp,#flagC
+    bic \reg, \reg, #0x100
 1:
 	SETZN \reg				// setzn(temp);
 .endm
@@ -1912,7 +1913,9 @@ exec6502: // Was exec6502(), but now exec6502(M6502*)
 
     //loop
 loop:
-	LOG_CPU
+//	LOG_CPU
+    strb  Rx, [ RcpuX, #Srx] 	//  r8 = X   // TODO: WHY is this apparently necessary for keyboard functionality?!
+    ldrb  Rx, [ RcpuX, #Srx] 	//  r8 = X   // TODO: WHY is this apparently necessary for keyboard functionality?!
 
 	// Trigger spotting... log PCs (NB: ALWAYS REMOVE FROM RELEASE CODE! ITS ONLY FOR FINDING GOOD PLACES FOR TRIGGERS)
 	//mov  r0,  RcpuX

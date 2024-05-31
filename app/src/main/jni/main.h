@@ -98,6 +98,9 @@ extern int joy1x,joy1y,joy2x,joy2y;
 
 //extern void writemem_ex(uint16_t addr, uint8_t val16);
 
+extern jint beebPrintedRS423(jsize len, jbyte* bytes);
+extern jint beebAcceptedRS423(jsize len, jbyte* bytes);
+
 #ifdef _ARM_
 // Should be safe to make ARM uint32 too
 extern void writemem_ex(uint16_t addr, uint8_t val16);
@@ -121,6 +124,8 @@ extern int motoron;
 extern int disctime;
 extern int frames;
 extern int framecount;
+
+extern char* architecture;
 
 typedef struct VIA
 {

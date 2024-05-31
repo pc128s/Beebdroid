@@ -27,7 +27,7 @@ short* sndbuf;
 
 
 extern uint8_t keys[16][16];
-
+extern int keyboardCounter;
 
 jobject  g_obj;
 jclass cls;
@@ -112,6 +112,11 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcExit(JNI
 }
 
 
+JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyboardCounter(JNIEnv * env, jobject  obj, jint base) {
+	return keyboardCounter - base;
+}
+
+
 
 JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInit(JNIEnv * env, jobject  obj,
 		jobject amem, jobject aroms, jobject audiobuff, jint firstTime) {
@@ -149,15 +154,20 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcInit(JNI
 	LOGI("exiting initbbc()");
 }
 
+char* architecture = 0;
+
 // Without the .S file, PIC is achieved
 // void exec6502(M6502* f) {}
 struct timeval tval_before, tval_after, tval_result;
 
-JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIEnv * env, jobject  obj)
-{
-
+JNIEXPORT jint JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcRun(JNIEnv * env, jobject  obj, jstring osarch) {
 	if (autoboot)
 		autoboot--;
+
+	const jchar* nativeString = (*env)->GetStringUTFChars(env, osarch, 0);
+	free(architecture);
+	architecture = strdup(nativeString);
+	(*env)->ReleaseStringUTFChars(env, osarch, nativeString);
 
     if (framecount++ == 0) {
     // Position independent code, hopefully!
@@ -217,30 +227,32 @@ timersub(&tval_after, &tval_before, &tval_result);
 
 extern void dump_pages();
 
-JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent(JNIEnv * env, jclass _obj, jint vkey, jint flags, jint down) {
+JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent(JNIEnv * env, jclass _obj, jint jkey, jint jshift, jint down) {
+	int vkey = jkey;
 	//if (vkey == 0xaa) return; // BBCKEY_BREAK ?
-	int raw = vkey&0x800; // BBCKEY_RAW_MOD
-	int ctrl = vkey&0x400; // BBCKEY_CTRL_MOD
-	if (vkey&0x100) { // BBCKEY_SHIFT_MOD
-		flags = 1;
+	int raw = vkey & 0x800; // BBCKEY_RAW_MOD  - Used for forcing 'just shift' pressed
+	int ctrl = vkey & 0x400; // BBCKEY_CTRL_MOD
+	int shift = jshift;
+	if (vkey & 0x100) { // BBCKEY_SHIFT_MOD
+		shift = 1;
 	}
-	if (vkey&0x200) { // BBCKEY_ANTISHIFT_MOD
-		flags = 0;
+	if (vkey & 0x200) { // BBCKEY_ANTISHIFT_MOD
+		shift = 0;
 	}
-	vkey &= 0xff;
-	int col=vkey&15;
-	int row=(vkey>>4)&15;
+	int col=vkey & 15;
+	int row=(vkey >> 4) & 15;
 
-	if (down && vkey==0x37) { // BeebKeys.P
+	if (down && col == 7 && row == 3) { // BeebKeys.P = 0x37
 		dump_pages();
 	}
 
 	if (raw == 0) {
 		// Press / unpress SHIFT
-		keys[0][0] = flags ? down : 0x00;
+		keys[0][0] = shift ? down : 0x00;
 		// Press / unpress CTRL
 		keys[1][0] = ctrl ? down : 0x00;
 	}
+//	LOGI("down %i vkey %04x %i ctrl %i shift %i raw %i col %i row %i\n", down, vkey, vkey, ctrl, shift, raw, col, row);
 	// Press / unpress the key
 	keys[col][row] = down ? 1 : 0;
 	//LOGI("Key event %d,%d = %d", col, row, down);
@@ -248,6 +260,23 @@ JNIEXPORT void JNICALL Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcKeyEvent
 
 
 
+JNIEXPORT jint JNICALL
+Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcOfferingRs423(JNIEnv *env, jobject thiz, jbyteArray bytes) {
+	if (bytes == 0) return beebPrintedRS423(0, 0);
+	jbyte *array = (*env)->GetByteArrayElements(env, bytes, 0);
+	jint ret = beebPrintedRS423((*env)->GetArrayLength(env, bytes),array);
+	(*env)->ReleaseByteArrayElements(env, bytes, array, 0);
+	return ret;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_littlefluffytoys_beebdroid_Beebdroid_bbcAcceptedRs423(JNIEnv *env, jobject thiz, jbyteArray bytes) {
+	if (bytes == 0) return beebAcceptedRS423(0, 0);
+	jbyte *array = (*env)->GetByteArrayElements(env, bytes, 0);
+	jint ret = beebAcceptedRS423((*env)->GetArrayLength(env, bytes), array);
+	(*env)->ReleaseByteArrayElements(env, bytes, array, 0);
+	return ret;
+}
 
 
 
@@ -746,4 +775,3 @@ void closebbc()
         closedisc(1);
 
 }
-

@@ -3,13 +3,15 @@ import org.apache.tools.ant.taskdefs.condition.Os
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion '31.0.0'
-	
+    compileSdkVersion 26
+    buildToolsVersion '28.0.3'
     defaultConfig {
         applicationId "com.littlefluffytoys.beebdroid"
-        targetSdkVersion 30
+        targetSdkVersion 26
         minSdkVersion 14
+        ndk {
+            abiFilters "x86", "armeabi-v7a", "arm64-v8a", "x86_64"
+        }
     }
     useLibrary 'org.apache.http.legacy'
     buildTypes {
@@ -35,29 +37,24 @@ android {
     }
     externalNativeBuild {
         ndkBuild {
-           path file('src/main/jni/Android.mk')
+            path file('src/main/jni/Android.mk')
         }
     }
-    splits {
-        abi {
-            reset()
-            include "x86", "armeabi-v7a", "arm64-v8a", "x86_64"
-            enable true
-        }
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-    ndkVersion '21.3.6528147'
+//    splits {
+//        abi {
+//            reset()
+//            include "x86", "armeabi-v7a", "arm64-v8a", "x86_64"
+//            enable true
+//        }
+//    }
 }
 
 dependencies {
-    implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation 'com.android.support:recyclerview-v7:28.0.0'
+    implementation 'com.android.support:appcompat-v7:26.1.0'
+    implementation 'com.android.support:recyclerview-v7:26.1.0'
     implementation 'com.android.support:support-annotations:28.0.0'
-    implementation 'com.android.support:support-v13:28.0.0'
-    implementation 'com.android.support:support-v4:28.0.0'
+    implementation 'com.android.support:support-v13:26.1.0'
+    implementation 'com.android.support:support-v4:26.1.0'
 }
 
 repositories {

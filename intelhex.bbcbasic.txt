@@ -1,0 +1,22 @@
+
+NEW
+AUTO
+REM Interpret Intel HEX format on stdin
+S%=128
+DIM B% S%
+REP.
+  I.L$ : LL$=L$
+  IF ASC L$ <> 58 P."Line must start with : - "; L$ : STOP
+  L$=MID$(L$,2)
+  C%=0
+  F. I%=1 TO LEN L$ STEP 2
+    B%?(I%/2) = EVAL("&"+M.L$,I%,2))
+    C%=(C%+B%?(I%/2)) AND 255
+  N.
+  IF C%<>0 P."Checksum failed: had ";C%;" in ";L$ : STOP
+  L%=B%?0
+  IF L% <> LEN L$ / 2 - 5 P."Length failed: had ";LEN(L$)/2;" but told ";L%;" in ";LL$ : STOP
+  IF B%?3 <> 0 P."Only type 0 supported. Found ";B%?3;" in ";LL$ : STOP
+  A%=(B%?1) * 256 + B%?2
+  FOR F%=0 TO L% : A%?F% = B%?(F%+4) : NEXT
+U..

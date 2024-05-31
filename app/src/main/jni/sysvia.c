@@ -393,21 +393,32 @@ void checkkeys()
 	//		bbckey[c][d]=keys[c][d];
 	//	}
 	//}
+    int bootmode=7; // MODE2 is broken on ARM64! Time for more differential logging.
+    bbckey[9][0]=(bootmode & 1) == 0; // BBCKEY_LK1 mode
+    bbckey[8][0]=(bootmode & 2) == 0; // BBCKEY_LK2 mode
+    bbckey[7][0]=(bootmode & 4) == 0; // BBCKEY_LK3 mode
+    // bbckey[6][0]=0; // BBCKEY_LK4 shift-break
+    // bbckey[5][0]=0; // BBCKEY_LK5 drive timings
+    // bbckey[4][0]=0; // BBCKEY_LK6 drive timings
+    // bbckey[3][0]=0; // BBCKEY_LK6 unused
+    // bbckey[2][0]=0; // BBCKEY_LK6 dfs/nfs
+    // bbckey[1][0]=0; // BBCKEY_CTRL
     if (autoboot)
        bbckey[0][0] = 1;
     updatekeyboard();
 }
 
-
+int keyboardCounter;
 /*
  * updatekeyboard - scans bbckey[] and updates sysvia registers accordingly
  */
 void updatekeyboard()
 {
 	int c,d;
+	keyboardCounter++;
 	if (IC32&8) {
 		for (d=0;d<(/*(MASTER)?13:*/10);d++) {
-			for (c=1;c<8;c++) {
+			for (c=0;c<8;c++) {
 				if (bbckey[d][c]) {
 //					LOGI("keydown 0x%X", (c<<8)|d);
 					sysca2high();
@@ -419,7 +430,7 @@ void updatekeyboard()
 	}
 	else {
 		if (keycol<(/*(MASTER)?13:*/10)) {
-			for (c=1;c<8;c++) {
+			for (c=0;c<8;c++) {
 				if (bbckey[keycol][c]) {
 //					LOGI("keydown 0x%X", (c<<8)|d);
 					sysca2high();

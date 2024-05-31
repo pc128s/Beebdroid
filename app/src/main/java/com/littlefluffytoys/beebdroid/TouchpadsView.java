@@ -53,7 +53,8 @@ public class TouchpadsView extends View {
 	
 	public ArrayList<Key> allkeys = new ArrayList<Key>();
 	public boolean shiftPressed;
-	
+	public boolean ctrlPressed;
+
 	
 	public Beebdroid beebdroid;
 	private Drawable padDrawable, padDrawableFn, padDrawableHilite;

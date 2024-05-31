@@ -95,27 +95,27 @@
 #define Slog_asm_C    (Scfns + p*11) // void * log_asm_C ; // +80 for log_cpu_C
 
 .macro pushall
-    push r15
-    push r14
-    push r13
-    push r12
-    push r11
-    push r10
-    push r9
-    push r8
+//    push r15
+//    push r14
+//    push r13
+//    push r12
+//    push r11
+//    push r10
+//    push r9
+//    push r8
     pusha
 .endm
 
 .macro popall
     popa
-    pop r8
-    pop r9
-    pop r10
-    pop r11
-    pop r12
-    pop r13
-    pop r14
-    pop r15
+//    pop r8
+//    pop r9
+//    pop r10
+//    pop r11
+//    pop r12
+//    pop r13
+//    pop r14
+//    pop r15
 .endm
 
 .macro pusha
@@ -229,7 +229,7 @@
 .endm
 
 .macro UPDATE_TAKEINT 	# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
-LOG 1
+//LOG 1
 	cmp dword ptr [ Rcpu+Sint], 0	# r12 = cpu->interrupt
 	jz  1f
 	test byte ptr [ Rcpu+Srp], 4  		# test the FLAG_I
@@ -238,7 +238,7 @@ LOG 1
 	jmp 2f
 1:
 	mov dword ptr [ Rcpu+Stakeint], 0   				#cpu->take_int = r1
-LOG 2
+//LOG 2
 2:
 .endm
 
@@ -280,7 +280,7 @@ exec6502:
 
     // eax,ebx are free for general use
 loop:
-    LOG_CPU
+//    LOG_CPU // TODO: CHECK: Is this necessary for keyboard operation?
 // rm -rf x86/
 //   adb pull /storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files ./x86
 //   for i in */6502_*.log; do cut -d' ' -f1-11,13- <$i | perl -ple 'print ""' >$i.x ; done
@@ -333,11 +333,12 @@ use_c_fn:
     mov [ Rcpu+Srx],  Rx 	#  dl = X
     mov [ Rcpu+Sry],  Ry 	#  r9 = Y
     mov [ Rcpu+Srs],  Rs 	#  r10 = S
-	push  Rcpu  	# Sole parameter for C opcode functions is r0 = CPU*
+	pushall  	# Sole parameter for C opcode functions is r0 = CPU*
+	mov rdi, Rcpu
 // PROBABLY rdi now, for arg0 on x86_64
 	call  rbx
-	add  rsp, 8 //4 ?
-    mov   rRpc, 0
+	popall
+    mov   rRpc, 0  // ??!
     mov  Rpc,  [ Rcpu+Spc] 	#  di = r6  = PC
     mov  Ra,  [ Rcpu+Sra] 	#  cl = r7  = A
     mov  Rx,  [ Rcpu+Srx] 	#  dl = r8  = X
@@ -345,10 +346,11 @@ use_c_fn:
     mov  Rs,  [ Rcpu+Srs] 	#  ch = r10 = S
 
 done_call:
-//    LOG 5   // It's quick to here!
+//mov ebx, [ Rcpu + Sint ]
+//LOG4 5, rbx, 0, 0   // It's quick to here!
 	bt   rax, 63   // sei cli return -2.
 	jc  already_updated_interrupts
-LOG 4
+// LOG 4
 # cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	UPDATE_TAKEINT
 	jmp done_interrupts
@@ -367,7 +369,7 @@ done_interrupts:
 	push 0xfffa
 	jmp do_interrupt
 no_nmi:
-LOG 9
+// LOG 9
 	cmp dword ptr [ Rcpu+Stakeint], 0   # Rcpu+20 = cpu->take_int
 	jz no_interrupt
 	mov dword ptr [ Rcpu+Stakeint], 0
@@ -397,13 +399,12 @@ do_interrupt:
 	add  rax,7		            # c += 7;
 	push  rax  // cycles
 //LOG rsp
-LOG rax
+// LOG rax
 no_interrupt:
-    and dword ptr [ Rcpu+Sint], -128 // 0xFFFFFF7f   # cpu->interrupt &= ~128
+    and dword ptr [ Rcpu+Sint], -129 // 0xFFFFFF7f   # cpu->interrupt &= ~128
 
 	# Update CPU->cycles
 	pop  rax
-update_cycles:
 	sub [ Rcpu+Scycles],  eax
 //LOG 0x71
 	# Update intermediate cycle counter
@@ -1927,7 +1928,7 @@ opasm_sed:
 opasm_sei:
 	UPDATE_TAKEINT			# cpu->takeint=(cpu->interrupt && !(cpu->p & FLAG_I));
 	or byte ptr [ Rcpu+Srp], 4			# cpu->p |= FLAG_I;
-LOG 3
+// LOG 3
 	RETURN -ticks2  # ARM returns -2 to show interrupt taken
 
 

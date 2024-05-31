@@ -29,6 +29,8 @@ FILE* s_file = NULL;
 static int framecurrent = -1;
 
 #define LOGGING 0
+// #define LOGCPU_ABORT_FRAME -1 // never
+#define LOGCPU_ABORT_FRAME 20 // immediately after boot
 
 void LOGF(char* format, ...) {
 #if LOGGING
@@ -38,25 +40,18 @@ void LOGF(char* format, ...) {
 
   	if (!s_file || framecurrent != framecount) {
   	    if (s_file) fclose(s_file);
-#ifdef _ARM_
-        //char* fmt = "/sdcard/6502_arm.%03i.log";
-        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_arm.%03i.log";
-#else
-		//s_file = fopen("/data/local/tmp/6502_x86.log","w+");
-//        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
-        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_x86.%03i.log";
-#endif
-        sprintf(buff, fmt, framecurrent = framecount);
+        char* fmt = "/storage/emulated/0/Android/data/com.littlefluffytoys.beebdroid/files/6502_%s.%03i.log";
+        sprintf(buff, fmt, architecture, framecurrent = framecount);
         LOGI("fopen - %s", buff);
         s_file = fopen(buff, "w+");
 	}
 
-//  	if (framecount == 20) {
-//  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
-//  	    fclose(s_file);
-//  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
-//  		abort();
-//  	}
+  	if (framecount == LOGCPU_ABORT_FRAME) { // Booted and key press checks
+  	    fputs("SHOULD BE BOOTED - MAGICALLY ABORTING AT FRAME 20\n", s_file);
+  	    fclose(s_file);
+  		LOGI("SHOULD HAVE BOOTED BY NOW - aborting...");
+  		abort();
+  	}
 
 	vsprintf (buff,format, args);
 
@@ -84,7 +79,6 @@ void log_cpu_C(M6502* cpu) {
 //    int mfc = 0 ; int mcy = 50000 ;
 //    if (framecount < mfc) return;
 //    if (framecount == mfc && cpu->cycles > mcy) return;
-    if (framecount > 16) return;
     if (tval_first) {
         gettimeofday(&tval_0, NULL);
         tval_first = 0;
@@ -101,9 +95,16 @@ void log_cpu_C(M6502* cpu) {
 	for (i=0 ; i<65536 ; i++) {
 		sum += cpu->mem[i];
 	}
-    LOGF("lcpuC PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X mem:%08X %i:%i tv:%ld.%06ld %s\n",
+    LOGF("lcpuC PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X "
+         "int:%08x take:%08x "
+         "mem:%08X %i:%i "
+      //   "tv:%ld.%06ld "
+         "%s\n",
           cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s,
-                                                                             sum, framecount, cpu->cycles,  (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec, ops[p[cpu->pc]]);
+          cpu->interrupt, cpu->takeint,
+          sum, framecount, cpu->cycles,
+      //    (long int)tval_diff.tv_sec, (long int)tval_diff.tv_usec,
+          ops[p[cpu->pc]]);
 
 //    LOGI("acpu@%X PC:%04X (%02X %02X %02X) A:%02X X:%02X Y:%02X P:%02X S:%02X\n",
 //          cpu, cpu->pc, p[cpu->pc],p[cpu->pc+1],p[cpu->pc+2], cpu->a, cpu->x, cpu->y, cpu->p, cpu->s);
@@ -143,7 +144,6 @@ void log_asm(void* x0, void* x1, void* x2, void* x3) {
          the_cpu->cycles, the_cpu->pc, the_cpu->p, the_cpu->s,
          the_cpu->interrupt, the_cpu->takeint, the_cpu->nmi
          );
-	1;
 #endif
 }
 
@@ -175,24 +175,41 @@ static inline uint16_t readwordZp(uint8_t x, M6502* cpu) { return (*((uint16_t*)
 
 uint8_t readmem_ex_real(uint16_t addr);
 
+uint8_t read6850acia(uint16_t addr);
+
+uint8_t readSerialULA(uint16_t addr);
+
+void write6850acia(uint32_t addr, uint8_t val);
+
+void writeSerialULA(uint32_t addr, uint8_t val);
+
 uint8_t readmem_ex(uint16_t addr)
 {
 	uint8_t rv = readmem_ex_real(addr);
-	//if (addr == 0xFE4f) {
-	//	LOGI("reading %02X from fe4f!", rv);
-	//}
 	LOGF("readmem_ex! addr=%04X val=%02X\n", addr, rv);
 
 	return rv;
 }
 
+uint8_t statusSerialULA = 0;
+
+uint8_t status6850=2; // start ready for new data
+uint8_t control6850=0;
+int rxChar=-1;
+int txChar=-1;
+
 uint8_t readmem_ex_real(uint16_t addr) {
-	//LOGI("readmem_ex! %04X", addr);
+	if ( 0xFE08 <= addr && addr <= 0xFE1F) {
+		LOGF("Reading %04X! rx %04X tx %04X ctl %02X sta %02X int %02X\n", addr, rxChar, txChar, control6850, status6850, the_cpu->interrupt);
+	}
+
+//	LOGI("readmem_ex! %04X", addr);
         uint8_t temp;
-        switch (addr&~3)
+        switch (addr & ~3)
         {
                 case 0xFE00: case 0xFE04: return readcrtc(addr);
-                case 0xFE08: case 0xFE0C: /*return readacia(addr);*/break;
+                case 0xFE08: case 0xFE0C: return read6850acia(addr); // RS423+TAPE data 0xFE0A - 0xFE0F: also 6850, nominally
+                case 0xFE10: return readSerialULA(addr); // Serial ULA  0xFE11-1F : also serial ULA
                 //case 0xFE18: if (MASTER) return readadc(addr); break;
                 case 0xFE40: case 0xFE44: case 0xFE48: case 0xFE4C:
                 case 0xFE50: case 0xFE54: case 0xFE58: case 0xFE5C:
@@ -222,6 +239,174 @@ uint8_t readmem_ex_real(uint16_t addr) {
         //LOGI("reading from 0x%04X", addr);
         return the_cpu->mem[addr]; //
 }
+
+uint8_t readSerialULA(uint16_t addr) {
+//	LOGI("6850 [a=%04x] read %02x\n", addr, statusSerialULA);
+    // baud rate tx0,1,2/rx3,4,5 6-0=TAPE or 1=RS423, 7=motor
+	return statusSerialULA;
+}
+
+void writeSerialULA(uint32_t addr, uint8_t val) {
+//	LOGI("6850 [a=%04x] = %02x\n", addr, val);
+	statusSerialULA = val;
+	if (statusSerialULA & 64) {
+		status6850 &= ~2; // always low when rs423 selected
+	}
+}
+
+#define RS423_BUF 256
+uint_t kbdBuf[RS423_BUF];
+int kbdLastRead=0;
+int kbdLastWrite=0;
+int kbdDelay=0; // Avoid swamping beeb
+uint_t pntBuf[RS423_BUF];
+int pntLastRead=0;
+int pntLastWrite=0;
+
+int beebPrintedRS423(jint len, jbyte* bytes) {
+	if (len == 0) { return RS423_BUF; }
+
+	int ix = 0;
+	while (ix < len) {
+		if (pntLastRead == pntLastWrite) break; // Empty
+		pntLastRead = (pntLastRead + 1) % RS423_BUF;
+		bytes[ix++] = pntBuf[pntLastRead];
+	}
+
+	return ix;
+}
+
+void pollNextRS423Printer() {
+	status6850 &= ~8u; // Always Clear To Send - external input
+	if (status6850 & 2u) {
+		return; // already removed, nothing new from processor.
+	}
+
+	int nextWrite = (pntLastWrite + 1) % RS423_BUF;
+	if (pntLastRead == nextWrite) return; // Writing would cause 'empty', so wait.
+
+	int taken = txChar;
+	txChar = -1;
+	status6850 |= 2u; //  High now, because we've taken the char or 'taken' -1
+	if (taken != -1) {
+		pntLastWrite = (pntLastWrite+1)%RS423_BUF;
+		pntBuf[pntLastWrite] = taken;
+		if ((control6850 & 96u) == 64) { // interrupt enabled?
+			status6850 |= 128u; //  we're causing an interrupt because we've taken the char
+			the_cpu->interrupt |= 8u; // interrupt
+		}
+	}
+//	LOGI("6850 offering tak%02x c%02x s%02x i%02x\n", taken, control6850, status6850, the_cpu->interrupt);	return taken;
+}
+
+void write6850acia(uint32_t addr, uint8_t val) {
+	switch (addr) {
+		case 0xFE08:
+	// Control - write-only
+	// - b0,1 - counter divide 00-1,01-16,10-64,11-master_reset
+	// - b2,3,4 - 4databits-0=7,1=8; 3stopbits-1=1, 0=2*, 2parity-0=even* 1=odd* but *100=8bit2stop, *101=8bits1stop
+	// - b5,6 - tx ctl - 5-0=txint disabled, 6-0=RTS low, 10=RTS-high,txi enabled, 11=RTSlow, tx break level, txi disabled
+	// - b7 - receive interrupt enable=1
+	// Seen so far:
+	// First:   03 = master reset
+	// Second:  56 = 0101.0110 = 64/ 8bits1stop, rts high, tx int disabled
+	// On VDU2: 36 = 0011.0110 = 64/ 8bits1stop, rts low, tx int enabled
+			control6850 = val;
+			if ((control6850 & 3u) == 3) {
+				// What should 'master reset do?
+				status6850=2; // Guess clear everything and indicate ready send a byte to printer (=2) AND to be given a byte, no errors, no int = 0.
+			}
+			if ((control6850 & 96u) == 32 && (status6850 & 2u) && txChar != -1)
+				the_cpu->interrupt |= 8u;
+			else
+				the_cpu->interrupt &= ~8u;
+			if ((control6850 & 128u) && (status6850 & 1u) && rxChar != -1)
+				the_cpu->interrupt |= 4u;
+			else
+				the_cpu->interrupt &= ~4u;
+//			LOGI("6850 [a=%04x] = %02x (c%02x s%02x i%02x)\n", addr, val, control6850, status6850, the_cpu->interrupt);
+			return;
+		case 0xFE09: // tx byte
+			txChar = val;
+			if (rxChar == -1)
+				status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while an rx is pending?
+			status6850 &= ~2u; // Write to tx sets status to 'full/low' until accepted by recipient
+//			LOGI("6850 [a=%04x] = %02x (%02x)\n", addr, val, status6850);
+			return;
+		default:
+//			LOGI("6850 [a=%04x] = %02x\n", addr, val)
+		;
+	}
+}
+
+jint beebAcceptedRS423(jint len, jbyte* bytes) {
+	if (len == 0) {
+		return RS423_BUF - (kbdLastWrite + RS423_BUF - kbdLastRead) % RS423_BUF; // Remaining capacity - don't convert a huge string to bytes!
+	}
+
+	int ix = 0;
+	while(ix < len) {
+		int kw = (kbdLastWrite + 1) % RS423_BUF;
+		if (kw == kbdLastRead) break; // Equality means 'empty' so don't cause it.
+		kbdBuf[kbdLastWrite = kw] = bytes[ix++];
+	}
+
+	return ix;
+}
+
+void pollNextRS423Keyboard() {
+	if (status6850 & 1u) return; // that char not accepted yet, try again later
+	if (kbdDelay > 0) { // Enforce minimum wait
+		kbdDelay--;
+		return;
+	}
+	if (kbdLastWrite == kbdLastRead) {
+		return;
+	}
+
+	kbdLastRead = (kbdLastRead + 1) % RS423_BUF;
+	rxChar = kbdBuf[kbdLastRead];
+	status6850 |= 1u;   // Rx is full! Magically cleared by next processor read
+	if (control6850 & 128u) {
+		the_cpu->interrupt |= 4u; // Presume each system has its own bit - CPU just cares about nonzero
+		status6850 |= 128u; // Rx is full! We caused an interrupt
+	}
+	kbdDelay=50; // 50 seemed safe, 10 wedged. What's good?
+}
+
+uint8_t read6850acia(uint16_t addr) {
+	switch (addr) {
+		case 0xFE08:  // Status - read only
+			// - b0=RxFull cleared by processor read from Rx
+			// - b1=TxEmpty low=full high=ready for processor to write to Tx
+			// - b2=DCD - always low when RS423 is selected, high=carrier missing from cassette input
+			// - b3=CTS - clear to send. always low for cassette, high if RS423 recipient is unready
+			// - b4=FrameError - received char was malformed start/stop/parity
+			// - b5=overrun - characters received but not read
+			// - b6=parity error
+			// - b7=IRQ bit high=serial issued IRQ (line is low), cleared by read from Rx or write to Tx
+//			if ((the_cpu->interrupt & ~1u) != 0)
+//			    LOGI("6850 [a=%04x] read %02x (tx%02x c%02x xi%02x)\n", addr, status6850, txChar, control6850, the_cpu->interrupt & ~1u /* ignore ifr */); // We're polled frequently to eliminate b7
+			pollNextRS423Keyboard();
+			pollNextRS423Printer();
+			return status6850;
+		case 0xFE09:  // Rx=read
+			if (rxChar != -1 && (status6850 & 1u)) {
+				uint8_t taken = rxChar;
+				rxChar = -1;
+				status6850 &= ~1u; // Magic clear of RxFull
+				if (txChar == -1)
+					status6850 &= ~128u; // Apparently a read or write clears IRQ, but what if we send while a tx is pending?
+//				LOGI("6850 [a=%04x] read %02x (st:%02x)\n", addr, taken, status6850);
+				return taken;
+			}
+			return rxChar;
+		default:
+//			LOGI("6850 [a=%04x] read default\n", addr);
+			return 0;
+	}
+}
+
 uint16_t readword_ex(uint16_t addr)
 {
 	return readmem_ex(addr) | (readmem_ex(addr+1)<<8);
@@ -236,20 +421,20 @@ void writemem_ex(uint32_t addr, uint32_t val16)
 int lgd = -1;
 uint8_t val = (val16) & 0xff;
 addr &= 0xffff;
-if (addr == 0xFE4f || addr == 0xFE42) {
-	LOGF("writing %02X(%04X) to %04X!", val, val16, addr);
+if ( 0xFE08 <= addr && addr <= 0xFE1F) {
+//	LOGF("Writing %02X(%04X) to %04X! rx %04X tx %04X ctl %02X sta %02X int %02X\n", val, val16, addr, rxChar, txChar, control6850, status6850, the_cpu->interrupt);
 	lgd = val;
 }
-LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
+//LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
 
 	int c;
 	if (addr<0xFC00 || addr>=0xFF00) return;
 	//PUT BACK SOMEDAY if (addr<0xFE00 || FEslowdown[(addr>>5)&7]) { if (cycles&1) {polltime(2);} else { polltime(1); } }
-	switch (addr&~3)
+	switch (addr & ~3)
 	{
 			case 0xFE00: case 0xFE04: writecrtc(addr,val); break;
-			case 0xFE08: case 0xFE0C: /*writeacia(addr,val);*/ break;
-			case 0xFE10: case 0xFE14: /*writeserial(addr,val);*/ break;
+		case 0xFE08: case 0xFE0C: write6850acia(addr,val); break;
+		case 0xFE10: case 0xFE14: writeSerialULA(addr, val); break;
 			//case 0xFE18: if (MASTER) writeadc(addr,val); break;
 			case 0xFE20: writeula(addr,val); break;
 			//case 0xFE24: if (MASTER) write1770(addr,val); else writeula(addr,val); break;
@@ -258,7 +443,7 @@ LOGF("writemem_ex! addr=%04X val=%02X\n", addr, val);
 				ram_fe30=val;
 				if (romsel != (val&15)) {
 					romsel = val&15;
-					LOGI("ROMSEL set to %d", romsel);
+					//LOGI("ROMSEL set to %d", romsel);
 					memcpy(the_cpu->mem+0x8000, roms+(romsel*16384), 16384);
 				}
 				break;
@@ -412,10 +597,24 @@ void dump_callcounts() {
 
 
 int vidclockacc=0;
+int abcd=0;
+// int k = 18561; // Y6R
+//int k = 20250; // YFR
+//int k = 20500; // YF6R on x86, just Y on 86_64 but not under logging
+int k = 90500; // YF6R on x86, just Y on 86_64
+int m = 650000;
+extern uint8_t keys[16][16];
 
 void do_poll_C(M6502* cpu, int c) {
+    int d = 0;
+//    if (abcd++>m && abcd<m + k*8 - 1) {
+// Repeatably fake keys
+//        d = (abcd -m ) / k;
+//        keys[((d & 2) == 0) + 3][((d & 4) == 0) + 3] = (d & 1) == 0;
+//    }
 
-	LOGF("do_poll cpu %p c %x\n", cpu, c);
+//    LOGF("do_poll c %x abcd=%d d=%x int=%x take=%x\n", c, abcd, d, cpu->interrupt, cpu->takeint);
+
 	if (otherstuffcount<=0) {
 		otherstuffcount+=128;
 		logvols();
@@ -424,8 +623,6 @@ void do_poll_C(M6502* cpu, int c) {
 			if (!motorspin) fdcspindown();
 		}
 	}
-
-
 
 	// Time to poll hardware?
 	if (c > 0) {

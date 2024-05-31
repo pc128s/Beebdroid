@@ -4,11 +4,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -25,7 +29,9 @@ import com.littlefluffytoys.beebdroid.ControllerInfo.TriggerAction;
 
 import common.Utils;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -36,7 +42,10 @@ import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.content.Context;
 import android.content.Intent;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
+import android.text.style.AlignmentSpan;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyCharacterMap;
@@ -48,12 +57,17 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 
+import static android.text.Layout.Alignment.ALIGN_NORMAL;
+import static android.text.Layout.Alignment.ALIGN_OPPOSITE;
+import static android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
 import static com.littlefluffytoys.beebdroid.BeebKeys.*;
 import static com.littlefluffytoys.beebdroid.Keyboard.unicodeToBeebKey;
 
@@ -63,10 +77,16 @@ public class Beebdroid extends Activity {
     // The emulator keypresses from the physical keyboard are only 1-2ms and
     // don't register, so observe this and delay the key up.
     // Ideally, we'd notice keyrepeat before this time and cancel the scheduled key up.
-    public static final int MIN_KEY_DOWNUP_MS = 50; //10;
+    public static final int MIN_KEY_DOWNUP_MS = 50; //70; //10;  Even 50 is unreliable for debug mode.
+    public static final int INTER_AUTO_KEY_MS = 10;
     public static boolean use25fps = false;
+    private EditText rs423printer;
+    private EditText rs423keyboard;
+    private InputMethodManager imm;
+    private File captureFile;
+    private int rs423PendingInjectByte;
 
-    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD}
+    private enum KeyboardState {SCREEN_KEYBOARD, CONTROLLER, BLUETOOTH_KBD, RS423_CONSOLE}
 
     static int locks = 0;
 
@@ -80,8 +100,8 @@ public class Beebdroid extends Activity {
     BeebView beebView;
     Keyboard keyboard;
     ControllerView controller;
-    List<KeyEvent> keyboardTextEvents = new ArrayList<KeyEvent>();
-    KeyCharacterMap map = KeyCharacterMap.load(0);
+    List<String> keyboardTextEvents = new ArrayList<String>();
+    KeyCharacterMap map = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
     int fps, skipped;
     TextView tvFps;
     private KeyboardState keyboardShowing = KeyboardState.SCREEN_KEYBOARD;
@@ -93,6 +113,9 @@ public class Beebdroid extends Activity {
         System.loadLibrary("bbcmicro");
     }
 
+    byte[] printerBuf = new byte[bbcOfferingRs423(null)];
+    byte[] keyboardBuf = new byte[1];
+
     // JNI interface
     public native void bbcInit(ByteBuffer mem, ByteBuffer roms, ByteBuffer audiob, int flags);
 
@@ -100,7 +123,9 @@ public class Beebdroid extends Activity {
 
     public native void bbcExit();
 
-    public native int bbcRun();
+    public native int bbcKeyboardCounter(int base);
+
+    public native int bbcRun(String osarch);
 
     public native int bbcInitGl(int width, int height);
 
@@ -108,7 +133,7 @@ public class Beebdroid extends Activity {
 
     public native void bbcSetTriggers(short[] pc_triggers);
 
-    public static native void bbcKeyEvent(int scancode, int flags, int down);
+    public static native void bbcKeyEvent(int scancode, int shift, int down);
 
     public native int bbcSerialize(byte[] buffer);
 
@@ -120,7 +145,90 @@ public class Beebdroid extends Activity {
 
     public native void bbcPushAdc(int x1, int y1, int x2, int y2);
 
+    public native int bbcOfferingRs423(byte[] b);
+
+    public native int bbcAcceptedRs423(byte[] b);
+
     long time_fps;
+
+    // TODO: Split these up and only trigger them when they independently have something. Maybe from callbacks like video?
+    // Also, looks like they don't run faster than 50Hz?
+    // Also, sometimes characters get doubled - is that Android or BBC?
+    private Runnable runRS423 = new Runnable() {
+        @Override
+        public void run() {
+            long now = android.os.SystemClock.uptimeMillis();
+            handler.postAtTime(runRS423, now + 20); // buffered, hopefully.
+            doRS423TxRx();
+        }
+
+        public void doRS423TxRx() {
+            if (captureStream != null || rs423printer != null) {
+                int len = bbcOfferingRs423(printerBuf);
+                for (int i = 0; i < len; i++) {
+                    int c = printerBuf[i];
+                    // Alas, can't 'delete' mistakes in the printer: 127 is only sent with VDU1,127
+                    if (c == 13) c = 10;
+                    if (captureStream != null) {
+                        try {
+                            captureStream.write((byte)c);
+                        } catch (IOException e) {
+                            Toast.makeText(Beebdroid.this, "Capture failed: " + e, Toast.LENGTH_LONG).show();
+                            try {
+                                captureStream.close();
+                            } catch (IOException ioException) {
+                                ;
+                            }
+                            captureStream = null;
+                            captureFile = null;
+                        }
+                    } else {
+                        rs423printer.append(String.valueOf((char) c));
+                    }
+                }
+            }
+            if (injectStream != null) {
+                if (rs423PendingInjectByte == -1) {
+                    try {
+                        rs423PendingInjectByte = injectStream.read();
+                    } catch (IOException e) {
+                        rs423PendingInjectByte = -1;
+                        Toast.makeText(Beebdroid.this, "Exception while injecting " + injectFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                    }
+                }
+                while (rs423PendingInjectByte >= 0 && sentRS423Char((char)rs423PendingInjectByte)) {
+                    try {
+                        rs423PendingInjectByte = injectStream.read();
+                    } catch (IOException e) {
+                        rs423PendingInjectByte = -1;
+                        Toast.makeText(Beebdroid.this, "Exception while injecting " + injectFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                    }
+                }
+                if (rs423PendingInjectByte == -1) {
+                    try {
+                        injectStream.close();
+                    } catch (IOException ioException) {
+                        Toast.makeText(Beebdroid.this, "Exception while closing " + injectFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
+                    }
+                    injectStream = null;
+                    injectFile = null;
+                    return;
+                }
+            } else {
+                while (rs423keyboard != null &&
+                        rs423keyboard.getText().length() > 0 &&
+                        sentRS423Char(rs423keyboard.getText().charAt(0))) {
+                    rs423keyboard.getText().delete(0, 1);
+                }
+            }
+        }
+
+        public boolean sentRS423Char(char c) {
+            if (c == 10) c = 13;
+            keyboardBuf[0] = (byte)c;
+            return bbcAcceptedRs423(keyboardBuf) == 1;
+        }
+    };
 
     // This runnable drives the native emulation code
     private Runnable runInt50 = new Runnable() {
@@ -137,7 +245,7 @@ public class Beebdroid extends Activity {
                 beebView.initgl();
                 bbcInitGl(beebView.width, beebView.height);
             }
-            int trigger = bbcRun();
+            int trigger = bbcRun(System.getProperty("os.arch"));
 
             // Handle trigger events
             if (controller.controllerInfo != null) {
@@ -165,18 +273,27 @@ public class Beebdroid extends Activity {
                 keyboardTextWait--;
             } else {
                 if (keyboardTextEvents.size() > 0) {
-                    final KeyEvent event = keyboardTextEvents.remove(0);
-                    if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                        onKeyDown(event.getKeyCode(), event);
-                    }
-                    if (event.getAction() == KeyEvent.ACTION_UP) {
+                    String next = keyboardTextEvents.remove(0);
+                    Log.i(TAG, "keyboard text event ='" + next + "'");
+                    // Note: These are subject to CAPS/SHLOCK. Consider ANTISHIFT.
+                    final int scancode = Keyboard.pureUnicodeToScancode(next);
+                    keyboardTextWait = 2 + INTER_AUTO_KEY_MS;
+                    if (scancode != 0) {
+                        bbcKeyEvent(scancode, 0, 1);
+                        final int scan0 = bbcKeyboardCounter(0);
+                        // Nice to check for poll somewhere.
                         handler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
-                                onKeyUp(event.getKeyCode(), event);
-                                keyboardTextWait = 1;
+                                // Try to make this more reliable for debug mode.
+                                if (bbcKeyboardCounter(scan0) <= 10) {
+                                    handler.postDelayed(this, 2);
+                                } else {
+                                    bbcKeyEvent(scancode, 0, 0);
+                                    keyboardTextWait = 1;
+                                }
                             }
-                        }, MIN_KEY_DOWNUP_MS);
+                        }, keyboardTextWait - INTER_AUTO_KEY_MS);
                     }
                 }
             }
@@ -187,16 +304,20 @@ public class Beebdroid extends Activity {
 
 //    static long thing = 0;
 
-    boolean onKeyUpDown(final int keycode, KeyEvent event, final int isDown) {
+    boolean onKeyUpDown(final int keycode, KeyEvent event, final boolean isDown) {
 //        Log.e(TAG, "updown " + (thing - event.getEventTime()) + " " + event.toString());
 //        thing = event.getEventTime();
-        if (keyboardShowing != KeyboardState.BLUETOOTH_KBD && isXperiaPlay && onXperiaKey(keycode, event, isDown)) {
+
+        Utils.setVisible(this, R.id.info, isDown);
+
+        if (keyboardShowing != KeyboardState.BLUETOOTH_KBD && isXperiaPlay && onXperiaKey(keycode, event, isDown ? 1 : 0)) {
             return true;
         }
 
-        if (isDown == 1
+        // Keyboard toggle in all modules.
+        if (isDown
                 && event.isAltPressed()
-                && event.getUnicodeChar(0) == '2') {
+                && (event.getUnicodeChar(0) == 'x' || event.getUnicodeChar(0) == 'k')) {
             toggleKeyboard();
             if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
                 beebView.requestFocus();
@@ -206,14 +327,14 @@ public class Beebdroid extends Activity {
 
         if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
             if (keycode == KeyEvent.KEYCODE_MENU) return false; // Someone else's problem!
-            int scancode = bbcKeyActionFromUnicode(event);
-            if (isDown == 1) showInfo(event, scancode);
+            int scancode = causeBBCKeyActionFromUnicode(event);
+            if (isDown) showInfo(event, scancode);
             if (scancode != 0) return true;
             return false;
         }
 
         // If pressed 'back' while game loaded, reset the emulator rather than exit the app
-        if (keycode == KeyEvent.KEYCODE_BACK && isDown == 1) {
+        if (keycode == KeyEvent.KEYCODE_BACK && isDown) {
             if (diskInfo != null) {
                 //bbcInit(model.mem, model.roms, audiobuff, model.info.flags);
                 bbcBreak(0);
@@ -223,26 +344,27 @@ public class Beebdroid extends Activity {
                 return true;
             }
         }
+
         if (keycode == KeyEvent.KEYCODE_SHIFT_LEFT || keycode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
-            shiftDown = isDown == 1;
+            shiftDown = isDown;
         }
 
-        final int scancode = lookup(keycode);
-        if (isDown == 1 || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
+        final int scancode = lookup(keycode, event);
+        if (isDown || event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
             unscheduleKeyup(keycode);
-            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
+            bbcKeyEvent(scancode, shiftDown ? 1 : 0, isDown ? 1 : 0);
         } else {
             scheduleKeyup(keycode, new Runnable() {
                 @Override
                 public void run() {
                     synchronized (delayedUp) {
                         if (delayedUp.remove(keycode) == this)
-                            bbcKeyEvent(scancode | BBCKEY_RAW_MOD, shiftDown ? 1 : 0, isDown);
+                            bbcKeyEvent(scancode, shiftDown ? 1 : 0, isDown ? 1 : 0);
                     }
                 }
             });
         }
-        if (isDown == 1) showInfo(event, scancode);
+        if (isDown) showInfo(event, scancode);
         return false;
     }
 
@@ -253,23 +375,23 @@ public class Beebdroid extends Activity {
         String text = uToStr(u0) + "=" + u0 +
                 " " + uToStr(u1) + "=" + u1 +
                 " " + Integer.toHexString(scancode) + "=inkey(-" + (0xff & scancode + 1) + ")" +
-                " " + KeyEvent.keyCodeToString(event.getKeyCode());
+                "\n" + KeyEvent.keyCodeToString(event.getKeyCode());
         t.setText(text);
     }
 
     @Override
     public boolean onKeyDown(int keycode, KeyEvent event) {
-        return onKeyUpDown(keycode, event, 1) || super.onKeyDown(keycode, event);
+        return onKeyUpDown(keycode, event, true) || super.onKeyDown(keycode, event);
     }
 
     @Override
     public boolean onKeyUp(int keycode, KeyEvent event) {
-        return onKeyUpDown(keycode, event, 0) || super.onKeyUp(keycode, event);
+        return onKeyUpDown(keycode, event, false) || super.onKeyUp(keycode, event);
     }
 
     private String uToStr(int u0) {
         try {
-            return new String(Character.toChars(u0));
+            return u0 < 32 ? "" : new String(Character.toChars(u0));
         } catch (IllegalArgumentException e) {
             Log.e(TAG, "uToStr(" + u0 + ") threw " + e);
             return "";
@@ -277,28 +399,27 @@ public class Beebdroid extends Activity {
     }
 
     // Keep track of what caused a keydown in case shift shifts ; to : and messes up the key.
-    HashMap<Integer, Integer> downKeycode = new HashMap<Integer, Integer>();
+    HashMap<Integer, Integer> pushedKeycodes = new HashMap<Integer, Integer>();
 
-    private int bbcKeyActionFromUnicode(final KeyEvent event) {
+    private int causeBBCKeyActionFromUnicode(final KeyEvent event) {
         final int keycode = event.getKeyCode();
         final boolean isDown = event.getAction() == KeyEvent.ACTION_DOWN;
         if (isDown) {
             unscheduleKeyup(keycode);
             int scancode = unicodeToBeebKey(event);
             if (scancode != 0) {
-                downKeycode.put(keycode, scancode);
+                pushedKeycodes.put(keycode, scancode);
                 bbcKeyEvent(scancode, 0, 1);
             }
             return scancode;
         } else {
-            final Integer scancode = downKeycode.remove(keycode);
+            final Integer scancode = pushedKeycodes.remove(keycode);
             if (scancode != null && scancode != 0) {
                 if (event.getDownTime() - event.getEventTime() > MIN_KEY_DOWNUP_MS) {
                     // Probably don't care about unscheduling a keyup, but...
                     unscheduleKeyup(keycode);
                     bbcKeyEvent(scancode, 0, 0);
-                }
-                else {
+                } else {
                     scheduleKeyup(keycode, new Runnable() {
                         @Override
                         public void run() {
@@ -352,13 +473,15 @@ public class Beebdroid extends Activity {
 
 
     private void doFakeKeys(String text) {
-        KeyEvent[] evs = map.getEvents(text.toCharArray());
-        keyboardTextEvents.addAll(Arrays.asList(evs));
+        keyboardTextEvents = new ArrayList(Arrays.asList(text.split("")));
+        Log.i(TAG, "doFakeKeys ='" + keyboardTextEvents + "'");
     }
 
     int adctick = 0;
+    int updown = 0;
     long last_ms;
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -371,8 +494,11 @@ public class Beebdroid extends Activity {
             // Create this directory so LOGGING can use it.
             File dir = getExternalFilesDir("");
             Log.i("Storage", dir.toString());
-            for (File file : dir.listFiles()) {
-                file.delete();
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    file.delete();
+                }
             }
         }
 
@@ -384,7 +510,7 @@ public class Beebdroid extends Activity {
         // Detect the Xperia Play, for which we do special magic
         isXperiaPlay =
                 Build.DEVICE.equalsIgnoreCase("R800i")
-                || Build.DEVICE.equalsIgnoreCase("zeus")
+                        || Build.DEVICE.equalsIgnoreCase("zeus")
         //        || Build.DEVICE.equalsIgnoreCase("tank") // Amazon Fire TV
         ;
 
@@ -394,6 +520,39 @@ public class Beebdroid extends Activity {
         keyboard.beebdroid = this;
         controller = (ControllerView) findViewById(R.id.controller);
         controller.beebdroid = this;
+
+        imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+
+        rs423printer = findViewById(R.id.rs423printer);
+        if (rs423printer != null) {
+            rs423printer.setKeyListener(null); // Prevent typing into the field
+            rs423printer.setOnTouchListener( // Yes, yes... evil accessibility thing, but they can press 'back'
+                    new View.OnTouchListener() {
+                        @SuppressLint("ClickableViewAccessibility")
+                        @Override
+                        public boolean onTouch(View view, MotionEvent motionEvent) {
+                            hideKeyboard(view);
+                            return false;
+                        }
+                    });
+        }
+        rs423keyboard = findViewById(R.id.rs423keyboard);
+        if (rs423keyboard != null) {
+            rs423keyboard.setOnKeyListener(new View.OnKeyListener() {
+                @Override
+                public boolean onKey(View view, int i, KeyEvent keyEvent) {
+                    if (keyEvent.getAction() == KeyEvent.ACTION_DOWN && keyEvent.getKeyCode() == KeyEvent.KEYCODE_DEL) {
+                        rs423keyboard.setText("\u007f");
+                        // NOTE: Although this DOES delete on the BBC, it isn't passed to the printer without VDU1,127!
+                        // So... put Beebview in the RS423 layout, and add buttons for turning serial input and output on/off independently.
+                    }
+                    return false;
+                }
+            });
+        }
+
+        enrichen(R.id.kb_bt_alt);
+        enrichen(R.id.keyboard_help);
 
         // See if we're a previous instance of the same activity, or a totally fresh one
         Beebdroid prev = (Beebdroid) getLastNonConfigurationInstance();
@@ -421,6 +580,7 @@ public class Beebdroid extends Activity {
             last_trigger = prev.last_trigger;
             keyboardTextWait = prev.keyboardTextWait;
             keyboardTextEvents = prev.keyboardTextEvents;
+            Log.i(TAG, "Prev text events ='" + keyboardTextEvents + "'");
             keyboardShowing = prev.keyboardShowing;
             currentController = prev.currentController;
             bbcInit(model.mem, model.roms, audiobuff, 0);
@@ -456,6 +616,7 @@ public class Beebdroid extends Activity {
 
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
                     bbcKeyEvent(BBCKEY_SPACE + BBCKEY_CTRL_MOD, 0, 1);
+                    hideKeyboard(v);
                 }
                 if (event.getAction() == MotionEvent.ACTION_UP) {
                     bbcKeyEvent(BBCKEY_SPACE + BBCKEY_CTRL_MOD, 0, 0);
@@ -468,11 +629,57 @@ public class Beebdroid extends Activity {
         UserPrefs.setGrandfatheredIn(this, true);
     }
 
-    private boolean onMouseSomething(View v, MotionEvent event) {
-        if (keyboardShowing == KeyboardState.BLUETOOTH_KBD) {
+    private void hideKeyboard(View v) {
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(v.getWindowToken(), InputMethodManager.RESULT_UNCHANGED_SHOWN);
+        }
+    }
+
+    void enrichen(int resourceID) {
+        View v = findViewById(resourceID);
+        if (v instanceof TextView) {
+            TextView tv = (TextView) v;
+            String s = tv.getText().toString();
+            if (s.charAt(0) == '<') {
+                SpannableStringBuilder b = new SpannableStringBuilder();
+                int i = 0;
+                while (i < s.length()) {
+                    int r = nextEnd(s, '>', i);
+                    int l = nextEnd(s, '<', i);
+                    int end = Math.min(r, l);
+                    int lr = "<>".indexOf(s.charAt(i));
+                    if (lr == -1) {
+                        b.append(s, i + 1, s.length());
+                        break;
+                    } else {
+                        SpannableString span = new SpannableString(s.substring(i + 1, end) + "\n");
+                        span.setSpan(
+                                new AlignmentSpan.Standard(lr > 0 ? ALIGN_OPPOSITE : ALIGN_NORMAL),
+                                0, span.length(),
+                                SPAN_EXCLUSIVE_EXCLUSIVE);
+                        b.append(span);
+                        i = end;
+                    }
+                }
+                tv.setText(b);
+            }
+        }
+    }
+
+    private int nextEnd(String s, char ch, int i) {
+        int a = s.indexOf(ch, i + 1);
+        if (a == -1) a = s.length();
+        return a;
+    }
+
+    private boolean onMouseSomething(final View v, final MotionEvent event) {
+        if (keyboardShowing == KeyboardState.BLUETOOTH_KBD  || keyboardShowing == KeyboardState.RS423_CONSOLE) {
 
             long ms = event.getEventTime();
-            if (last_ms + 20 < ms) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) updown = 1;
+            if (event.getAction() == MotionEvent.ACTION_UP) updown = 0;
+            Log.i(TAG, "onMouseSomething: " + event.getAction());
+            if (last_ms + 20 < ms || event.getAction() == MotionEvent.ACTION_UP) {
                 last_ms = ms;
                 adctick ^= 1;
 //						Log.e(TAG, "Hover " + (event.getX() + v.getX()) + ", " + (event.getY() + v.getY()));
@@ -482,7 +689,8 @@ public class Beebdroid extends Activity {
                 bbcPushAdc(
                         (int) xx * 2 + adctick,
                         (int) yy * 2 + adctick,
-                        event.getButtonState() * 2 + adctick, 0);
+                        (event.getButtonState() + updown) * 2 + adctick,
+                        updown * Math.round(event.getPressure() * 1024) * 2 + adctick);
             }
             return true;
         }
@@ -498,6 +706,9 @@ public class Beebdroid extends Activity {
                 showKeyboard(KeyboardState.BLUETOOTH_KBD);
                 break;
             case BLUETOOTH_KBD:
+                showKeyboard(KeyboardState.RS423_CONSOLE);
+                break;
+            case RS423_CONSOLE:
             default:
                 showKeyboard(KeyboardState.SCREEN_KEYBOARD);
                 break;
@@ -585,6 +796,7 @@ public class Beebdroid extends Activity {
                 }
             }, 200);
         handler.postDelayed(runInt50, 20);
+        handler.postDelayed(runRS423, 20);
         //showHint("hint_load_disks", R.string.hint_load_disks, 5);
     }
 
@@ -592,6 +804,7 @@ public class Beebdroid extends Activity {
     public void onPause() {
         super.onPause();
         handler.removeCallbacks(runInt50);
+        handler.removeCallbacks(runRS423);
         cancelPendingHints();
     }
 
@@ -609,8 +822,10 @@ public class Beebdroid extends Activity {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         int index = -1;
+        String file = "";
         if (data != null) {
             index = data.getIntExtra("index", -1);
+            file = data.getDataString();
         }
         switch (resultCode) {
             case LoadDisk.ID_RESULT_LOADDISK:
@@ -650,7 +865,20 @@ public class Beebdroid extends Activity {
                 }
                 SavedGameInfo.current = info;
                 break;
-
+            case -1:
+                switch (requestCode)  {
+                    case LoadDisk.ID_RS423_INJECT:
+                        try {
+                            file = URLDecoder.decode(file.replace("file://", ""));
+                            injectFile = new File(file);
+                            injectStream = getContentResolver().openInputStream(data.getData());
+                            // injectStream = new FileInputStream(file) ;// openFileInput()
+                        } catch (FileNotFoundException e) {
+                            Log.i(TAG, "While opening " + file + " suffered " + e);
+                            Toast.makeText(this, "While opening " + file + " suffered " + e, Toast.LENGTH_LONG).show();
+                        }
+                        break;
+                }
         }
 
     }
@@ -696,6 +924,7 @@ public class Beebdroid extends Activity {
         Utils.setVisible(this, R.id.keyboard_help, keyboardState != KeyboardState.BLUETOOTH_KBD);
         Utils.setVisible(this, R.id.controller, keyboardState == KeyboardState.CONTROLLER);
         Utils.setVisible(this, R.id.kb_bt_alt, keyboardState == KeyboardState.BLUETOOTH_KBD);
+        Utils.setVisible(this, R.id.rs423layout, keyboardState == KeyboardState.RS423_CONSOLE);
         final ImageView btnInput = (ImageView) findViewById(R.id.btnInput);
         if (btnInput != null) {
             btnInput.setImageResource(kbdImageForState(keyboardState));
@@ -710,15 +939,22 @@ public class Beebdroid extends Activity {
             case CONTROLLER:
                 return R.drawable.btkbabc;
             case BLUETOOTH_KBD:
+                return R.drawable.rs423;
+            case RS423_CONSOLE:
             default:
-                return R.drawable.keyboard;
+                return R.drawable.bbckeyboard;
         }
     }
 
     boolean shiftDown;
 
 
-    int lookup(int keycode) {
+    int lookup(int keycode, KeyEvent event) {
+        // TODO: Somehow fold most of this into Keyboard.unicodeMap
+        if (event.isAltPressed()) {
+            int beebKey = Keyboard.unicodeAltToBeebKey(event.getKeyCode(), event.isShiftPressed());
+            if (beebKey != 0) return beebKey;
+        }
         switch (keycode) {
             case KeyEvent.KEYCODE_CTRL_LEFT:
             case KeyEvent.KEYCODE_CTRL_RIGHT:
@@ -1029,7 +1265,6 @@ public class Beebdroid extends Activity {
 
     }
 
-
     public ByteBuffer loadFile(File file) {
         InputStream strm;
         ByteBuffer buff = null;
@@ -1111,6 +1346,62 @@ public class Beebdroid extends Activity {
         }
     }
 
+    InputStream injectStream = null;
+    File injectFile = null;
+    FileOutputStream captureStream = null;
+
+    public void setRs423Capture(View v) {
+        if (captureStream != null) {
+            // We're capturing. Stop it.
+            try {
+                captureStream.close();
+                rs423printer.setText("Closed capture file " + captureFile.getAbsolutePath() + "\n");
+            } catch (IOException e) {
+                rs423printer.setText("Failed to close capture file: " + e +"\n");
+            }
+            captureStream = null;
+            captureFile = null;
+            return;
+        }
+        File dir = getExternalFilesDir("rs423captures");
+        captureFile = new File(dir, new Date().toString() + ".txt");
+        rs423printer.setText("Capturing to " + captureFile.getAbsolutePath() + "\n");
+        try {
+            captureStream = new FileOutputStream(captureFile.getAbsolutePath());
+        } catch (FileNotFoundException e) {
+            rs423printer.setText("Failed to create capture file: " + e + "\n");
+        }
+    }
+
+    public void setRs423Inject(View v) {
+        if (injectStream == null) {
+            Intent fileintent = new Intent(Intent.ACTION_GET_CONTENT);
+            fileintent.setType("text/*");
+            try {
+                startActivityForResult(fileintent, LoadDisk.ID_RS423_INJECT);
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(this, "No activity can handle picking a file!?", Toast.LENGTH_LONG).show();
+            }
+        } else {
+            try {
+                injectStream.close();
+            } catch (IOException e) {
+                Toast.makeText(this, "While closing " + injectFile.getAbsolutePath() + " had exception " + e, Toast.LENGTH_LONG).show();
+            }
+            injectStream = null;
+            injectFile = null;
+        }
+    }
+
+    public void setRs423Io(View v) {
+        doFakeKeys("\u001b\r*FX5 2\rVDU2\r*FX2 1\r");
+    }
+
+    public void unsetRs423Io(View v) {
+        // byte[] bytes = { '\u001b', '\r', 'V', 'D', 'U', '3', '\r', '*', 'F', 'X', '2', '\r' };
+        // injectStream=new ByteArrayInputStream(bytes);
+        rs423keyboard.setText("\u001b\rVDU3\r*FX2\r"); // Escape is received but does not interrupt the line, even with *fx181
+    }
 
     public void onOpenClicked(View v) {
         Intent intent = new Intent(this, LoadDisk.class);
