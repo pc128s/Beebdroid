@@ -1,11 +1,10 @@
 package com.littlefluffytoys.beebdroid;
 
+import android.content.Context;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-
-import android.content.Context;
-import android.util.Log;
 
 public class Model {
 
@@ -88,6 +87,7 @@ public class Model {
 		new ModelInfo("BBC B w/8271+SWRAM","os",   "b/DFS-0.9.rom;b/BASIC.ROM", FLAG_I8271 | FLAG_SWRAM),
 		new ModelInfo("BBC B w/1770 FDC",  "os",   "b/DFS-0.9.rom;b/BASIC.ROM", FLAG_WD1770 | FLAG_SWRAM),
 		new ModelInfo("BBC B+ 64K",        "bpos", "bp/dfs.rom;bp/BASIC.ROM;bp/zADFS.ROM", FLAG_WD1770 | FLAG_BPLUS),
+		new ModelInfo("PC128S Olivetti Prodest","pc128s/os51.rom", "pc128s/utils.rom;pc128s/basic48.rom;pc128s/adfs210.rom", FLAG_WD1770 | FLAG_COMPACT),
 	};
 	
 	
